@@ -1,8 +1,9 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-@theme {
+:root {
   /* Colors */
-  --color-neutral-*: initial;
   --color-neutral-1: #fcfcfc;
   --color-neutral-2: #f8f8f8;
   --color-neutral-3: #f3f3f3;
@@ -16,7 +17,6 @@
   --color-neutral-11: #6f6f6f;
   --color-neutral-12: #171717;
 
-  --color-accent-*: initial;
   --color-accent-1: #fbfdff;
   --color-accent-2: #f4faff;
   --color-accent-3: #e6f4ff;
@@ -30,7 +30,6 @@
   --color-accent-11: #0d74ce;
   --color-accent-12: #113264;
 
-  --color-accent-secondary-*: initial;
   --color-accent-secondary-1: #fdfcfe;
   --color-accent-secondary-2: #fbf7fe;
   --color-accent-secondary-3: #f7edfe;
