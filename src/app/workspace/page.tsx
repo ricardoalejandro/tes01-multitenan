@@ -15,6 +15,10 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
+import StudentsModule from '@/components/modules/StudentsModule';
+import CoursesModule from '@/components/modules/CoursesModule';
+import InstructorsModule from '@/components/modules/InstructorsModule';
+import GroupsModule from '@/components/modules/GroupsModule';
 
 const modules = [
   { id: 'home', name: 'Inicio', icon: Home },
@@ -83,16 +87,16 @@ export default function WorkspacePage() {
   return (
     <div className="flex h-screen bg-neutral-2">
       {/* Sidebar */}
-      <div className="w-64 bg-white border-r border-neutral-6 flex flex-col">
+      <div className="w-64 bg-white border-r border-neutral-6 flex flex-col shadow-lg">
         {/* Header */}
-        <div className="p-4 border-b border-neutral-6">
-          <h2 className="font-semibold text-lg truncate">{branch?.name}</h2>
-          <p className="text-sm text-neutral-10">{branch?.code}</p>
+        <div className="p-4 border-b border-neutral-6 bg-gradient-to-br from-accent-1 to-accent-2">
+          <h2 className="font-semibold text-lg truncate text-accent-11">{branch?.name}</h2>
+          <p className="text-sm text-accent-10 font-medium">{branch?.code}</p>
           <Button
             variant="ghost"
             size="sm"
             onClick={handleBack}
-            className="mt-3 w-full justify-start"
+            className="mt-3 w-full justify-start hover:bg-accent-3"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Volver al Dashboard
@@ -109,11 +113,11 @@ export default function WorkspacePage() {
                 onClick={() => !module.disabled && setActiveModule(module.id)}
                 disabled={module.disabled}
                 className={`
-                  w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-colors
+                  w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200
                   ${
                     activeModule === module.id
-                      ? 'bg-accent-9 text-white'
-                      : 'hover:bg-neutral-3 text-neutral-12'
+                      ? 'bg-gradient-to-r from-accent-9 to-accent-10 text-white shadow-lg transform scale-[1.02]'
+                      : 'hover:bg-neutral-3 text-neutral-12 hover:shadow'
                   }
                   ${module.disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
                 `}
@@ -121,7 +125,7 @@ export default function WorkspacePage() {
                 <Icon className="h-5 w-5" />
                 <span className="font-medium">{module.name}</span>
                 {module.disabled && (
-                  <span className="ml-auto text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
+                  <span className="ml-auto text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
                     Próximamente
                   </span>
                 )}
@@ -132,7 +136,11 @@ export default function WorkspacePage() {
 
         {/* Footer */}
         <div className="p-4 border-t border-neutral-6">
-          <Button variant="outline" className="w-full" onClick={handleLogout}>
+          <Button 
+            variant="outline" 
+            className="w-full hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors" 
+            onClick={handleLogout}
+          >
             <LogOut className="mr-2 h-4 w-4" />
             Cerrar Sesión
           </Button>
@@ -140,34 +148,47 @@ export default function WorkspacePage() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto bg-gradient-to-br from-neutral-1 to-neutral-2">
         <div className="p-8">
           {activeModule === 'home' && (
             <div>
-              <h1 className="text-3xl font-bold mb-4">Bienvenido</h1>
+              <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-accent-9 to-accent-secondary-9 bg-clip-text text-transparent">
+                Bienvenido
+              </h1>
+              <p className="text-neutral-10 mb-8">Selecciona un módulo para comenzar</p>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div className="bg-white p-6 rounded-lg shadow">
-                  <Users className="h-8 w-8 text-accent-9 mb-3" />
+                <div className="bg-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-neutral-6 cursor-pointer" onClick={() => setActiveModule('students')}>
+                  <div className="bg-gradient-to-br from-accent-9 to-accent-10 p-3 rounded-xl w-fit mb-4">
+                    <Users className="h-8 w-8 text-white" />
+                  </div>
                   <h3 className="text-xl font-semibold mb-2">Probacionistas</h3>
                   <p className="text-neutral-10">Gestiona estudiantes y sus datos</p>
                 </div>
-                <div className="bg-white p-6 rounded-lg shadow">
-                  <BookOpen className="h-8 w-8 text-accent-9 mb-3" />
+                <div className="bg-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-neutral-6 cursor-pointer" onClick={() => setActiveModule('courses')}>
+                  <div className="bg-gradient-to-br from-accent-9 to-accent-10 p-3 rounded-xl w-fit mb-4">
+                    <BookOpen className="h-8 w-8 text-white" />
+                  </div>
                   <h3 className="text-xl font-semibold mb-2">Cursos</h3>
                   <p className="text-neutral-10">Administra cursos y temas</p>
                 </div>
-                <div className="bg-white p-6 rounded-lg shadow">
-                  <UserCheck className="h-8 w-8 text-accent-9 mb-3" />
+                <div className="bg-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-neutral-6 cursor-pointer" onClick={() => setActiveModule('instructors')}>
+                  <div className="bg-gradient-to-br from-accent-9 to-accent-10 p-3 rounded-xl w-fit mb-4">
+                    <UserCheck className="h-8 w-8 text-white" />
+                  </div>
                   <h3 className="text-xl font-semibold mb-2">Instructores</h3>
                   <p className="text-neutral-10">Gestiona el personal docente</p>
                 </div>
-                <div className="bg-white p-6 rounded-lg shadow">
-                  <FolderKanban className="h-8 w-8 text-accent-9 mb-3" />
+                <div className="bg-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-neutral-6 cursor-pointer" onClick={() => setActiveModule('groups')}>
+                  <div className="bg-gradient-to-br from-accent-9 to-accent-10 p-3 rounded-xl w-fit mb-4">
+                    <FolderKanban className="h-8 w-8 text-white" />
+                  </div>
                   <h3 className="text-xl font-semibold mb-2">Grupos</h3>
                   <p className="text-neutral-10">Organiza grupos de clases</p>
                 </div>
-                <div className="bg-white p-6 rounded-lg shadow opacity-50">
-                  <ClipboardCheck className="h-8 w-8 text-neutral-9 mb-3" />
+                <div className="bg-white p-6 rounded-2xl shadow-lg opacity-60 border border-neutral-6">
+                  <div className="bg-neutral-5 p-3 rounded-xl w-fit mb-4">
+                    <ClipboardCheck className="h-8 w-8 text-neutral-9" />
+                  </div>
                   <h3 className="text-xl font-semibold mb-2">Asistencia</h3>
                   <p className="text-neutral-10">Próximamente disponible</p>
                 </div>
@@ -175,60 +196,20 @@ export default function WorkspacePage() {
             </div>
           )}
 
-          {activeModule === 'students' && (
-            <div>
-              <h1 className="text-3xl font-bold mb-4">Probacionistas</h1>
-              <p className="text-neutral-10 mb-6">
-                Gestión completa de estudiantes - En construcción
-              </p>
-              <div className="bg-white p-8 rounded-lg shadow">
-                <p className="text-center text-neutral-10">
-                  Esta funcionalidad estará disponible próximamente.
-                </p>
-              </div>
-            </div>
+          {activeModule === 'students' && branchId && (
+            <StudentsModule branchId={branchId} />
           )}
 
-          {activeModule === 'courses' && (
-            <div>
-              <h1 className="text-3xl font-bold mb-4">Cursos</h1>
-              <p className="text-neutral-10 mb-6">
-                Gestión de cursos y temas - En construcción
-              </p>
-              <div className="bg-white p-8 rounded-lg shadow">
-                <p className="text-center text-neutral-10">
-                  Esta funcionalidad estará disponible próximamente.
-                </p>
-              </div>
-            </div>
+          {activeModule === 'courses' && branchId && (
+            <CoursesModule branchId={branchId} />
           )}
 
-          {activeModule === 'instructors' && (
-            <div>
-              <h1 className="text-3xl font-bold mb-4">Instructores</h1>
-              <p className="text-neutral-10 mb-6">
-                Gestión de instructores - En construcción
-              </p>
-              <div className="bg-white p-8 rounded-lg shadow">
-                <p className="text-center text-neutral-10">
-                  Esta funcionalidad estará disponible próximamente.
-                </p>
-              </div>
-            </div>
+          {activeModule === 'instructors' && branchId && (
+            <InstructorsModule branchId={branchId} />
           )}
 
-          {activeModule === 'groups' && (
-            <div>
-              <h1 className="text-3xl font-bold mb-4">Grupos de Clases</h1>
-              <p className="text-neutral-10 mb-6">
-                Gestión de grupos - En construcción
-              </p>
-              <div className="bg-white p-8 rounded-lg shadow">
-                <p className="text-center text-neutral-10">
-                  Esta funcionalidad estará disponible próximamente.
-                </p>
-              </div>
-            </div>
+          {activeModule === 'groups' && branchId && (
+            <GroupsModule branchId={branchId} />
           )}
         </div>
       </div>
