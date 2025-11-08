@@ -13,18 +13,21 @@ const studentSchema = z.object({
   gender: z.enum(['Masculino', 'Femenino', 'Otro']),
   firstName: z.string().min(1, 'Nombre es requerido'),
   paternalLastName: z.string().min(1, 'Apellido paterno es requerido'),
-  maternalLastName: z.string().optional(),
-  email: z.string().email('Email inválido').optional().or(z.literal('')),
-  phone: z.string().optional().or(z.literal('')),
-  birthDate: z.string().optional(),
+  maternalLastName: z.string().optional().or(z.literal('')).transform(val => val === '' ? null : val),
+  email: z.string().email('Email inválido').optional().or(z.literal('')).transform(val => val === '' ? null : val),
+  phone: z.string().optional().or(z.literal('')).transform(val => val === '' ? null : val),
+  birthDate: z.string().optional().or(z.literal('')).transform(val => val === '' ? null : val),
   admissionDate: z.string(),
   admissionReason: z.enum(['Traslado', 'Recuperado', 'Nuevo']),
   status: z.enum(['Activo', 'Fluctuante', 'Inactivo', 'Baja']).optional(),
-  monthlyFee: z.string().optional(),
-  address: z.string().optional().or(z.literal('')),
-  department: z.string().optional(),
-  province: z.string().optional(),
-  district: z.string().optional(),
+  monthlyFee: z.union([z.number(), z.string()]).optional().transform(val => {
+    if (val === '' || val === null || val === undefined) return 0;
+    return typeof val === 'string' ? parseFloat(val) : val;
+  }),
+  address: z.string().optional().or(z.literal('')).transform(val => val === '' ? null : val),
+  department: z.string().optional().or(z.literal('')).transform(val => val === '' ? null : val),
+  province: z.string().optional().or(z.literal('')).transform(val => val === '' ? null : val),
+  district: z.string().optional().or(z.literal('')).transform(val => val === '' ? null : val),
 }).refine(
   (data) => {
     if (!data.birthDate) return true;
@@ -51,8 +54,11 @@ export const studentRoutes: FastifyPluginAsync = async (fastify) => {
     
     const offset = (Number(page) - 1) * Number(limit);
     
-    // Build where conditions
-    const conditions = [eq(students.branchId, branchId)];
+    // Build where conditions (exclude deleted)
+    const conditions = [
+      eq(students.branchId, branchId),
+      sql`${students.status} != 'Eliminado'`
+    ];
     if (search) {
       conditions.push(
         sql`(${students.firstName} ILIKE ${`%${search}%`} OR ${students.paternalLastName} ILIKE ${`%${search}%`} OR ${students.dni} ILIKE ${`%${search}%`} OR ${students.email} ILIKE ${`%${search}%`})`
@@ -65,7 +71,7 @@ export const studentRoutes: FastifyPluginAsync = async (fastify) => {
         .orderBy(desc(students.createdAt))
         .limit(Number(limit))
         .offset(offset),
-      db.select({ count: sql<number>`count(*)::int` }).from(students).where(eq(students.branchId, branchId)),
+      db.select({ count: sql<number>`count(*)::int` }).from(students).where(and(eq(students.branchId, branchId), sql`${students.status} != 'Eliminado'`)),
     ]);
     
     const result = {
@@ -154,10 +160,12 @@ export const studentRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
-  // Delete student
+  // Delete student (soft delete)
   fastify.delete('/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
-    await db.delete(students).where(eq(students.id, id));
-    return { success: true };
+    await db.update(students)
+      .set({ status: 'Eliminado', updatedAt: new Date() })
+      .where(eq(students.id, id));
+    return { success: true, message: 'Probacionista marcado como eliminado' };
   });
 };

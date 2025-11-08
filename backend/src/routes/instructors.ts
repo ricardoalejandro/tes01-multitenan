@@ -9,10 +9,10 @@ export const instructorRoutes: FastifyPluginAsync = async (fastify) => {
     
     const offset = (Number(page) - 1) * Number(limit);
     
-    // Build where conditions
-    let whereCondition = eq(instructors.branchId, branchId);
+    // Build where conditions (exclude deleted)
+    let whereCondition = sql`${instructors.branchId} = ${branchId} AND ${instructors.status} != 'Eliminado'`;
     if (search) {
-      whereCondition = sql`${instructors.branchId} = ${branchId} AND (${instructors.firstName} ILIKE ${`%${search}%`} OR ${instructors.paternalLastName} ILIKE ${`%${search}%`} OR ${instructors.dni} ILIKE ${`%${search}%`})`;
+      whereCondition = sql`${instructors.branchId} = ${branchId} AND ${instructors.status} != 'Eliminado' AND (${instructors.firstName} ILIKE ${`%${search}%`} OR ${instructors.paternalLastName} ILIKE ${`%${search}%`} OR ${instructors.dni} ILIKE ${`%${search}%`})`;
     }
     
     const [instructorList, [{ count }]] = await Promise.all([
@@ -21,7 +21,7 @@ export const instructorRoutes: FastifyPluginAsync = async (fastify) => {
         .orderBy(desc(instructors.createdAt))
         .limit(Number(limit))
         .offset(offset),
-      db.select({ count: sql<number>`count(*)::int` }).from(instructors).where(eq(instructors.branchId, branchId)),
+      db.select({ count: sql<number>`count(*)::int` }).from(instructors).where(sql`${instructors.branchId} = ${branchId} AND ${instructors.status} != 'Eliminado'`),
     ]);
     
     // Fetch specialties for all instructors
@@ -105,7 +105,9 @@ export const instructorRoutes: FastifyPluginAsync = async (fastify) => {
 
   fastify.delete('/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
-    await db.delete(instructors).where(eq(instructors.id, id));
-    return { success: true };
+    await db.update(instructors)
+      .set({ status: 'Eliminado', updatedAt: new Date() })
+      .where(eq(instructors.id, id));
+    return { success: true, message: 'Instructor marcado como eliminado' };
   });
 };

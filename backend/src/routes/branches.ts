@@ -1,21 +1,26 @@
 import { FastifyPluginAsync } from 'fastify';
 import { db } from '../db';
 import { branches } from '../db/schema';
-import { eq, sql, ilike, or, desc } from 'drizzle-orm';
+import { eq, sql, ilike, or, desc, ne, and } from 'drizzle-orm';
 
 export const branchRoutes: FastifyPluginAsync = async (fastify) => {
-  // Get all branches with pagination
+  // Get all branches with pagination (exclude deleted)
   fastify.get('/', async (request, reply) => {
     const { page = 1, limit = 10, search = '' } = request.query as any;
     
     const offset = (Number(page) - 1) * Number(limit);
     
-    // Build where conditions
-    let whereCondition = undefined;
+    // Build where conditions (always exclude deleted)
+    const baseCondition = ne(branches.status, 'eliminado');
+    let whereCondition = baseCondition;
+    
     if (search) {
-      whereCondition = or(
-        ilike(branches.name, `%${search}%`),
-        ilike(branches.code, `%${search}%`)
+      whereCondition = and(
+        baseCondition,
+        or(
+          ilike(branches.name, `%${search}%`),
+          ilike(branches.code, `%${search}%`)
+        )
       );
     }
     
@@ -90,10 +95,12 @@ export const branchRoutes: FastifyPluginAsync = async (fastify) => {
     return branch;
   });
 
-  // Delete branch
+  // Delete branch (soft delete)
   fastify.delete('/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
-    await db.delete(branches).where(eq(branches.id, id));
-    return { success: true };
+    await db.update(branches)
+      .set({ status: 'eliminado', updatedAt: new Date() })
+      .where(eq(branches.id, id));
+    return { success: true, message: 'Sucursal marcada como eliminada' };
   });
 };

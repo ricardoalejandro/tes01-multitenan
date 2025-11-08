@@ -35,7 +35,7 @@ export default function DashboardPage() {
         setUser(data.user);
         setBranches(data.branches || []);
       } catch (error) {
-        toast.error('Error al cargar datos');
+        toast.error('Error al cargar datos', { duration: 1500 });
         router.push('/login');
       } finally {
         setLoading(false);
@@ -46,9 +46,9 @@ export default function DashboardPage() {
   }, [router]);
 
   const handleLogout = () => {
-    localStorage.removeItem('auth_token');
+    localStorage.removeItem('token');
     localStorage.removeItem('user');
-    toast.success('Sesión cerrada');
+    toast.success('Sesión cerrada', { duration: 1500 });
     router.push('/login');
   };
 
@@ -70,17 +70,17 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-accent-2 to-accent-secondary-2">
+    <div className="min-h-screen bg-neutral-2">
       <div className="container mx-auto p-8">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-8 bg-white p-6 rounded-xl shadow-sm border border-neutral-4">
           <div className="flex items-center gap-3">
             <div className="rounded-full bg-accent-9 p-3">
               <GraduationCap className="h-8 w-8 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold">Sistema Académico Multi-Tenant</h1>
-              <p className="text-neutral-10">
+              <h1 className="text-3xl font-bold text-neutral-11">Sistema Académico Multi-Tenant</h1>
+              <p className="text-neutral-9">
                 Bienvenido, <span className="font-semibold">{user?.username}</span> (
                 {user?.role})
               </p>
@@ -139,15 +139,15 @@ export default function DashboardPage() {
 
           {/* Admin Panel (Only for superadmin) */}
           {user?.role === 'superadmin' && (
-            <Card className="bg-gradient-to-r from-accent-secondary-2 to-accent-2">
+            <Card className="bg-accent-2 border-2 border-accent-6">
               <CardHeader>
                 <div className="flex items-center gap-3">
-                  <div className="rounded-lg bg-accent-secondary-9 p-3">
+                  <div className="rounded-lg bg-accent-9 p-3">
                     <Settings className="h-6 w-6 text-white" />
                   </div>
                   <div>
-                    <CardTitle>Panel de Administrador</CardTitle>
-                    <CardDescription>
+                    <CardTitle className="text-neutral-11">Panel de Administrador</CardTitle>
+                    <CardDescription className="text-neutral-9">
                       Gestión de sucursales, usuarios y configuración global
                     </CardDescription>
                   </div>
@@ -156,8 +156,7 @@ export default function DashboardPage() {
               <CardContent>
                 <Button
                   onClick={handleAdminPanel}
-                  variant="secondary"
-                  className="w-full md:w-auto"
+                  className="w-full md:w-auto bg-accent-9 hover:bg-accent-10 text-white"
                 >
                   Ir al Panel de Administrador
                 </Button>

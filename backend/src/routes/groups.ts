@@ -9,10 +9,10 @@ export const groupRoutes: FastifyPluginAsync = async (fastify) => {
     
     const offset = (Number(page) - 1) * Number(limit);
     
-    // Build where conditions
-    let whereCondition = eq(classGroups.branchId, branchId);
+    // Build where conditions (exclude deleted)
+    let whereCondition = sql`${classGroups.branchId} = ${branchId} AND ${classGroups.status} != 'eliminado'`;
     if (search) {
-      whereCondition = sql`${classGroups.branchId} = ${branchId} AND ${classGroups.name} ILIKE ${`%${search}%`}`;
+      whereCondition = sql`${classGroups.branchId} = ${branchId} AND ${classGroups.status} != 'eliminado' AND ${classGroups.name} ILIKE ${`%${search}%`}`;
     }
     
     const [groups, [{ count }]] = await Promise.all([
@@ -21,7 +21,7 @@ export const groupRoutes: FastifyPluginAsync = async (fastify) => {
         .orderBy(desc(classGroups.createdAt))
         .limit(Number(limit))
         .offset(offset),
-      db.select({ count: sql<number>`count(*)::int` }).from(classGroups).where(eq(classGroups.branchId, branchId)),
+      db.select({ count: sql<number>`count(*)::int` }).from(classGroups).where(sql`${classGroups.branchId} = ${branchId} AND ${classGroups.status} != 'eliminado'`),
     ]);
     
     return {
@@ -102,8 +102,10 @@ export const groupRoutes: FastifyPluginAsync = async (fastify) => {
 
   fastify.delete('/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
-    await db.delete(classGroups).where(eq(classGroups.id, id));
-    return { success: true };
+    await db.update(classGroups)
+      .set({ status: 'eliminado', updatedAt: new Date() })
+      .where(eq(classGroups.id, id));
+    return { success: true, message: 'Grupo marcado como eliminado' };
   });
 
   fastify.post('/:id/generate-schedule', async (request, reply) => {

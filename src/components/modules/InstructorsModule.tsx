@@ -135,7 +135,7 @@ export default function InstructorsModule({ branchId }: { branchId: string }) {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('¿Está seguro de eliminar este instructor?')) return;
+    if (!confirm('¿Eliminar este instructor definitivamente? Esta acción marcará el registro como eliminado y no se mostrará en el sistema.')) return;
     try {
       await api.deleteInstructor(id);
       toast.success('Instructor eliminado', { duration: 1500 });
@@ -191,14 +191,14 @@ export default function InstructorsModule({ branchId }: { branchId: string }) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-accent-9 to-accent-secondary-9 bg-clip-text text-transparent">
+          <h1 className="text-3xl font-bold text-neutral-11">
             Instructores
           </h1>
-          <p className="text-neutral-10 mt-1">Gestión del personal docente</p>
+          <p className="text-neutral-9 mt-1">Gestión de instructores y especialidades</p>
         </div>
         <Button
           onClick={() => { resetForm(); setIsDialogOpen(true); }}
-          className="bg-gradient-to-r from-accent-9 to-accent-10 hover:from-accent-10 hover:to-accent-11 shadow-lg"
+          className="bg-accent-9 hover:bg-accent-10 text-white"
         >
           <Plus className="mr-2 h-4 w-4" />
           Nuevo Instructor
@@ -215,7 +215,7 @@ export default function InstructorsModule({ branchId }: { branchId: string }) {
         />
       </div>
 
-      <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-neutral-6">
+      <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-neutral-4">
         {loading ? (
           <div className="p-8 text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent-9 mx-auto"></div>
@@ -363,7 +363,7 @@ export default function InstructorsModule({ branchId }: { branchId: string }) {
               </div>
               <div className="flex justify-end gap-3 pt-4">
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
-                <Button type="submit" className="bg-gradient-to-r from-accent-9 to-accent-10">
+                <Button type="submit" className="bg-accent-9 hover:bg-accent-10 text-white">
                   {editingInstructor ? 'Actualizar' : 'Crear'}
                 </Button>
               </div>

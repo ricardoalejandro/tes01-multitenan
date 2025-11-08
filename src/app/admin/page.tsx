@@ -47,7 +47,7 @@ export default function AdminPage() {
         setBranches([]);
       }
     } catch (error) {
-      toast.error('Error al cargar sucursales');
+      toast.error('Error al cargar sucursales', { duration: 1500 });
       setBranches([]);
     } finally {
       setLoading(false);
@@ -88,13 +88,13 @@ export default function AdminPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('¿Está seguro de eliminar esta sucursal?')) return;
+    if (!confirm('¿Eliminar esta sucursal definitivamente? Esta acción marcará el registro como eliminado y no se mostrará en el sistema.')) return;
     try {
       await api.deleteBranch(id);
-      toast.success('Sucursal eliminada');
+      toast.success('Sucursal eliminada', { duration: 1500 });
       loadBranches();
     } catch (error) {
-      toast.error('Error al eliminar sucursal');
+      toast.error('Error al eliminar sucursal', { duration: 1500 });
     }
   };
 
@@ -116,15 +116,15 @@ export default function AdminPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold">Panel de Administrador</h1>
-            <p className="text-neutral-10">Gestión de sucursales</p>
+            <h1 className="text-3xl font-bold text-neutral-11">Panel de Administrador</h1>
+            <p className="text-neutral-9">Gestión de sucursales</p>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={handleBack}>
               <ArrowLeft className="mr-2 h-4 w-4" />
               Volver
             </Button>
-            <Button onClick={() => setShowForm(true)}>
+            <Button onClick={() => setShowForm(true)} className="bg-accent-9 hover:bg-accent-10 text-white">
               <Plus className="mr-2 h-4 w-4" />
               Nueva Sucursal
             </Button>
@@ -170,7 +170,7 @@ export default function AdminPage() {
                   />
                 </div>
                 <div className="flex gap-2">
-                  <Button type="submit">
+                  <Button type="submit" className="bg-accent-9 hover:bg-accent-10 text-white">
                     {editingId ? 'Actualizar' : 'Crear'}
                   </Button>
                   <Button
@@ -242,7 +242,7 @@ export default function AdminPage() {
             <Building2 className="h-16 w-16 text-neutral-9 mx-auto mb-4" />
             <h3 className="text-xl font-semibold mb-2">No hay sucursales</h3>
             <p className="text-neutral-10 mb-4">Cree su primera sucursal para comenzar</p>
-            <Button onClick={() => setShowForm(true)}>
+            <Button onClick={() => setShowForm(true)} className="bg-accent-9 hover:bg-accent-10 text-white">
               <Plus className="mr-2 h-4 w-4" />
               Nueva Sucursal
             </Button>

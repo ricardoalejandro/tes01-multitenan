@@ -6,9 +6,10 @@ interface DialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   children: React.ReactNode;
+  onInteractOutside?: (e: any) => void;
 }
 
-export function Dialog({ open, onOpenChange, children }: DialogProps) {
+export function Dialog({ open, onOpenChange, children, onInteractOutside }: DialogProps) {
   React.useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onOpenChange(false);
@@ -23,13 +24,22 @@ export function Dialog({ open, onOpenChange, children }: DialogProps) {
     };
   }, [open, onOpenChange]);
 
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (onInteractOutside) {
+      onInteractOutside(e);
+      // Si preventDefault fue llamado, no cerrar
+      if (e.defaultPrevented) return;
+    }
+    onOpenChange(false);
+  };
+
   if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div
         className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
-        onClick={() => onOpenChange(false)}
+        onClick={handleBackdropClick}
       />
       <div className="relative z-50 w-full max-w-2xl mx-4">{children}</div>
     </div>
@@ -40,8 +50,12 @@ export function DialogContent({
   className,
   children,
   onClose,
+  onInteractOutside,
   ...props
-}: React.HTMLAttributes<HTMLDivElement> & { onClose?: () => void }) {
+}: React.HTMLAttributes<HTMLDivElement> & { 
+  onClose?: () => void;
+  onInteractOutside?: (e: any) => void;
+}) {
   return (
     <div
       className={cn(
@@ -70,7 +84,7 @@ export function DialogHeader({
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn('p-6 border-b border-neutral-6', className)}
+      className={cn('p-6 border-b border-neutral-4', className)}
       {...props}
     />
   );
@@ -119,7 +133,7 @@ export function DialogFooter({
   return (
     <div
       className={cn(
-        'p-6 border-t border-neutral-6 flex justify-end gap-3',
+        'p-6 border-t border-neutral-4 flex justify-end gap-3',
         className
       )}
       {...props}

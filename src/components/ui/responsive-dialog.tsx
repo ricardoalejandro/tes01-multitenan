@@ -33,24 +33,27 @@ export function ResponsiveDialog({
   }, [open]);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog 
+      open={open} 
+      onOpenChange={onOpenChange}
+      onInteractOutside={(e) => {
+        if (isMaximized) {
+          e.preventDefault();
+        }
+      }}
+    >
       <DialogContent
         className={cn(
           'transition-all duration-300 ease-in-out',
           isMaximized
             ? 'fixed inset-4 max-w-none h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] p-0'
-            : 'max-w-2xl max-h-[90vh]'
+            : 'max-w-2xl max-h-[90vh] p-0'
         )}
-        onInteractOutside={(e) => {
-          if (isMaximized) {
-            e.preventDefault();
-          }
-        }}
       >
         <DialogHeader
           className={cn(
-            'flex flex-row items-center justify-between space-y-0',
-            isMaximized ? 'px-6 py-4 border-b' : ''
+            'flex flex-row items-center justify-between space-y-0 px-6 py-4',
+            isMaximized ? 'border-b border-neutral-4' : 'border-b border-neutral-4'
           )}
         >
           <div className="flex-1">
@@ -79,8 +82,8 @@ export function ResponsiveDialog({
 
         <div
           className={cn(
-            'overflow-y-auto',
-            isMaximized ? 'h-[calc(100%-8rem)] px-6 py-4' : 'max-h-[calc(90vh-10rem)]'
+            'overflow-y-auto px-6',
+            isMaximized ? 'h-[calc(100%-8rem)] py-4' : 'max-h-[calc(90vh-12rem)] py-6'
           )}
         >
           {children}
@@ -89,8 +92,8 @@ export function ResponsiveDialog({
         {footer && (
           <div
             className={cn(
-              'flex justify-end gap-2',
-              isMaximized ? 'px-6 py-4 border-t bg-muted/50' : 'pt-4'
+              'flex justify-end gap-2 px-6 py-4',
+              isMaximized ? 'border-t border-neutral-4 bg-muted/50' : 'border-t border-neutral-4'
             )}
           >
             {footer}

@@ -88,7 +88,7 @@ export default function WorkspacePage() {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user');
     localStorage.removeItem('selected_branch');
-    toast.success('Sesión cerrada');
+    toast.success('Sesión cerrada', { duration: 1500 });
     router.push('/login');
   };
 
@@ -105,16 +105,16 @@ export default function WorkspacePage() {
       {/* Sidebar */}
       <div
         className={cn(
-          'bg-white border-r border-neutral-6 flex flex-col shadow-lg transition-all duration-300',
+          'bg-white border-r border-neutral-4 flex flex-col shadow-lg transition-all duration-300',
           sidebarCollapsed ? 'w-16' : 'w-64'
         )}
       >
         {/* Header */}
-        <div className={cn('p-4 border-b border-neutral-6 bg-gradient-to-br from-accent-1 to-accent-2', sidebarCollapsed && 'p-2')}>
+        <div className={cn('p-4 border-b border-neutral-4 bg-accent-2', sidebarCollapsed && 'p-2')}>
           {!sidebarCollapsed && (
             <>
-              <h2 className="font-semibold text-lg truncate text-accent-11">{branch?.name}</h2>
-              <p className="text-sm text-accent-10 font-medium">{branch?.code}</p>
+              <h2 className="font-semibold text-lg truncate text-neutral-11">{branch?.name}</h2>
+              <p className="text-sm text-neutral-9 font-medium">{branch?.code}</p>
               <Button
                 variant="ghost"
                 size="sm"
@@ -140,7 +140,7 @@ export default function WorkspacePage() {
         </div>
 
         {/* Toggle Button */}
-        <div className={cn('p-2 border-b border-neutral-6', sidebarCollapsed && 'px-1')}>
+        <div className={cn('p-2 border-b border-neutral-4', sidebarCollapsed && 'px-1')}>
           <Button
             variant="ghost"
             size={sidebarCollapsed ? 'icon' : 'sm'}
@@ -168,7 +168,7 @@ export default function WorkspacePage() {
                   ${sidebarCollapsed ? 'px-2 py-3 justify-center' : 'px-4 py-3'}
                   ${
                     activeModule === module.id
-                      ? 'bg-gradient-to-r from-accent-9 to-accent-10 text-white shadow-lg'
+                      ? 'bg-accent-9 text-white shadow-md'
                       : 'hover:bg-neutral-3 text-neutral-12 hover:shadow'
                   }
                   ${module.disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
@@ -191,7 +191,7 @@ export default function WorkspacePage() {
         </nav>
 
         {/* Footer */}
-        <div className={cn('p-2 border-t border-neutral-6', sidebarCollapsed && 'px-1')}>
+        <div className={cn('p-2 border-t border-neutral-4', sidebarCollapsed && 'px-1')}>
           <Button
             variant="outline"
             size={sidebarCollapsed ? 'icon' : 'sm'}
@@ -209,49 +209,49 @@ export default function WorkspacePage() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-auto bg-gradient-to-br from-neutral-1 to-neutral-2">
+      <div className="flex-1 overflow-auto bg-neutral-2">
         <div className="p-8">
           {activeModule === 'home' && (
             <div>
-              <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-accent-9 to-accent-secondary-9 bg-clip-text text-transparent">
+              <h1 className="text-4xl font-bold mb-2 text-neutral-11">
                 Bienvenido
               </h1>
-              <p className="text-neutral-10 mb-8">Selecciona un módulo para comenzar</p>
+              <p className="text-neutral-9 mb-8">Selecciona un módulo para comenzar</p>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div className="bg-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-neutral-6 cursor-pointer" onClick={() => setActiveModule('students')}>
-                  <div className="bg-gradient-to-br from-accent-9 to-accent-10 p-3 rounded-xl w-fit mb-4">
+                <div className="bg-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-neutral-4 cursor-pointer" onClick={() => setActiveModule('students')}>
+                  <div className="bg-accent-9 p-3 rounded-xl w-fit mb-4">
                     <Users className="h-8 w-8 text-white" />
                   </div>
-                  <h3 className="text-xl font-semibold mb-2">Probacionistas</h3>
-                  <p className="text-neutral-10">Gestiona estudiantes y sus datos</p>
+                  <h3 className="text-xl font-semibold mb-2 text-neutral-11">Probacionistas</h3>
+                  <p className="text-neutral-9">Gestiona estudiantes y sus datos</p>
                 </div>
-                <div className="bg-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-neutral-6 cursor-pointer" onClick={() => setActiveModule('courses')}>
-                  <div className="bg-gradient-to-br from-accent-9 to-accent-10 p-3 rounded-xl w-fit mb-4">
+                <div className="bg-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-neutral-4 cursor-pointer" onClick={() => setActiveModule('courses')}>
+                  <div className="bg-accent-9 p-3 rounded-xl w-fit mb-4">
                     <BookOpen className="h-8 w-8 text-white" />
                   </div>
-                  <h3 className="text-xl font-semibold mb-2">Cursos</h3>
-                  <p className="text-neutral-10">Administra cursos y temas</p>
+                  <h3 className="text-xl font-semibold mb-2 text-neutral-11">Cursos</h3>
+                  <p className="text-neutral-9">Administra cursos y temas</p>
                 </div>
-                <div className="bg-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-neutral-6 cursor-pointer" onClick={() => setActiveModule('instructors')}>
-                  <div className="bg-gradient-to-br from-accent-9 to-accent-10 p-3 rounded-xl w-fit mb-4">
+                <div className="bg-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-neutral-4 cursor-pointer" onClick={() => setActiveModule('instructors')}>
+                  <div className="bg-accent-9 p-3 rounded-xl w-fit mb-4">
                     <UserCheck className="h-8 w-8 text-white" />
                   </div>
-                  <h3 className="text-xl font-semibold mb-2">Instructores</h3>
-                  <p className="text-neutral-10">Gestiona el personal docente</p>
+                  <h3 className="text-xl font-semibold mb-2 text-neutral-11">Instructores</h3>
+                  <p className="text-neutral-9">Gestiona el personal docente</p>
                 </div>
-                <div className="bg-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-neutral-6 cursor-pointer" onClick={() => setActiveModule('groups')}>
-                  <div className="bg-gradient-to-br from-accent-9 to-accent-10 p-3 rounded-xl w-fit mb-4">
+                <div className="bg-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-neutral-4 cursor-pointer" onClick={() => setActiveModule('groups')}>
+                  <div className="bg-accent-9 p-3 rounded-xl w-fit mb-4">
                     <FolderKanban className="h-8 w-8 text-white" />
                   </div>
-                  <h3 className="text-xl font-semibold mb-2">Grupos</h3>
-                  <p className="text-neutral-10">Organiza grupos de clases</p>
+                  <h3 className="text-xl font-semibold mb-2 text-neutral-11">Grupos</h3>
+                  <p className="text-neutral-9">Organiza grupos de clases</p>
                 </div>
-                <div className="bg-white p-6 rounded-2xl shadow-lg opacity-60 border border-neutral-6">
+                <div className="bg-white p-6 rounded-2xl shadow-lg opacity-60 border border-neutral-4">
                   <div className="bg-neutral-5 p-3 rounded-xl w-fit mb-4">
                     <ClipboardCheck className="h-8 w-8 text-neutral-9" />
                   </div>
-                  <h3 className="text-xl font-semibold mb-2">Asistencia</h3>
-                  <p className="text-neutral-10">Próximamente disponible</p>
+                  <h3 className="text-xl font-semibold mb-2 text-neutral-11">Asistencia</h3>
+                  <p className="text-neutral-9">Próximamente disponible</p>
                 </div>
               </div>
             </div>

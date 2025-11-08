@@ -9,10 +9,10 @@ export const courseRoutes: FastifyPluginAsync = async (fastify) => {
     
     const offset = (Number(page) - 1) * Number(limit);
     
-    // Build where conditions
-    let whereCondition = eq(courses.branchId, branchId);
+    // Build where conditions (exclude deleted)
+    let whereCondition = sql`${courses.branchId} = ${branchId} AND ${courses.status} != 'eliminado'`;
     if (search) {
-      whereCondition = sql`${courses.branchId} = ${branchId} AND ${courses.name} ILIKE ${`%${search}%`}`;
+      whereCondition = sql`${courses.branchId} = ${branchId} AND ${courses.status} != 'eliminado' AND ${courses.name} ILIKE ${`%${search}%`}`;
     }
     
     const [courseList, [{ count }]] = await Promise.all([
@@ -21,7 +21,7 @@ export const courseRoutes: FastifyPluginAsync = async (fastify) => {
         .orderBy(desc(courses.createdAt))
         .limit(Number(limit))
         .offset(offset),
-      db.select({ count: sql<number>`count(*)::int` }).from(courses).where(eq(courses.branchId, branchId)),
+      db.select({ count: sql<number>`count(*)::int` }).from(courses).where(sql`${courses.branchId} = ${branchId} AND ${courses.status} != 'eliminado'`),
     ]);
     
     // Fetch themes for all courses
@@ -109,7 +109,9 @@ export const courseRoutes: FastifyPluginAsync = async (fastify) => {
 
   fastify.delete('/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
-    await db.delete(courses).where(eq(courses.id, id));
-    return { success: true };
+    await db.update(courses)
+      .set({ status: 'eliminado', updatedAt: new Date() })
+      .where(eq(courses.id, id));
+    return { success: true, message: 'Curso marcado como eliminado' };
   });
 };

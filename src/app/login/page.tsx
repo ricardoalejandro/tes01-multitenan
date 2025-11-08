@@ -34,16 +34,16 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-accent-2 to-accent-secondary-2 p-4">
-      <Card className="w-full max-w-md">
+    <div className="flex min-h-screen items-center justify-center bg-neutral-2 p-4">
+      <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
             <div className="rounded-full bg-accent-9 p-3">
               <GraduationCap className="h-8 w-8 text-white" />
             </div>
           </div>
-          <CardTitle className="text-3xl font-bold">Sistema Académico</CardTitle>
-          <CardDescription>Gestión Multi-Tenant para Instituciones Educativas</CardDescription>
+          <CardTitle className="text-3xl font-bold text-neutral-11">Sistema Académico</CardTitle>
+          <CardDescription className="text-neutral-9">Gestión Multi-Tenant para Instituciones Educativas</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -71,7 +71,7 @@ export default function LoginPage() {
                 disabled={isLoading}
               />
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button type="submit" className="w-full bg-accent-9 hover:bg-accent-10 text-white" disabled={isLoading}>
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

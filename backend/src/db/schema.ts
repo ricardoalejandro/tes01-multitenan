@@ -2,12 +2,14 @@ import { pgTable, text, uuid, timestamp, decimal, integer, boolean, date, pgEnum
 
 // Enums
 export const roleEnum = pgEnum('role', ['superadmin', 'admin', 'instructor']);
-export const statusEnum = pgEnum('status', ['active', 'inactive']);
+export const statusEnum = pgEnum('status', ['active', 'inactive', 'eliminado']);
 export const documentTypeEnum = pgEnum('document_type', ['DNI', 'CNE', 'Pasaporte']);
 export const genderEnum = pgEnum('gender', ['Masculino', 'Femenino', 'Otro']);
-export const studentStatusEnum = pgEnum('student_status', ['Activo', 'Fluctuante', 'Inactivo', 'Baja']);
+export const studentStatusEnum = pgEnum('student_status', ['Activo', 'Fluctuante', 'Inactivo', 'Baja', 'Eliminado']);
 export const admissionReasonEnum = pgEnum('admission_reason', ['Traslado', 'Recuperado', 'Nuevo']);
-export const instructorStatusEnum = pgEnum('instructor_status', ['Activo', 'Inactivo', 'Licencia']);
+export const instructorStatusEnum = pgEnum('instructor_status', ['Activo', 'Inactivo', 'Licencia', 'Eliminado']);
+export const courseStatusEnum = pgEnum('course_status', ['active', 'inactive', 'eliminado']);
+export const groupStatusEnum = pgEnum('group_status', ['active', 'closed', 'finished', 'eliminado']);
 export const frequencyEnum = pgEnum('frequency', ['Diario', 'Semanal', 'Mensual']);
 export const dayEnum = pgEnum('day', ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']);
 export const attendanceStatusEnum = pgEnum('attendance_status', ['Presente', 'Ausente', 'Tardanza', 'Justificado']);
@@ -62,6 +64,7 @@ export const courses = pgTable('courses', {
   branchId: uuid('branch_id').notNull().references(() => branches.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   description: text('description'),
+  status: courseStatusEnum('status').notNull().default('active'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -110,6 +113,7 @@ export const classGroups = pgTable('class_groups', {
   description: text('description'),
   startDate: date('start_date').notNull(),
   frequency: frequencyEnum('frequency').notNull(),
+  status: groupStatusEnum('status').notNull().default('active'),
   isScheduleGenerated: boolean('is_schedule_generated').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
