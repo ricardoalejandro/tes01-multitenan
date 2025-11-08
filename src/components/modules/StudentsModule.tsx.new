@@ -1,0 +1,657 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { Plus, Search, Edit, Trash2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
+import { ResponsiveDialog } from '@/components/ui/responsive-dialog';
+import { DataTablePagination } from '@/components/ui/data-table-pagination';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
+import { toast } from 'sonner';
+import { api } from '@/lib/api';
+
+interface Student {
+  id: string;
+  dni: string;
+  firstName: string;
+  paternalLastName: string;
+  maternalLastName: string;
+  email: string;
+  phone: string;
+  gender: string;
+  birthDate: string;
+  status: string;
+  monthlyFee: number;
+  documentType: string;
+  admissionDate: string;
+  admissionReason: string;
+  address?: string;
+}
+
+interface PaginationData {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export default function StudentsModule({ branchId }: { branchId: string }) {
+  const [students, setStudents] = useState<Student[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [pagination, setPagination] = useState<PaginationData>({
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 0,
+  });
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  const [formData, setFormData] = useState({
+    documentType: 'DNI',
+    dni: '',
+    gender: 'Masculino',
+    firstName: '',
+    paternalLastName: '',
+    maternalLastName: '',
+    email: '',
+    phone: '',
+    birthDate: '',
+    admissionDate: new Date().toISOString().split('T')[0],
+    admissionReason: 'Nuevo',
+    status: 'Activo',
+    monthlyFee: 0,
+    address: '',
+  });
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    loadStudents();
+  }, [branchId, page, pageSize, search]);
+
+  const loadStudents = async () => {
+    try {
+      setLoading(true);
+      const response = await api.getStudents({ 
+        branchId, 
+        page, 
+        limit: pageSize,
+        search 
+      });
+      setStudents(response.data || []);
+      setPagination(response.pagination || {
+        page: 1,
+        limit: pageSize,
+        total: 0,
+        totalPages: 0,
+      });
+    } catch (error) {
+      toast.error('Error al cargar probacionistas', { duration: 1500 });
+      setStudents([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const validateForm = () => {
+    const errors: Record<string, string> = {};
+
+    // DNI: exactamente 8 dígitos numéricos
+    if (!/^\d{8}$/.test(formData.dni)) {
+      errors.dni = 'DNI debe contener exactamente 8 dígitos numéricos';
+    }
+
+    // Nombres: requerido
+    if (!formData.firstName.trim()) {
+      errors.firstName = 'Nombre es requerido';
+    }
+
+    // Apellido paterno: requerido
+    if (!formData.paternalLastName.trim()) {
+      errors.paternalLastName = 'Apellido paterno es requerido';
+    }
+
+    // Email: opcional pero debe ser válido si se proporciona
+    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      errors.email = 'Email inválido';
+    }
+
+    // Fecha de nacimiento debe ser menor a fecha de admisión
+    if (formData.birthDate && formData.admissionDate) {
+      const birthDate = new Date(formData.birthDate);
+      const admissionDate = new Date(formData.admissionDate);
+      if (birthDate >= admissionDate) {
+        errors.birthDate = 'La fecha de nacimiento debe ser anterior a la fecha de admisión';
+      }
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!validateForm()) {
+      toast.error('Por favor corrige los errores en el formulario', { duration: 1500 });
+      return;
+    }
+
+    try {
+      if (editingStudent) {
+        await api.updateStudent(editingStudent.id, {
+          ...formData,
+          branchId,
+        });
+        toast.success('Probacionista actualizado', { duration: 1500 });
+      } else {
+        await api.createStudent({
+          ...formData,
+          branchId,
+        });
+        toast.success('Probacionista creado', { duration: 1500 });
+      }
+      setIsDialogOpen(false);
+      resetForm();
+      loadStudents();
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.details?.[0]?.message || 
+                          error.response?.data?.error || 
+                          'Error al guardar';
+      toast.error(errorMessage, { duration: 1500 });
+    }
+  };
+
+  const handleEdit = (student: Student) => {
+    setEditingStudent(student);
+    setFormData({
+      documentType: student.documentType,
+      dni: student.dni,
+      gender: student.gender,
+      firstName: student.firstName,
+      paternalLastName: student.paternalLastName,
+      maternalLastName: student.maternalLastName || '',
+      email: student.email || '',
+      phone: student.phone || '',
+      birthDate: student.birthDate ? student.birthDate.split('T')[0] : '',
+      admissionDate: student.admissionDate ? student.admissionDate.split('T')[0] : '',
+      admissionReason: student.admissionReason,
+      status: student.status,
+      monthlyFee: student.monthlyFee,
+      address: student.address || '',
+    });
+    setFormErrors({});
+    setIsDialogOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('¿Está seguro de eliminar este probacionista?')) return;
+    try {
+      await api.deleteStudent(id);
+      toast.success('Probacionista eliminado', { duration: 1500 });
+      loadStudents();
+    } catch (error) {
+      toast.error('Error al eliminar', { duration: 1500 });
+    }
+  };
+
+  const resetForm = () => {
+    setEditingStudent(null);
+    setFormData({
+      documentType: 'DNI',
+      dni: '',
+      gender: 'Masculino',
+      firstName: '',
+      paternalLastName: '',
+      maternalLastName: '',
+      email: '',
+      phone: '',
+      birthDate: '',
+      admissionDate: new Date().toISOString().split('T')[0],
+      admissionReason: 'Nuevo',
+      status: 'Activo',
+      monthlyFee: 0,
+      address: '',
+    });
+    setFormErrors({});
+  };
+
+  const handleDniInput = (value: string) => {
+    // Solo permitir números y máximo 8 dígitos
+    const numericValue = value.replace(/[^0-9]/g, '').slice(0, 8);
+    setFormData({ ...formData, dni: numericValue });
+    
+    // Limpiar error de DNI si ahora es válido
+    if (numericValue.length === 8) {
+      setFormErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors.dni;
+        return newErrors;
+      });
+    }
+  };
+
+  const getStatusVariant = (status: string): "default" | "secondary" | "outline" | "destructive" => {
+    switch (status) {
+      case 'Activo':
+        return 'default';
+      case 'Inactivo':
+        return 'secondary';
+      case 'Fluctuante':
+        return 'outline';
+      default:
+        return 'secondary';
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-accent-9 to-accent-secondary-9 bg-clip-text text-transparent">
+            Probacionistas
+          </h1>
+          <p className="text-neutral-10 mt-1">
+            Gestión completa de estudiantes
+          </p>
+        </div>
+        <Button
+          onClick={() => {
+            resetForm();
+            setIsDialogOpen(true);
+          }}
+          className="bg-gradient-to-r from-accent-9 to-accent-10 hover:from-accent-10 hover:to-accent-11 shadow-lg"
+        >
+          <Plus className="mr-2 h-4 w-4" />
+          Nuevo Probacionista
+        </Button>
+      </div>
+
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-neutral-9 h-5 w-5" />
+        <Input
+          placeholder="Buscar por DNI, nombre o email..."
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1); // Reset to first page on search
+          }}
+          className="pl-10"
+        />
+      </div>
+
+      {/* Table */}
+      <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-neutral-6">
+        {loading ? (
+          <div className="p-8 text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent-9 mx-auto"></div>
+          </div>
+        ) : students.length === 0 ? (
+          <div className="p-8 text-center text-neutral-10">
+            No se encontraron probacionistas
+          </div>
+        ) : (
+          <>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>DNI</TableHead>
+                  <TableHead>Nombre Completo</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Teléfono</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead>Mensualidad</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {students.map((student) => (
+                  <TableRow key={student.id}>
+                    <TableCell className="font-medium">{student.dni}</TableCell>
+                    <TableCell>
+                      {`${student.firstName} ${student.paternalLastName} ${student.maternalLastName || ''}`}
+                    </TableCell>
+                    <TableCell>{student.email || '-'}</TableCell>
+                    <TableCell>{student.phone || '-'}</TableCell>
+                    <TableCell>
+                      <Badge variant={getStatusVariant(student.status)}>
+                        {student.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>S/. {parseFloat(student.monthlyFee as any).toFixed(2)}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEdit(student)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDelete(student.id)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            
+            {/* Pagination */}
+            <DataTablePagination
+              currentPage={pagination.page}
+              totalPages={pagination.totalPages}
+              totalItems={pagination.total}
+              pageSize={pagination.limit}
+              onPageChange={setPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+            />
+          </>
+        )}
+      </div>
+
+      {/* Dialog with ResponsiveDialog */}
+      <ResponsiveDialog
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        title={`${editingStudent ? 'Editar' : 'Nuevo'} Probacionista`}
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsDialogOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button 
+              type="submit" 
+              form="student-form"
+              className="bg-gradient-to-r from-accent-9 to-accent-10"
+            >
+              {editingStudent ? 'Actualizar' : 'Crear'}
+            </Button>
+          </>
+        }
+      >
+        <form id="student-form" onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Document Type */}
+            <div>
+              <Label htmlFor="documentType">Tipo de Documento</Label>
+              <Select
+                value={formData.documentType}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, documentType: value })
+                }
+              >
+                <SelectTrigger id="documentType">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="DNI">DNI</SelectItem>
+                  <SelectItem value="CNE">CNE</SelectItem>
+                  <SelectItem value="Pasaporte">Pasaporte</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* DNI */}
+            <div>
+              <Label htmlFor="dni">
+                Número de Documento <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="dni"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={8}
+                value={formData.dni}
+                onChange={(e) => handleDniInput(e.target.value)}
+                className={formErrors.dni ? 'border-red-500' : ''}
+              />
+              {formErrors.dni && (
+                <p className="text-sm text-red-500 mt-1">{formErrors.dni}</p>
+              )}
+            </div>
+
+            {/* First Name */}
+            <div>
+              <Label htmlFor="firstName">
+                Nombres <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="firstName"
+                value={formData.firstName}
+                onChange={(e) =>
+                  setFormData({ ...formData, firstName: e.target.value })
+                }
+                className={formErrors.firstName ? 'border-red-500' : ''}
+              />
+              {formErrors.firstName && (
+                <p className="text-sm text-red-500 mt-1">{formErrors.firstName}</p>
+              )}
+            </div>
+
+            {/* Paternal Last Name */}
+            <div>
+              <Label htmlFor="paternalLastName">
+                Apellido Paterno <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="paternalLastName"
+                value={formData.paternalLastName}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    paternalLastName: e.target.value,
+                  })
+                }
+                className={formErrors.paternalLastName ? 'border-red-500' : ''}
+              />
+              {formErrors.paternalLastName && (
+                <p className="text-sm text-red-500 mt-1">{formErrors.paternalLastName}</p>
+              )}
+            </div>
+
+            {/* Maternal Last Name */}
+            <div>
+              <Label htmlFor="maternalLastName">Apellido Materno</Label>
+              <Input
+                id="maternalLastName"
+                value={formData.maternalLastName}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    maternalLastName: e.target.value,
+                  })
+                }
+              />
+            </div>
+
+            {/* Gender */}
+            <div>
+              <Label htmlFor="gender">Género</Label>
+              <Select
+                value={formData.gender}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, gender: value })
+                }
+              >
+                <SelectTrigger id="gender">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Masculino">Masculino</SelectItem>
+                  <SelectItem value="Femenino">Femenino</SelectItem>
+                  <SelectItem value="Otro">Otro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Email */}
+            <div>
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={formData.email}
+                onChange={(e) =>
+                  setFormData({ ...formData, email: e.target.value })
+                }
+                className={formErrors.email ? 'border-red-500' : ''}
+              />
+              {formErrors.email && (
+                <p className="text-sm text-red-500 mt-1">{formErrors.email}</p>
+              )}
+            </div>
+
+            {/* Phone */}
+            <div>
+              <Label htmlFor="phone">Teléfono</Label>
+              <Input
+                id="phone"
+                value={formData.phone}
+                onChange={(e) =>
+                  setFormData({ ...formData, phone: e.target.value })
+                }
+              />
+            </div>
+
+            {/* Birth Date */}
+            <div>
+              <Label htmlFor="birthDate">Fecha de Nacimiento</Label>
+              <Input
+                id="birthDate"
+                type="date"
+                value={formData.birthDate}
+                onChange={(e) =>
+                  setFormData({ ...formData, birthDate: e.target.value })
+                }
+                className={formErrors.birthDate ? 'border-red-500' : ''}
+              />
+              {formErrors.birthDate && (
+                <p className="text-sm text-red-500 mt-1">{formErrors.birthDate}</p>
+              )}
+            </div>
+
+            {/* Admission Date */}
+            <div>
+              <Label htmlFor="admissionDate">
+                Fecha de Admisión <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="admissionDate"
+                type="date"
+                value={formData.admissionDate}
+                onChange={(e) =>
+                  setFormData({ ...formData, admissionDate: e.target.value })
+                }
+              />
+            </div>
+
+            {/* Admission Reason */}
+            <div>
+              <Label htmlFor="admissionReason">Motivo de Admisión</Label>
+              <Select
+                value={formData.admissionReason}
+                onValueChange={(value) =>
+                  setFormData({
+                    ...formData,
+                    admissionReason: value,
+                  })
+                }
+              >
+                <SelectTrigger id="admissionReason">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Nuevo">Nuevo</SelectItem>
+                  <SelectItem value="Traslado">Traslado</SelectItem>
+                  <SelectItem value="Recuperado">Recuperado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Status */}
+            <div>
+              <Label htmlFor="status">Estado</Label>
+              <Select
+                value={formData.status}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, status: value })
+                }
+              >
+                <SelectTrigger id="status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Activo">Activo</SelectItem>
+                  <SelectItem value="Fluctuante">Fluctuante</SelectItem>
+                  <SelectItem value="Inactivo">Inactivo</SelectItem>
+                  <SelectItem value="Baja">Baja</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Monthly Fee */}
+            <div>
+              <Label htmlFor="monthlyFee">Mensualidad (S/.)</Label>
+              <Input
+                id="monthlyFee"
+                type="number"
+                step="0.01"
+                value={formData.monthlyFee}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    monthlyFee: parseFloat(e.target.value) || 0,
+                  })
+                }
+              />
+            </div>
+
+            {/* Address - New Field */}
+            <div className="md:col-span-2">
+              <Label htmlFor="address">Dirección</Label>
+              <Textarea
+                id="address"
+                value={formData.address}
+                onChange={(e) =>
+                  setFormData({ ...formData, address: e.target.value })
+                }
+                placeholder="Dirección completa (opcional)"
+                rows={2}
+              />
+            </div>
+          </div>
+        </form>
+      </ResponsiveDialog>
+    </div>
+  );
+}

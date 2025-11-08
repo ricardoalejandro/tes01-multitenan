@@ -1,12 +1,28 @@
 import { FastifyPluginAsync } from 'fastify';
 import { db } from '../db';
 import { courses, courseThemes } from '../db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, sql, ilike, or, desc } from 'drizzle-orm';
 
 export const courseRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get('/', async (request, reply) => {
-    const { branchId } = request.query as { branchId: string };
-    const courseList = await db.select().from(courses).where(eq(courses.branchId, branchId));
+    const { branchId, page = 1, limit = 10, search = '' } = request.query as any;
+    
+    const offset = (Number(page) - 1) * Number(limit);
+    
+    // Build where conditions
+    let whereCondition = eq(courses.branchId, branchId);
+    if (search) {
+      whereCondition = sql`${courses.branchId} = ${branchId} AND ${courses.name} ILIKE ${`%${search}%`}`;
+    }
+    
+    const [courseList, [{ count }]] = await Promise.all([
+      db.select().from(courses)
+        .where(whereCondition)
+        .orderBy(desc(courses.createdAt))
+        .limit(Number(limit))
+        .offset(offset),
+      db.select({ count: sql<number>`count(*)::int` }).from(courses).where(eq(courses.branchId, branchId)),
+    ]);
     
     // Fetch themes for all courses
     const coursesWithThemes = await Promise.all(
@@ -19,7 +35,15 @@ export const courseRoutes: FastifyPluginAsync = async (fastify) => {
       })
     );
     
-    return coursesWithThemes;
+    return {
+      data: coursesWithThemes,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total: count,
+        totalPages: Math.ceil(count / Number(limit)),
+      },
+    };
   });
 
   fastify.get('/:id', async (request, reply) => {

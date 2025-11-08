@@ -12,9 +12,11 @@ import {
   ClipboardCheck,
   ArrowLeft,
   LogOut,
+  Menu,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
+import { cn } from '@/lib/utils';
 import StudentsModule from '@/components/modules/StudentsModule';
 import CoursesModule from '@/components/modules/CoursesModule';
 import InstructorsModule from '@/components/modules/InstructorsModule';
@@ -36,6 +38,20 @@ export default function WorkspacePage() {
   const [activeModule, setActiveModule] = useState('home');
   const [branch, setBranch] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  // Load sidebar state from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('sidebarCollapsed');
+    if (saved) {
+      setSidebarCollapsed(JSON.parse(saved));
+    }
+  }, []);
+
+  // Save sidebar state to localStorage
+  useEffect(() => {
+    localStorage.setItem('sidebarCollapsed', JSON.stringify(sidebarCollapsed));
+  }, [sidebarCollapsed]);
 
   useEffect(() => {
     if (!branchId) {
@@ -87,24 +103,58 @@ export default function WorkspacePage() {
   return (
     <div className="flex h-screen bg-neutral-2">
       {/* Sidebar */}
-      <div className="w-64 bg-white border-r border-neutral-6 flex flex-col shadow-lg">
+      <div
+        className={cn(
+          'bg-white border-r border-neutral-6 flex flex-col shadow-lg transition-all duration-300',
+          sidebarCollapsed ? 'w-16' : 'w-64'
+        )}
+      >
         {/* Header */}
-        <div className="p-4 border-b border-neutral-6 bg-gradient-to-br from-accent-1 to-accent-2">
-          <h2 className="font-semibold text-lg truncate text-accent-11">{branch?.name}</h2>
-          <p className="text-sm text-accent-10 font-medium">{branch?.code}</p>
+        <div className={cn('p-4 border-b border-neutral-6 bg-gradient-to-br from-accent-1 to-accent-2', sidebarCollapsed && 'p-2')}>
+          {!sidebarCollapsed && (
+            <>
+              <h2 className="font-semibold text-lg truncate text-accent-11">{branch?.name}</h2>
+              <p className="text-sm text-accent-10 font-medium">{branch?.code}</p>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleBack}
+                className="mt-3 w-full justify-start hover:bg-accent-3"
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Volver al Dashboard
+              </Button>
+            </>
+          )}
+          {sidebarCollapsed && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleBack}
+              className="w-full hover:bg-accent-3"
+              title="Volver al Dashboard"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+
+        {/* Toggle Button */}
+        <div className={cn('p-2 border-b border-neutral-6', sidebarCollapsed && 'px-1')}>
           <Button
             variant="ghost"
-            size="sm"
-            onClick={handleBack}
-            className="mt-3 w-full justify-start hover:bg-accent-3"
+            size={sidebarCollapsed ? 'icon' : 'sm'}
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            className={cn('w-full', sidebarCollapsed ? 'px-0' : 'justify-start')}
+            title={sidebarCollapsed ? 'Expandir menú' : 'Contraer menú'}
           >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Volver al Dashboard
+            <Menu className={cn('h-4 w-4', !sidebarCollapsed && 'mr-2')} />
+            {!sidebarCollapsed && <span>Contraer menú</span>}
           </Button>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-2">
+        <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
           {modules.map((module) => {
             const Icon = module.icon;
             return (
@@ -112,22 +162,28 @@ export default function WorkspacePage() {
                 key={module.id}
                 onClick={() => !module.disabled && setActiveModule(module.id)}
                 disabled={module.disabled}
+                title={sidebarCollapsed ? module.name : undefined}
                 className={`
-                  w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200
+                  w-full flex items-center gap-3 rounded-xl text-left transition-all duration-200
+                  ${sidebarCollapsed ? 'px-2 py-3 justify-center' : 'px-4 py-3'}
                   ${
                     activeModule === module.id
-                      ? 'bg-gradient-to-r from-accent-9 to-accent-10 text-white shadow-lg transform scale-[1.02]'
+                      ? 'bg-gradient-to-r from-accent-9 to-accent-10 text-white shadow-lg'
                       : 'hover:bg-neutral-3 text-neutral-12 hover:shadow'
                   }
                   ${module.disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
                 `}
               >
-                <Icon className="h-5 w-5" />
-                <span className="font-medium">{module.name}</span>
-                {module.disabled && (
-                  <span className="ml-auto text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
-                    Próximamente
-                  </span>
+                <Icon className="h-5 w-5 flex-shrink-0" />
+                {!sidebarCollapsed && (
+                  <>
+                    <span className="font-medium flex-1">{module.name}</span>
+                    {module.disabled && (
+                      <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
+                        Próximamente
+                      </span>
+                    )}
+                  </>
                 )}
               </button>
             );
@@ -135,14 +191,19 @@ export default function WorkspacePage() {
         </nav>
 
         {/* Footer */}
-        <div className="p-4 border-t border-neutral-6">
-          <Button 
-            variant="outline" 
-            className="w-full hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors" 
+        <div className={cn('p-2 border-t border-neutral-6', sidebarCollapsed && 'px-1')}>
+          <Button
+            variant="outline"
+            size={sidebarCollapsed ? 'icon' : 'sm'}
+            className={cn(
+              'w-full hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors',
+              sidebarCollapsed ? 'px-0' : 'justify-start'
+            )}
             onClick={handleLogout}
+            title={sidebarCollapsed ? 'Cerrar Sesión' : undefined}
           >
-            <LogOut className="mr-2 h-4 w-4" />
-            Cerrar Sesión
+            <LogOut className={cn('h-4 w-4', !sidebarCollapsed && 'mr-2')} />
+            {!sidebarCollapsed && 'Cerrar Sesión'}
           </Button>
         </div>
       </div>

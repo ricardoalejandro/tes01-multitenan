@@ -1,13 +1,42 @@
 import { FastifyPluginAsync } from 'fastify';
 import { db } from '../db';
 import { branches } from '../db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, sql, ilike, or, desc } from 'drizzle-orm';
 
 export const branchRoutes: FastifyPluginAsync = async (fastify) => {
-  // Get all branches
+  // Get all branches with pagination
   fastify.get('/', async (request, reply) => {
-    const branchList = await db.select().from(branches);
-    return branchList;
+    const { page = 1, limit = 10, search = '' } = request.query as any;
+    
+    const offset = (Number(page) - 1) * Number(limit);
+    
+    // Build where conditions
+    let whereCondition = undefined;
+    if (search) {
+      whereCondition = or(
+        ilike(branches.name, `%${search}%`),
+        ilike(branches.code, `%${search}%`)
+      );
+    }
+    
+    const [branchList, [{ count }]] = await Promise.all([
+      db.select().from(branches)
+        .where(whereCondition)
+        .orderBy(desc(branches.createdAt))
+        .limit(Number(limit))
+        .offset(offset),
+      db.select({ count: sql<number>`count(*)::int` }).from(branches).where(whereCondition),
+    ]);
+    
+    return {
+      data: branchList,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total: count,
+        totalPages: Math.ceil(count / Number(limit)),
+      },
+    };
   });
 
   // Get branch by ID
@@ -22,10 +51,24 @@ export const branchRoutes: FastifyPluginAsync = async (fastify) => {
     return branch;
   });
 
-  // Create branch
+  // Create branch with auto-generated code
   fastify.post('/', async (request, reply) => {
     const data = request.body as any;
-    const [branch] = await db.insert(branches).values(data).returning();
+    
+    // Get the maximum code_number
+    const [maxCodeNumber] = await db
+      .select({ max: sql<number>`COALESCE(MAX(code_number), 0)::int` })
+      .from(branches);
+    
+    const newCodeNumber = (maxCodeNumber?.max || 0) + 1;
+    const generatedCode = `FIL-${String(newCodeNumber).padStart(3, '0')}`;
+    
+    const [branch] = await db.insert(branches).values({
+      ...data,
+      code: generatedCode,
+      codeNumber: newCodeNumber,
+    }).returning();
+    
     return branch;
   });
 

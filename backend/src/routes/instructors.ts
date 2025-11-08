@@ -1,12 +1,28 @@
 import { FastifyPluginAsync } from 'fastify';
 import { db } from '../db';
 import { instructors, instructorSpecialties } from '../db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, sql, desc } from 'drizzle-orm';
 
 export const instructorRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get('/', async (request, reply) => {
-    const { branchId } = request.query as { branchId: string };
-    const instructorList = await db.select().from(instructors).where(eq(instructors.branchId, branchId));
+    const { branchId, page = 1, limit = 10, search = '' } = request.query as any;
+    
+    const offset = (Number(page) - 1) * Number(limit);
+    
+    // Build where conditions
+    let whereCondition = eq(instructors.branchId, branchId);
+    if (search) {
+      whereCondition = sql`${instructors.branchId} = ${branchId} AND (${instructors.firstName} ILIKE ${`%${search}%`} OR ${instructors.paternalLastName} ILIKE ${`%${search}%`} OR ${instructors.dni} ILIKE ${`%${search}%`})`;
+    }
+    
+    const [instructorList, [{ count }]] = await Promise.all([
+      db.select().from(instructors)
+        .where(whereCondition)
+        .orderBy(desc(instructors.createdAt))
+        .limit(Number(limit))
+        .offset(offset),
+      db.select({ count: sql<number>`count(*)::int` }).from(instructors).where(eq(instructors.branchId, branchId)),
+    ]);
     
     // Fetch specialties for all instructors
     const instructorsWithSpecialties = await Promise.all(
@@ -19,7 +35,15 @@ export const instructorRoutes: FastifyPluginAsync = async (fastify) => {
       })
     );
     
-    return instructorsWithSpecialties;
+    return {
+      data: instructorsWithSpecialties,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total: count,
+        totalPages: Math.ceil(count / Number(limit)),
+      },
+    };
   });
 
   fastify.get('/:id', async (request, reply) => {

@@ -1,13 +1,38 @@
 import { FastifyPluginAsync } from 'fastify';
 import { db } from '../db';
 import { classGroups, groupSelectedDays, groupCourses, classSessions, sessionThemes } from '../db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, sql, desc } from 'drizzle-orm';
 
 export const groupRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get('/', async (request, reply) => {
-    const { branchId } = request.query as { branchId: string };
-    const groups = await db.select().from(classGroups).where(eq(classGroups.branchId, branchId));
-    return groups;
+    const { branchId, page = 1, limit = 10, search = '' } = request.query as any;
+    
+    const offset = (Number(page) - 1) * Number(limit);
+    
+    // Build where conditions
+    let whereCondition = eq(classGroups.branchId, branchId);
+    if (search) {
+      whereCondition = sql`${classGroups.branchId} = ${branchId} AND ${classGroups.name} ILIKE ${`%${search}%`}`;
+    }
+    
+    const [groups, [{ count }]] = await Promise.all([
+      db.select().from(classGroups)
+        .where(whereCondition)
+        .orderBy(desc(classGroups.createdAt))
+        .limit(Number(limit))
+        .offset(offset),
+      db.select({ count: sql<number>`count(*)::int` }).from(classGroups).where(eq(classGroups.branchId, branchId)),
+    ]);
+    
+    return {
+      data: groups,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total: count,
+        totalPages: Math.ceil(count / Number(limit)),
+      },
+    };
   });
 
   fastify.get('/:id', async (request, reply) => {

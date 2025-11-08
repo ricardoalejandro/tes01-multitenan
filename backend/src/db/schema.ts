@@ -26,6 +26,7 @@ export const branches = pgTable('branches', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
   code: text('code').notNull().unique(),
+  codeNumber: integer('code_number').unique(),
   description: text('description'),
   status: statusEnum('status').notNull().default('active'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
