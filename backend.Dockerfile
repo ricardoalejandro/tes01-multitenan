@@ -1,40 +1,47 @@
 # Backend Dockerfile for Fastify API
-# Using full node image for easier builds
+# Optimized multi-stage build for faster builds and smaller images
 
-# Stage 1: Builder
-FROM node:20 AS builder
+# Stage 1: Dependencies
+FROM node:20-alpine AS deps
 WORKDIR /app
 
-# Copy package files
-COPY package.json ./
+# Install dependencies for node-gyp and native modules
+RUN apk add --no-cache libc6-compat python3 make g++
 
-# Install dependencies
-RUN npm install
+# Copy only package files for better layer caching
+COPY package.json package-lock.json* ./
 
-# Copy source code
+# Install dependencies with cache
+RUN npm ci
+
+# Stage 2: Builder
+FROM node:20-alpine AS builder
+WORKDIR /app
+
+# Copy dependencies from deps stage
+COPY --from=deps /app/node_modules ./node_modules
 COPY . ./
 
 # Build TypeScript
 RUN npm run build
 
-# Stage 2: Runner
-FROM node:20-slim AS runner
+# Stage 3: Runner
+FROM node:20-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Install wget and netcat for health checks
-RUN apt-get update && apt-get install -y \
-    wget \
-    netcat-openbsd \
-    && rm -rf /var/lib/apt/lists/*
+# Install runtime dependencies and tools
+RUN apk add --no-cache wget netcat-openbsd
 
-# Copy package file
-COPY package.json ./
+# Copy package files
+COPY package.json package-lock.json* ./
 
-# Install production dependencies and tools
-RUN npm install --omit=dev && \
-    npm install -g drizzle-kit tsx
+# Install only production dependencies
+RUN npm ci --only=production
+
+# Install drizzle-kit and tsx globally for migrations
+RUN npm install -g drizzle-kit tsx
 
 # Copy built application from builder
 COPY --from=builder /app/dist ./dist
@@ -46,8 +53,8 @@ COPY docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh
 
 # Create non-root user
-RUN groupadd --system --gid 1001 nodejs
-RUN useradd --system --uid 1001 -g nodejs fastify
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 fastify
 
 # Set correct permissions
 RUN chown -R fastify:nodejs /app

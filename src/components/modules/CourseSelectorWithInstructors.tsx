@@ -75,7 +75,7 @@ export default function CourseSelectorWithInstructors({ value, onChange, availab
 
       {value.length === 0 && (
         <div className="text-center py-8 text-neutral-9 border border-dashed border-neutral-4 rounded-lg">
-          No hay cursos añadidos. Haz clic en "Añadir Curso" para comenzar.
+          No hay cursos añadidos. Haz clic en &quot;Añadir Curso&quot; para comenzar.
         </div>
       )}
 

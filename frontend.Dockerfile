@@ -1,17 +1,25 @@
 # Frontend Dockerfile for Next.js 14
-# Using full node image for easier builds
+# Optimized multi-stage build for faster builds and smaller images
 
-# Stage 1: Builder
-FROM node:20 AS builder
+# Stage 1: Dependencies - Use cache mount for faster npm install
+FROM node:20-alpine AS deps
 WORKDIR /app
 
-# Copy package files
-COPY package.json ./
+# Install dependencies for node-gyp
+RUN apk add --no-cache libc6-compat
 
-# Install dependencies
-RUN npm install
+# Copy only package files for better layer caching
+COPY package.json package-lock.json* ./
 
-# Copy source code
+# Install dependencies with cache
+RUN npm ci
+
+# Stage 2: Builder
+FROM node:20-alpine AS builder
+WORKDIR /app
+
+# Copy dependencies from deps stage
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Set build-time environment variable
@@ -20,19 +28,19 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # Build the application
 RUN npm run build
 
-# Stage 2: Runner
-FROM node:20-slim AS runner
+# Stage 3: Runner - Smallest production image
+FROM node:20-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Install wget for health checks
-RUN apt-get update && apt-get install -y wget && rm -rf /var/lib/apt/lists/*
+# Install only wget for health checks
+RUN apk add --no-cache wget
 
 # Create non-root user
-RUN groupadd --system --gid 1001 nodejs
-RUN useradd --system --uid 1001 -g nodejs nextjs
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
 
 # Copy necessary files from builder
 COPY --from=builder /app/public ./public

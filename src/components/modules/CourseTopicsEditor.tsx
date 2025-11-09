@@ -199,7 +199,7 @@ export default function CourseTopicsEditor({ courseId, initialTopics = [], onCha
       <div className="space-y-3">
         {topics.length === 0 ? (
           <div className="text-center py-8 text-neutral-9">
-            No hay temas añadidos. Haz clic en "Añadir Tema" o importa una plantilla.
+            No hay temas añadidos. Haz clic en &quot;Añadir Tema&quot; o importa una plantilla.
           </div>
         ) : (
           topics.map((topic, index) => (
