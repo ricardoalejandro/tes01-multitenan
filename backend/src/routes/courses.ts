@@ -13,7 +13,10 @@ export const courseRoutes: FastifyPluginAsync = async (fastify) => {
     // Build where conditions (exclude deleted)
     let whereCondition = sql`${courses.branchId} = ${branchId} AND ${courses.status} != 'eliminado'`;
     if (search) {
-      whereCondition = sql`${courses.branchId} = ${branchId} AND ${courses.status} != 'eliminado' AND ${courses.name} ILIKE ${`%${search}%`}`;
+      whereCondition = sql`${courses.branchId} = ${branchId} AND ${courses.status} != 'eliminado' AND (
+        ${courses.name} ILIKE ${`%${search}%`} OR
+        ${courses.description} ILIKE ${`%${search}%`}
+      )`;
     }
     
     const [courseList, [{ count }]] = await Promise.all([

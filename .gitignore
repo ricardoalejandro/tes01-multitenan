@@ -27,7 +27,9 @@ yarn-error.log*
 
 # Local env files
 .env*.local
-.env
+# NOTA: .env está comentado para DESARROLLO
+# Cuando vayas a PRODUCCIÓN, descomenta la siguiente línea:
+# .env
 !.env.example
 
 # Vercel
@@ -51,7 +53,9 @@ Thumbs.db
 # Backend specific
 backend/dist/
 backend/node_modules/
-backend/.env
+# NOTA: backend/.env está comentado para DESARROLLO
+# Cuando vayas a PRODUCCIÓN, descomenta la siguiente línea:
+# backend/.env
 !backend/.env.example
 
 # Database

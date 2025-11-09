@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
@@ -31,7 +31,7 @@ const modules = [
   { id: 'attendance', name: 'Asistencia', icon: ClipboardCheck, disabled: true },
 ];
 
-export default function WorkspacePage() {
+function WorkspaceContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const branchId = searchParams.get('branchId');
@@ -209,8 +209,8 @@ export default function WorkspacePage() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-auto bg-neutral-2">
-        <div className="p-8">
+      <div className="flex-1 overflow-hidden bg-neutral-2 flex flex-col">
+        <div className="flex-1 overflow-auto p-8">
           {activeModule === 'home' && (
             <div>
               <h1 className="text-4xl font-bold mb-2 text-neutral-11">
@@ -275,5 +275,19 @@ export default function WorkspacePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function WorkspacePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-accent-9"></div>
+        </div>
+      }
+    >
+      <WorkspaceContent />
+    </Suspense>
   );
 }

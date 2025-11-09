@@ -16,18 +16,20 @@ interface Props {
     name: string;
     status: string;
   } | null;
+  branchId: string;
   onStatusChanged: () => void;
 }
 
 interface EnrolledStudent {
   id: string;
+  studentId: string;
   dni: string;
   firstName: string;
   paternalLastName: string;
   maternalLastName?: string;
 }
 
-export function GroupStatusChangeDialog({ open, onClose, group, onStatusChanged }: Props) {
+export function GroupStatusChangeDialog({ open, onClose, group, branchId, onStatusChanged }: Props) {
   const [newStatus, setNewStatus] = useState<string>('');
   const [observation, setObservation] = useState('');
   const [loading, setLoading] = useState(false);
@@ -52,22 +54,28 @@ export function GroupStatusChangeDialog({ open, onClose, group, onStatusChanged 
   }, [open, group]);
 
   const loadGroups = async () => {
+    if (!branchId) return;
     try {
-      const data = await api.getGroups('', 1, 100);
-      setAvailableGroups(data.groups.filter((g: any) => g.id !== group?.id && g.status === 'active'));
+      const response = await api.getGroups(branchId, 1, 100);
+      const groups = Array.isArray(response.data) ? response.data : [];
+      setAvailableGroups(groups.filter((g: any) => g.id !== group?.id && g.status === 'active'));
     } catch (error) {
       console.error('Error loading groups:', error);
+      setAvailableGroups([]);
     }
   };
 
   const loadEnrolledStudents = async () => {
     if (!group) return;
     try {
-      const data = await api.getGroupStudents(group.id);
-      setEnrolledStudents(data);
-      setSelectedStudents(data.map((s: any) => s.id));
+      const response = await api.getGroupStudents(group.id);
+      const students = Array.isArray(response.data) ? response.data : [];
+      setEnrolledStudents(students);
+      setSelectedStudents(students.map((s: any) => s.studentId || s.id));
     } catch (error) {
       console.error('Error loading students:', error);
+      setEnrolledStudents([]);
+      setSelectedStudents([]);
     }
   };
 
@@ -79,6 +87,13 @@ export function GroupStatusChangeDialog({ open, onClose, group, onStatusChanged 
 
   const handleSubmit = async () => {
     if (!group) return;
+    
+    // Validar observación
+    if (!observation.trim() || observation.trim().length < 5) {
+      alert('La observación es requerida y debe tener al menos 5 caracteres');
+      return;
+    }
+    
     if (newStatus === 'merged' && (!targetGroupId || selectedStudents.length === 0)) {
       alert('Para fusionar debes seleccionar un grupo destino y al menos un estudiante');
       return;
@@ -87,10 +102,10 @@ export function GroupStatusChangeDialog({ open, onClose, group, onStatusChanged 
     setLoading(true);
     try {
       await api.changeGroupStatus(group.id, {
-        newStatus,
-        observation: observation.trim() || undefined,
+        status: newStatus,
+        observation: observation.trim(),
         targetGroupId: newStatus === 'merged' ? targetGroupId : undefined,
-        studentIdsToTransfer: newStatus === 'merged' ? selectedStudents : undefined,
+        transferStudentIds: newStatus === 'merged' ? selectedStudents : undefined,
       });
       onStatusChanged();
       onClose();
@@ -116,28 +131,38 @@ export function GroupStatusChangeDialog({ open, onClose, group, onStatusChanged 
 
         <div className="space-y-4 pt-4">
           <div>
-            <Label>Nuevo Estado</Label>
-            <Select value={newStatus} onChange={(e) => setNewStatus(e.target.value)}>
+            <Label htmlFor="newStatus">Nuevo Estado</Label>
+            <select
+              id="newStatus"
+              value={newStatus}
+              onChange={(e) => setNewStatus(e.target.value)}
+              className="w-full mt-1 px-3 py-2 border border-neutral-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-9 focus:border-transparent"
+            >
               <option value="active">Activo</option>
               <option value="closed">Cerrado</option>
               <option value="finished">Finalizado</option>
               <option value="eliminado">Eliminado</option>
               <option value="merged">Fusionado</option>
-            </Select>
+            </select>
           </div>
 
           {isMerging && (
             <>
               <div>
-                <Label>Grupo Destino</Label>
-                <Select value={targetGroupId} onChange={(e) => setTargetGroupId(e.target.value)}>
+                <Label htmlFor="targetGroup">Grupo Destino</Label>
+                <select
+                  id="targetGroup"
+                  value={targetGroupId}
+                  onChange={(e) => setTargetGroupId(e.target.value)}
+                  className="w-full mt-1 px-3 py-2 border border-neutral-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-9 focus:border-transparent"
+                >
                   <option value="">Selecciona el grupo destino...</option>
                   {availableGroups.map((g) => (
                     <option key={g.id} value={g.id}>
                       {g.name} - {g.branch_name}
                     </option>
                   ))}
-                </Select>
+                </select>
               </div>
 
               <div>
@@ -153,8 +178,8 @@ export function GroupStatusChangeDialog({ open, onClose, group, onStatusChanged 
                       >
                         <input
                           type="checkbox"
-                          checked={selectedStudents.includes(student.id)}
-                          onChange={() => toggleStudent(student.id)}
+                          checked={selectedStudents.includes(student.studentId)}
+                          onChange={() => toggleStudent(student.studentId)}
                           className="w-4 h-4"
                         />
                         <span className="text-sm">
@@ -172,12 +197,14 @@ export function GroupStatusChangeDialog({ open, onClose, group, onStatusChanged 
           )}
 
           <div>
-            <Label>Observación</Label>
+            <Label htmlFor="observation">Observación (mínimo 5 caracteres)</Label>
             <Textarea
+              id="observation"
               value={observation}
               onChange={(e) => setObservation(e.target.value)}
-              placeholder="Motivo del cambio de estado..."
+              placeholder="Motivo del cambio de estado... (mínimo 5 caracteres)"
               rows={3}
+              className="mt-1"
             />
           </div>
         </div>

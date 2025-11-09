@@ -36,7 +36,14 @@ export const instructorRoutes: FastifyPluginAsync = async (fastify) => {
     // Build where conditions (exclude deleted)
     let whereCondition = sql`${instructors.branchId} = ${branchId} AND ${instructors.status} != 'Eliminado'`;
     if (search) {
-      whereCondition = sql`${instructors.branchId} = ${branchId} AND ${instructors.status} != 'Eliminado' AND (${instructors.firstName} ILIKE ${`%${search}%`} OR ${instructors.paternalLastName} ILIKE ${`%${search}%`} OR ${instructors.dni} ILIKE ${`%${search}%`})`;
+      whereCondition = sql`${instructors.branchId} = ${branchId} AND ${instructors.status} != 'Eliminado' AND (
+        ${instructors.dni} ILIKE ${`%${search}%`} OR
+        ${instructors.firstName} ILIKE ${`%${search}%`} OR
+        ${instructors.paternalLastName} ILIKE ${`%${search}%`} OR
+        ${instructors.maternalLastName} ILIKE ${`%${search}%`} OR
+        ${instructors.email} ILIKE ${`%${search}%`} OR
+        CONCAT(${instructors.firstName}, ' ', ${instructors.paternalLastName}, ' ', COALESCE(${instructors.maternalLastName}, '')) ILIKE ${`%${search}%`}
+      )`;
     }
     
     const [instructorList, [{ count }]] = await Promise.all([

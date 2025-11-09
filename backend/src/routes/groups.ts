@@ -56,7 +56,7 @@ const enrollSchema = z.object({
 });
 
 const statusChangeSchema = z.object({
-  status: z.enum(['closed', 'finished', 'eliminado', 'merged']),
+  status: z.enum(['active', 'closed', 'finished', 'eliminado', 'merged']),
   observation: z.string().min(5),
   targetGroupId: z.string().uuid().optional(),
   transferStudentIds: z.array(z.string().uuid()).optional(),
@@ -72,7 +72,10 @@ export const groupRoutes: FastifyPluginAsync = async (fastify) => {
     
     let whereCondition = sql`${classGroups.branchId} = ${branchId} AND ${classGroups.status} != 'eliminado'`;
     if (search) {
-      whereCondition = sql`${classGroups.branchId} = ${branchId} AND ${classGroups.status} != 'eliminado' AND ${classGroups.name} ILIKE ${`%${search}%`}`;
+      whereCondition = sql`${classGroups.branchId} = ${branchId} AND ${classGroups.status} != 'eliminado' AND (
+        ${classGroups.name} ILIKE ${`%${search}%`} OR
+        ${classGroups.description} ILIKE ${`%${search}%`}
+      )`;
     }
     
     const [groups, [{ count }]] = await Promise.all([
@@ -176,6 +179,7 @@ export const groupRoutes: FastifyPluginAsync = async (fastify) => {
   // POST /api/groups/generate-calendar - Generar calendario en memoria
   fastify.post('/generate-calendar', async (request, reply) => {
     try {
+      console.log('📅 Generate calendar request body:', JSON.stringify(request.body, null, 2));
       const validatedData = generateCalendarSchema.parse(request.body);
       const { recurrence, courses: groupCoursesInput } = validatedData;
 
@@ -223,7 +227,9 @@ export const groupRoutes: FastifyPluginAsync = async (fastify) => {
 
       return { sessions };
     } catch (error: any) {
-      return reply.code(400).send({ error: error.message });
+      console.error('❌ Generate calendar error:', error);
+      console.error('Error details:', error.issues || error.message);
+      return reply.code(400).send({ error: error.message, details: error.issues });
     }
   });
 
@@ -381,6 +387,23 @@ export const groupRoutes: FastifyPluginAsync = async (fastify) => {
       const validatedData = enrollSchema.parse(request.body);
       const { studentIds, enrollmentDate } = validatedData;
 
+      // Validar que el grupo esté activo
+      const [group] = await db.select({ status: classGroups.status })
+        .from(classGroups)
+        .where(eq(classGroups.id, id))
+        .limit(1);
+
+      if (!group) {
+        return reply.code(404).send({ error: 'Grupo no encontrado' });
+      }
+
+      if (group.status !== 'active') {
+        return reply.code(400).send({ 
+          error: 'Solo se pueden inscribir estudiantes a grupos activos',
+          currentStatus: group.status 
+        });
+      }
+
       const activeEnrollments = await db
         .select({
           studentId: groupEnrollments.studentId,
@@ -516,9 +539,17 @@ export const groupRoutes: FastifyPluginAsync = async (fastify) => {
           .where(and(eq(groupEnrollments.groupId, id), inArray(groupEnrollments.studentId, transferStudentIds)));
       }
 
+      const transactionTypeMap: Record<string, string> = {
+        active: 'Activación',
+        closed: 'Cierre',
+        finished: 'Finalización',
+        eliminado: 'Baja',
+        merged: 'Fusión',
+      };
+
       await db.insert(groupTransactions).values({
         groupId: id,
-        transactionType: status === 'closed' ? 'Cierre' : status === 'finished' ? 'Finalizado' : status === 'eliminado' ? 'Baja' : 'Fusionado',
+        transactionType: transactionTypeMap[status] || 'Cambio de Estado',
         description: `Grupo cambió a estado: ${status}`,
         observation,
         targetGroupId: targetGroupId || null,

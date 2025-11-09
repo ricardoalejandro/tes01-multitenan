@@ -44,10 +44,12 @@ export function GroupTransactionsDialog({ open, onClose, groupId, groupName }: P
     if (!groupId) return;
     setLoading(true);
     try {
-      const data = await api.getGroupTransactions(groupId);
+      const response = await api.getGroupTransactions(groupId);
+      const data = Array.isArray(response.data) ? response.data : [];
       setTransactions(data);
     } catch (error) {
       console.error('Error loading transactions:', error);
+      setTransactions([]);
     } finally {
       setLoading(false);
     }
