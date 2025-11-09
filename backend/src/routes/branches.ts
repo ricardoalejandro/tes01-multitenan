@@ -12,7 +12,7 @@ export const branchRoutes: FastifyPluginAsync = async (fastify) => {
     
     // Build where conditions (always exclude deleted)
     const baseCondition = ne(branches.status, 'eliminado');
-    let whereCondition = baseCondition;
+    let whereCondition: any = baseCondition;
     
     if (search) {
       whereCondition = and(
@@ -21,7 +21,7 @@ export const branchRoutes: FastifyPluginAsync = async (fastify) => {
           ilike(branches.name, `%${search}%`),
           ilike(branches.code, `%${search}%`)
         )
-      );
+      ) as any;
     }
     
     const [branchList, [{ count }]] = await Promise.all([

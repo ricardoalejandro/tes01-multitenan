@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import { Maximize2, Minimize2, X } from 'lucide-react';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './dialog';
 import { Button } from './button';
 import { cn } from '@/lib/utils';
 
@@ -13,6 +12,7 @@ interface ResponsiveDialogProps {
   description?: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  defaultMaximized?: boolean;
 }
 
 export function ResponsiveDialog({
@@ -22,45 +22,65 @@ export function ResponsiveDialog({
   description,
   children,
   footer,
+  defaultMaximized = false,
 }: ResponsiveDialogProps) {
-  const [isMaximized, setIsMaximized] = React.useState(false);
+  const [isMaximized, setIsMaximized] = React.useState(defaultMaximized);
+
+  console.log('ResponsiveDialog render:', { open, isMaximized, defaultMaximized, title });
 
   // Reset maximized state when dialog closes
   React.useEffect(() => {
     if (!open) {
-      setIsMaximized(false);
+      setIsMaximized(defaultMaximized);
+    } else if (open && isMaximized !== defaultMaximized) {
+      setIsMaximized(defaultMaximized);
     }
-  }, [open]);
+  }, [open, defaultMaximized]);
+
+  // Handle ESC key and body scroll lock
+  React.useEffect(() => {
+    if (!open) return;
+
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onOpenChange(false);
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'unset';
+    };
+  }, [open, onOpenChange]);
+
+  if (!open) return null;
 
   return (
-    <Dialog 
-      open={open} 
-      onOpenChange={onOpenChange}
-      onInteractOutside={(e) => {
-        if (isMaximized) {
-          e.preventDefault();
-        }
-      }}
-    >
-      <DialogContent
+    <>
+      {/* Backdrop */}
+      <div 
+        className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm transition-opacity"
+        onClick={() => !isMaximized && onOpenChange(false)}
+      />
+      
+      {/* Dialog Content */}
+      <div
         className={cn(
-          'transition-all duration-300 ease-in-out',
+          'fixed z-[101] bg-white rounded-xl shadow-2xl overflow-hidden',
+          'animate-in fade-in-0 zoom-in-95 duration-200 flex flex-col',
           isMaximized
-            ? 'fixed inset-4 max-w-none h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] p-0'
-            : 'max-w-2xl max-h-[90vh] p-0'
+            ? 'inset-4 w-[calc(100vw-2rem)] h-[calc(100vh-2rem)]'
+            : 'left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-4xl max-h-[90vh]'
         )}
       >
-        <DialogHeader
-          className={cn(
-            'flex flex-row items-center justify-between space-y-0 px-6 py-4',
-            isMaximized ? 'border-b border-neutral-4' : 'border-b border-neutral-4'
-          )}
-        >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-4 flex-shrink-0">
           <div className="flex-1">
-            <DialogTitle>{title}</DialogTitle>
-            {description && <DialogDescription>{description}</DialogDescription>}
+            <h2 className="text-2xl font-bold text-neutral-12">{title}</h2>
+            {description && <p className="text-sm text-neutral-10 mt-1">{description}</p>}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 ml-4">
             <Button
               variant="ghost"
               size="icon"
@@ -77,29 +97,31 @@ export function ResponsiveDialog({
                 {isMaximized ? 'Minimizar' : 'Maximizar'}
               </span>
             </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => onOpenChange(false)}
+              type="button"
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">Cerrar</span>
+            </Button>
           </div>
-        </DialogHeader>
+        </div>
 
-        <div
-          className={cn(
-            'overflow-y-auto px-6',
-            isMaximized ? 'h-[calc(100%-8rem)] py-4' : 'max-h-[calc(90vh-12rem)] py-6'
-          )}
-        >
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-6 py-6">
           {children}
         </div>
 
+        {/* Footer */}
         {footer && (
-          <div
-            className={cn(
-              'flex justify-end gap-2 px-6 py-4',
-              isMaximized ? 'border-t border-neutral-4 bg-muted/50' : 'border-t border-neutral-4'
-            )}
-          >
+          <div className="flex justify-end gap-2 px-6 py-4 border-t border-neutral-4 flex-shrink-0 bg-neutral-1">
             {footer}
           </div>
         )}
-      </DialogContent>
-    </Dialog>
+      </div>
+    </>
   );
 }

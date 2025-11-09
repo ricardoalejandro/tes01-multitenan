@@ -4,11 +4,11 @@ services:
     image: postgres:17-alpine
     container_name: multitenant_postgres
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: multitenant_db
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-multitenant_db}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_EXTERNAL_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -25,7 +25,7 @@ services:
     image: redis:7-alpine
     container_name: multitenant_redis
     ports:
-      - "6379:6379"
+      - "${REDIS_EXTERNAL_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -44,15 +44,15 @@ services:
       dockerfile: ../backend.Dockerfile
     container_name: multitenant_backend
     environment:
-      NODE_ENV: production
-      PORT: 3000
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: ${BACKEND_PORT:-3000}
       HOST: 0.0.0.0
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/multitenant_db
-      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-multitenant_db}
+      REDIS_URL: redis://redis:${REDIS_PORT:-6379}
       JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
-      CORS_ORIGIN: http://localhost:5000
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5000}
     ports:
-      - "3000:3000"
+      - "${BACKEND_EXTERNAL_PORT:-3000}:${BACKEND_PORT:-3000}"
     depends_on:
       postgres:
         condition: service_healthy
@@ -73,16 +73,23 @@ services:
     build:
       context: .
       dockerfile: frontend.Dockerfile
+      target: development
       args:
-        NEXT_PUBLIC_API_URL: http://localhost:3000/api
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3000/api}
     container_name: multitenant_frontend
     environment:
-      NODE_ENV: production
-      PORT: 5000
+      NODE_ENV: development
+      PORT: ${FRONTEND_PORT:-5000}
       HOSTNAME: 0.0.0.0
-      NEXT_PUBLIC_API_URL: http://localhost:3000/api
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3000/api}
     ports:
-      - "5000:5000"
+      - "${FRONTEND_EXTERNAL_PORT:-5000}:${FRONTEND_PORT:-5000}"
+    volumes:
+      - ./src:/app/src
+      - ./public:/app/public
+      - ./next.config.js:/app/next.config.js
+      - ./tailwind.config.ts:/app/tailwind.config.ts
+      - ./tsconfig.json:/app/tsconfig.json
     depends_on:
       backend:
         condition: service_healthy

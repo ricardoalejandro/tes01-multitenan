@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Plus, Search, Edit, Trash2, UserPlus, GitMerge, History } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Plus, Search, Edit, Trash2, UserPlus, GitMerge, History, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { GroupCardsView, GroupCompactView, GroupListView } from './GroupViews';
 import { Input } from '@/components/ui/input';
 import { DataTablePagination } from '@/components/ui/data-table-pagination';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
@@ -13,6 +14,7 @@ import { GroupFormDialog } from './GroupFormDialog';
 import { GroupEnrollmentDialog } from './GroupEnrollmentDialog';
 import { GroupStatusChangeDialog } from './GroupStatusChangeDialog';
 import { GroupTransactionsDialog } from './GroupTransactionsDialog';
+import { GroupStudentsDialog } from './GroupStudentsDialog';
 
 interface Group {
   id: string;
@@ -31,14 +33,19 @@ interface PaginationData {
   totalPages: number;
 }
 
+type ViewMode = 'cards' | 'compact' | 'list';
+
 export default function GroupsModule({ branchId }: { branchId: string }) {
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
   
   // Diálogos
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isEnrollOpen, setIsEnrollOpen] = useState(false);
+  const [isStudentsOpen, setIsStudentsOpen] = useState(false);
   const [isStatusOpen, setIsStatusOpen] = useState(false);
   const [isTransactionsOpen, setIsTransactionsOpen] = useState(false);
   
@@ -57,15 +64,24 @@ export default function GroupsModule({ branchId }: { branchId: string }) {
     loadGroups();
   }, [branchId]);
 
+  // Debounce para búsqueda
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   useEffect(() => {
     loadGroups();
-  }, [page, pageSize, search]);
+  }, [page, pageSize, debouncedSearch]);
 
   const loadGroups = async () => {
     try {
       setLoading(true);
-      const response = await api.getGroups(page, pageSize, search);
-      setGroups(response.groups || []);
+      const response = await api.getGroups(branchId, page, pageSize, debouncedSearch);
+      setGroups(response.data || []);
       setPagination(response.pagination || { page: 1, limit: 10, total: 0, totalPages: 0 });
     } catch (error) {
       toast.error('Error al cargar grupos', { duration: 1500 });
@@ -83,6 +99,11 @@ export default function GroupsModule({ branchId }: { branchId: string }) {
   const handleEnroll = (group: Group) => {
     setSelectedGroup(group);
     setIsEnrollOpen(true);
+  };
+
+  const handleViewStudents = (group: Group) => {
+    setSelectedGroup(group);
+    setIsStudentsOpen(true);
   };
 
   const handleChangeStatus = (group: Group) => {
@@ -119,7 +140,9 @@ export default function GroupsModule({ branchId }: { branchId: string }) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="h-full flex flex-col">
+      {/* HEADER FIJO - Siempre visible */}
+      <div className="flex-none bg-neutral-2 pb-6 space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-neutral-11">
@@ -136,16 +159,60 @@ export default function GroupsModule({ branchId }: { branchId: string }) {
         </Button>
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-neutral-9 h-5 w-5" />
-        <Input
-          placeholder="Buscar grupo..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-10"
-        />
+      <div className="flex gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-neutral-9 h-5 w-5" />
+          <Input
+            placeholder="Buscar grupo..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10"
+          />
+          {search !== debouncedSearch && (
+            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+              <div className="h-4 w-4 border-2 border-accent-9 border-t-transparent rounded-full animate-spin" />
+            </div>
+          )}
+        </div>
+
+        {/* VIEW MODE SELECTOR */}
+        <div className="flex border border-neutral-4 rounded-lg overflow-hidden bg-white">
+          <button
+            onClick={() => setViewMode('cards')}
+            className={`px-4 py-2 text-sm font-medium transition-colors ${
+              viewMode === 'cards' 
+                ? 'bg-accent-9 text-white' 
+                : 'bg-white text-neutral-11 hover:bg-neutral-2'
+            }`}
+          >
+            Tarjetas
+          </button>
+          <button
+            onClick={() => setViewMode('compact')}
+            className={`px-4 py-2 text-sm font-medium transition-colors border-x border-neutral-4 ${
+              viewMode === 'compact' 
+                ? 'bg-accent-9 text-white' 
+                : 'bg-white text-neutral-11 hover:bg-neutral-2'
+            }`}
+          >
+            Compacta
+          </button>
+          <button
+            onClick={() => setViewMode('list')}
+            className={`px-4 py-2 text-sm font-medium transition-colors ${
+              viewMode === 'list' 
+                ? 'bg-accent-9 text-white' 
+                : 'bg-white text-neutral-11 hover:bg-neutral-2'
+            }`}
+          >
+            Lista
+          </button>
+        </div>
+      </div>
       </div>
 
+      {/* CONTENIDO CON SCROLL */}
+      <div className="flex-1 overflow-auto">
       <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-neutral-4">
         {loading ? (
           <div className="p-8 text-center">
@@ -155,78 +222,40 @@ export default function GroupsModule({ branchId }: { branchId: string }) {
           <div className="p-8 text-center text-neutral-10">No se encontraron grupos</div>
         ) : (
           <>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nombre</TableHead>
-                <TableHead>Descripción</TableHead>
-                <TableHead>Fecha Inicio</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead>Recurrencia</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {groups.map((group) => (
-                <TableRow key={group.id}>
-                  <TableCell className="font-medium">{group.name}</TableCell>
-                  <TableCell className="max-w-md truncate">{group.description || '-'}</TableCell>
-                  <TableCell>
-                    {group.recurrence_start_date
-                      ? new Date(group.recurrence_start_date).toLocaleDateString('es-PE')
-                      : '-'}
-                  </TableCell>
-                  <TableCell>{getStatusBadge(group.status)}</TableCell>
-                  <TableCell className="capitalize">{group.recurrence_frequency || '-'}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEdit(group)}
-                        title="Editar"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEnroll(group)}
-                        title="Inscribir estudiantes"
-                      >
-                        <UserPlus className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleChangeStatus(group)}
-                        title="Cambiar estado"
-                      >
-                        <GitMerge className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleViewTransactions(group)}
-                        title="Ver historial"
-                      >
-                        <History className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(group.id)}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        title="Eliminar"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          {/* CONDITIONAL VIEW RENDERING */}
+          {viewMode === 'cards' && (
+            <GroupCardsView 
+              groups={groups}
+              onEdit={handleEdit}
+              onViewStudents={handleViewStudents}
+              onEnroll={handleEnroll}
+              onChangeStatus={handleChangeStatus}
+              onViewTransactions={handleViewTransactions}
+              onDelete={handleDelete}
+            />
+          )}
+          {viewMode === 'compact' && (
+            <GroupCompactView 
+              groups={groups}
+              onEdit={handleEdit}
+              onViewStudents={handleViewStudents}
+              onEnroll={handleEnroll}
+              onChangeStatus={handleChangeStatus}
+              onViewTransactions={handleViewTransactions}
+              onDelete={handleDelete}
+            />
+          )}
+          {viewMode === 'list' && (
+            <GroupListView 
+              groups={groups}
+              onEdit={handleEdit}
+              onViewStudents={handleViewStudents}
+              onEnroll={handleEnroll}
+              onChangeStatus={handleChangeStatus}
+              onViewTransactions={handleViewTransactions}
+              onDelete={handleDelete}
+            />
+          )}
           <DataTablePagination
             currentPage={pagination.page}
             totalPages={pagination.totalPages}
@@ -237,6 +266,7 @@ export default function GroupsModule({ branchId }: { branchId: string }) {
           />
           </>
         )}
+        </div>
       </div>
 
       {/* Diálogos */}
@@ -255,9 +285,20 @@ export default function GroupsModule({ branchId }: { branchId: string }) {
         open={isEnrollOpen}
         onClose={() => setIsEnrollOpen(false)}
         groupId={selectedGroup?.id || ''}
+        branchId={branchId}
         onEnrolled={() => {
           loadGroups();
           toast.success('Estudiantes inscritos correctamente', { duration: 1500 });
+        }}
+      />
+
+      <GroupStudentsDialog
+        open={isStudentsOpen}
+        onClose={() => setIsStudentsOpen(false)}
+        groupId={selectedGroup?.id || ''}
+        groupName={selectedGroup?.name || ''}
+        onStudentRemoved={() => {
+          loadGroups();
         }}
       />
 

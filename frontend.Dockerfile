@@ -14,7 +14,7 @@ COPY package.json package-lock.json* ./
 # Install dependencies with cache
 RUN npm ci
 
-# Stage 2: Builder
+# Stage 2: Builder (Production)
 FROM node:20-alpine AS builder
 WORKDIR /app
 
@@ -28,7 +28,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # Build the application
 RUN npm run build
 
-# Stage 3: Runner - Smallest production image
+# Stage 3: Runner - Production
 FROM node:20-alpine AS runner
 WORKDIR /app
 
@@ -55,3 +55,29 @@ ENV PORT=5000
 ENV HOSTNAME="0.0.0.0"
 
 CMD ["node", "server.js"]
+
+# Stage 4: Development (usando Debian slim para mejor compatibilidad con SWC)
+FROM node:20-slim AS development
+WORKDIR /app
+
+ENV NODE_ENV=development
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Install wget for health checks
+RUN apt-get update && apt-get install -y wget && rm -rf /var/lib/apt/lists/*
+
+# Copy package files
+COPY package.json package-lock.json* ./
+
+# Install ALL dependencies (including devDependencies)
+RUN npm install
+
+# Copy source code (will be overridden by volume mounts)
+COPY . .
+
+EXPOSE 5000
+
+ENV PORT=5000
+ENV HOSTNAME="0.0.0.0"
+
+CMD ["npm", "run", "dev"]

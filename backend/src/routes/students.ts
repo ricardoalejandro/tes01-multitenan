@@ -60,10 +60,17 @@ export const studentRoutes: FastifyPluginAsync = async (fastify) => {
     // JOIN students con student_branches para obtener estudiantes de la filial
     let queryConditions = [eq(studentBranches.branchId, branchId)];
     
-    // Filtro de búsqueda
+    // Filtro de búsqueda mejorado - busca en todos los campos relevantes
     if (search) {
       queryConditions.push(
-        sql`(${students.firstName} ILIKE ${`%${search}%`} OR ${students.paternalLastName} ILIKE ${`%${search}%`} OR ${students.dni} ILIKE ${`%${search}%`})`
+        sql`(
+          ${students.dni} ILIKE ${`%${search}%`} OR
+          ${students.firstName} ILIKE ${`%${search}%`} OR
+          ${students.paternalLastName} ILIKE ${`%${search}%`} OR
+          ${students.maternalLastName} ILIKE ${`%${search}%`} OR
+          ${students.email} ILIKE ${`%${search}%`} OR
+          CONCAT(${students.firstName}, ' ', ${students.paternalLastName}, ' ', COALESCE(${students.maternalLastName}, '')) ILIKE ${`%${search}%`}
+        )`
       );
     }
     

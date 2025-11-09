@@ -23,11 +23,16 @@ export default function AdminPage() {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string;
+    code: string;
+    description: string;
+    status: 'active' | 'inactive';
+  }>({
     name: '',
     code: '',
     description: '',
-    status: 'active' as const,
+    status: 'active',
   });
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -81,7 +86,7 @@ export default function AdminPage() {
       name: branch.name,
       code: branch.code,
       description: branch.description,
-      status: branch.status as 'active' | 'inactive',
+      status: branch.status === 'eliminado' ? 'inactive' : (branch.status as 'active' | 'inactive'),
     });
     setEditingId(branch.id);
     setShowForm(true);

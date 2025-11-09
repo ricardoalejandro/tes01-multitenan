@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Plus, Search, Edit, Trash2, X } from 'lucide-react';
+import { CourseCardsView, CourseCompactView, CourseListView } from './CourseViews';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -35,10 +36,14 @@ interface PaginationData {
   totalPages: number;
 }
 
+type ViewMode = 'cards' | 'compact' | 'list';
+
 export default function CoursesModule({ branchId }: { branchId: string }) {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [formData, setFormData] = useState<{
@@ -64,14 +69,23 @@ export default function CoursesModule({ branchId }: { branchId: string }) {
     loadCourses();
   }, [branchId]);
 
+  // Debounce para búsqueda
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   useEffect(() => {
     loadCourses();
-  }, [page, pageSize, search]);
+  }, [page, pageSize, debouncedSearch]);
 
   const loadCourses = async () => {
     try {
       setLoading(true);
-      const response = await api.getCourses(branchId, page, pageSize, search);
+      const response = await api.getCourses(branchId, page, pageSize, debouncedSearch);
       
       if (response.data) {
         setCourses(response.data);
@@ -160,34 +174,80 @@ export default function CoursesModule({ branchId }: { branchId: string }) {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-neutral-11">
-            Cursos
-          </h1>
-          <p className="text-neutral-9 mt-1">Gestión de cursos y temas</p>
+    <div className="h-full flex flex-col">
+      {/* HEADER FIJO - Siempre visible */}
+      <div className="flex-none bg-neutral-2 pb-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-neutral-11">
+              Cursos
+            </h1>
+            <p className="text-neutral-9 mt-1">Gestión de cursos y temas</p>
+          </div>
+          <Button
+            onClick={() => { resetForm(); setIsDialogOpen(true); }}
+            className="bg-accent-9 hover:bg-accent-10 text-white"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Nuevo Curso
+          </Button>
         </div>
-        <Button
-          onClick={() => { resetForm(); setIsDialogOpen(true); }}
-          className="bg-accent-9 hover:bg-accent-10 text-white"
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Nuevo Curso
-        </Button>
+
+        <div className="flex gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-neutral-9 h-5 w-5" />
+            <Input
+              placeholder="Buscar curso..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-10 bg-white"
+            />
+            {search !== debouncedSearch && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                <div className="h-4 w-4 border-2 border-accent-9 border-t-transparent rounded-full animate-spin" />
+              </div>
+            )}
+          </div>
+
+          {/* VIEW MODE SELECTOR */}
+          <div className="flex border border-neutral-4 rounded-lg overflow-hidden bg-white">
+            <button
+              onClick={() => setViewMode('cards')}
+              className={`px-4 py-2 text-sm font-medium transition-colors ${
+                viewMode === 'cards' 
+                  ? 'bg-accent-9 text-white' 
+                  : 'bg-white text-neutral-11 hover:bg-neutral-2'
+              }`}
+            >
+              Tarjetas
+            </button>
+            <button
+              onClick={() => setViewMode('compact')}
+              className={`px-4 py-2 text-sm font-medium transition-colors border-x border-neutral-4 ${
+                viewMode === 'compact' 
+                  ? 'bg-accent-9 text-white' 
+                  : 'bg-white text-neutral-11 hover:bg-neutral-2'
+              }`}
+            >
+              Compacta
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`px-4 py-2 text-sm font-medium transition-colors ${
+                viewMode === 'list' 
+                  ? 'bg-accent-9 text-white' 
+                  : 'bg-white text-neutral-11 hover:bg-neutral-2'
+              }`}
+            >
+              Lista
+            </button>
+          </div>
+        </div>
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-neutral-9 h-5 w-5" />
-        <Input
-          placeholder="Buscar curso..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-10"
-        />
-      </div>
-
-      <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-neutral-4">
+      {/* CONTENT SCROLLEABLE */}
+      <div className="flex-1 overflow-auto">
+        <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-neutral-4">
         {loading ? (
           <div className="p-8 text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent-9 mx-auto"></div>
@@ -196,35 +256,28 @@ export default function CoursesModule({ branchId }: { branchId: string }) {
           <div className="p-8 text-center text-neutral-10">No se encontraron cursos</div>
         ) : (
           <>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nombre</TableHead>
-                <TableHead>Descripción</TableHead>
-                <TableHead># Temas</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {courses.map((course) => (
-                <TableRow key={course.id}>
-                  <TableCell className="font-medium">{course.name}</TableCell>
-                  <TableCell className="max-w-md truncate">{course.description || '-'}</TableCell>
-                  <TableCell>{course.themes?.length || 0}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => handleEdit(course)}>
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleDelete(course.id)} className="text-red-600 hover:text-red-700 hover:bg-red-50">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          {/* CONDITIONAL VIEW RENDERING */}
+          {viewMode === 'cards' && (
+            <CourseCardsView 
+              courses={courses}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+            />
+          )}
+          {viewMode === 'compact' && (
+            <CourseCompactView 
+              courses={courses}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+            />
+          )}
+          {viewMode === 'list' && (
+            <CourseListView 
+              courses={courses}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+            />
+          )}
           <DataTablePagination
             currentPage={pagination.page}
             totalPages={pagination.totalPages}
@@ -235,6 +288,7 @@ export default function CoursesModule({ branchId }: { branchId: string }) {
           />
           </>
         )}
+        </div>
       </div>
 
       <ResponsiveDialog 

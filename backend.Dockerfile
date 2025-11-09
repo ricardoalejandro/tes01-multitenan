@@ -37,8 +37,8 @@ RUN apk add --no-cache wget netcat-openbsd
 # Copy package files
 COPY package.json package-lock.json* ./
 
-# Install only production dependencies
-RUN npm ci --only=production
+# Copy ALL dependencies from builder (includes drizzle-orm and other needed packages)
+COPY --from=builder /app/node_modules ./node_modules
 
 # Install drizzle-kit and tsx globally for migrations
 RUN npm install -g drizzle-kit tsx

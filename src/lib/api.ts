@@ -266,7 +266,7 @@ class ApiClient {
 
   async getAvailableStudents(groupId: string, branchId: string) {
     const response = await this.client.get(`/groups/${groupId}/available-students`, { params: { branchId } });
-    return response.data;
+    return response.data.data || response.data || [];
   }
 
   async unenrollStudent(groupId: string, studentId: string) {

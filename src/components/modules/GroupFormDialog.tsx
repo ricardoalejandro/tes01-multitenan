@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { ResponsiveDialog } from '@/components/ui/responsive-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -28,6 +28,7 @@ interface CourseWithInstructor {
 interface RecurrenceConfig {
   frequency: 'daily' | 'weekly' | 'monthly';
   interval: number;
+  days?: string[];
   daysOfWeek?: number[];
   startDate: string;
   endDate?: string;
@@ -36,12 +37,16 @@ interface RecurrenceConfig {
 
 interface GeneratedSession {
   sessionNumber: number;
-  scheduledDate: string;
+  sessionDate: string; // Backend devuelve sessionDate, no scheduledDate
   topics: Array<{
     courseId: string;
-    topicName: string;
+    courseName?: string;
+    topicName?: string; // Puede venir como topicName
+    topicTitle?: string; // O como topicTitle
+    topicDescription?: string;
     instructorId: string;
     topicMode: 'auto' | 'selected' | 'manual';
+    orderIndex?: number; // Agregado para evitar errores de tipo
   }>;
 }
 
@@ -62,7 +67,7 @@ export function GroupFormDialog({ open, onClose, branchId, group, onSaved }: Pro
   const [recurrence, setRecurrence] = useState<RecurrenceConfig>({
     frequency: 'weekly',
     interval: 1,
-    daysOfWeek: [1], // Lunes por defecto
+    days: ['monday'], // Lunes por defecto
     startDate: new Date().toISOString().split('T')[0],
   });
 
@@ -97,38 +102,49 @@ export function GroupFormDialog({ open, onClose, branchId, group, onSaved }: Pro
     if (!group) return;
     try {
       const details = await api.getGroupDetails(group.id);
+      
+      // Cargar cursos e instructores disponibles primero
+      await loadCoursesAndInstructors();
+      
       setName(details.name);
       setDescription(details.description || '');
       
-      // Mapear cursos
+      // Mapear cursos (el backend puede retornar camelCase o snake_case)
       setSelectedCourses(
-        details.courses.map((c: any, idx: number) => ({
-          courseId: c.course_id,
-          instructorId: c.instructor_id,
-          orderIndex: idx,
+        (details.courses || []).map((c: any, idx: number) => ({
+          courseId: c.courseId || c.course_id,
+          instructorId: c.instructorId || c.instructor_id,
+          orderIndex: idx + 1,
         }))
       );
 
       // Mapear recurrencia
+      const daysFromDB = details.recurrenceDays || details.recurrence_days;
+      const parsedDays = daysFromDB ? 
+        (typeof daysFromDB === 'string' ? JSON.parse(daysFromDB) : daysFromDB) 
+        : ['monday'];
+      
       setRecurrence({
-        frequency: details.recurrence_frequency || 'weekly',
-        interval: details.recurrence_interval || 1,
-        daysOfWeek: details.recurrence_days_of_week || [1],
-        startDate: details.recurrence_start_date || new Date().toISOString().split('T')[0],
-        endDate: details.recurrence_end_date,
-        maxOccurrences: details.recurrence_max_occurrences,
+        frequency: details.recurrenceFrequency || details.recurrence_frequency || 'weekly',
+        interval: details.recurrenceInterval || details.recurrence_interval || 1,
+        days: parsedDays,
+        startDate: details.startDate || details.start_date || new Date().toISOString().split('T')[0],
+        endDate: details.endDate || details.end_date,
+        maxOccurrences: details.maxOccurrences || details.max_occurrences,
       });
 
-      // Mapear sesiones
+      // Mapear sesiones (backend retorna camelCase)
       setGeneratedSessions(
-        details.sessions.map((s: any) => ({
-          sessionNumber: s.session_number,
-          scheduledDate: s.scheduled_date,
-          topics: s.topics.map((t: any) => ({
-            courseId: t.course_id,
-            topicName: t.topic_name,
-            instructorId: t.instructor_id,
-            topicMode: t.topic_mode,
+        (details.sessions || []).map((s: any) => ({
+          sessionNumber: s.sessionNumber || s.session_number,
+          sessionDate: s.sessionDate || s.session_date || s.scheduledDate || s.scheduled_date,
+          topics: (s.topics || []).map((t: any) => ({
+            courseId: t.courseId || t.course_id,
+            topicTitle: t.topicTitle || t.topic_title || t.topicName || t.topic_name || 'Tema pendiente',
+            topicDescription: t.topicDescription || t.topic_description || '',
+            instructorId: t.instructorId || t.instructor_id,
+            topicMode: t.topicMode || t.topic_mode || 'auto',
+            orderIndex: t.orderIndex || t.order_index || 1,
           })),
         }))
       );
@@ -146,7 +162,7 @@ export function GroupFormDialog({ open, onClose, branchId, group, onSaved }: Pro
     setRecurrence({
       frequency: 'weekly',
       interval: 1,
-      daysOfWeek: [1],
+      days: ['monday'],
       startDate: new Date().toISOString().split('T')[0],
     });
     setGeneratedSessions([]);
@@ -159,13 +175,43 @@ export function GroupFormDialog({ open, onClose, branchId, group, onSaved }: Pro
       return;
     }
 
+    // Validar que si es semanal, tenga días seleccionados
+    if (recurrence.frequency === 'weekly' && (!recurrence.days || recurrence.days.length === 0)) {
+      alert('Debes seleccionar al menos un día de la semana');
+      return;
+    }
+
+    // Limpiar recurrence para enviar solo valores válidos
+    const cleanRecurrence: any = {
+      frequency: recurrence.frequency,
+      interval: recurrence.interval,
+      startDate: recurrence.startDate,
+    };
+    
+    if (recurrence.days && recurrence.days.length > 0) {
+      cleanRecurrence.days = recurrence.days;
+    }
+    
+    if (recurrence.endDate && recurrence.endDate.trim()) {
+      cleanRecurrence.endDate = recurrence.endDate;
+    }
+    
+    if (recurrence.maxOccurrences && recurrence.maxOccurrences > 0) {
+      cleanRecurrence.maxOccurrences = recurrence.maxOccurrences;
+    }
+
+    const payload = {
+      courses: selectedCourses,
+      recurrence: cleanRecurrence,
+    };
+    
+    console.log('🚀 Enviando a generateCalendar:', JSON.stringify(payload, null, 2));
+
     setLoading(true);
     try {
-      const response = await api.generateCalendar({
-        courseIds: selectedCourses.map((c) => c.courseId),
-        instructorIds: selectedCourses.map((c) => c.instructorId),
-        recurrenceConfig: recurrence,
-      });
+      const response = await api.generateCalendar(payload);
+      console.log('📥 Respuesta del backend:', JSON.stringify(response, null, 2));
+      console.log('📅 Primera sesión:', response.sessions?.[0]);
       setGeneratedSessions(response.sessions);
       setStep(4);
     } catch (error) {
@@ -197,7 +243,7 @@ export function GroupFormDialog({ open, onClose, branchId, group, onSaved }: Pro
         name,
         description: description.trim() || undefined,
         courses: selectedCourses,
-        recurrenceConfig: recurrence,
+        recurrence: recurrence,
         sessions: generatedSessions,
       };
 
@@ -217,27 +263,70 @@ export function GroupFormDialog({ open, onClose, branchId, group, onSaved }: Pro
     }
   };
 
+  const canGenerateCalendar = () => {
+    if (selectedCourses.length === 0) return false;
+    if (!recurrence.startDate) return false;
+    if (recurrence.frequency === 'weekly' && (!recurrence.days || recurrence.days.length === 0)) return false;
+    // Si tiene endDate, asegurarse que no esté vacío
+    if (recurrence.endDate && !recurrence.endDate.trim()) return false;
+    return true;
+  };
+
   const canGoNext = () => {
     if (step === 1) return name.trim().length > 0;
     if (step === 2) return selectedCourses.length > 0;
-    if (step === 3) return true;
+    if (step === 3) return canGenerateCalendar();
     return false;
   };
 
-  return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-[95vw] w-full max-h-[95vh] h-full flex flex-col">
-        <DialogTitle>
-          {group ? 'Editar Grupo' : 'Crear Grupo'} - Paso {step} de 4
-        </DialogTitle>
-        <DialogDescription>
-          {step === 1 && 'Información básica del grupo'}
-          {step === 2 && 'Selecciona cursos y asigna instructores'}
-          {step === 3 && 'Configura la recurrencia del calendario'}
-          {step === 4 && 'Revisa y edita el calendario generado'}
-        </DialogDescription>
+  const getStepDescription = () => {
+    if (step === 1) return 'Información básica del grupo';
+    if (step === 2) return 'Selecciona cursos y asigna instructores';
+    if (step === 3) return 'Configura la recurrencia del calendario';
+    if (step === 4) return 'Revisa y edita el calendario generado';
+    return '';
+  };
 
-        <div className="flex-1 overflow-y-auto py-4">
+  return (
+    <ResponsiveDialog 
+      open={open} 
+      onOpenChange={onClose}
+      title={`${group ? 'Editar Grupo' : 'Crear Grupo'} - Paso ${step} de 4`}
+      description={getStepDescription()}
+      defaultMaximized={true}
+      footer={
+        <>
+          {step > 1 && (
+            <Button
+              variant="outline"
+              onClick={() => setStep(step - 1)}
+              disabled={loading}
+            >
+              Anterior
+            </Button>
+          )}
+          <Button variant="outline" onClick={onClose} disabled={loading}>
+            Cancelar
+          </Button>
+          {step < 3 && (
+            <Button onClick={() => setStep(step + 1)} disabled={!canGoNext() || loading}>
+              Siguiente
+            </Button>
+          )}
+          {step === 3 && (
+            <Button onClick={handleGenerateCalendar} disabled={loading || !canGenerateCalendar()}>
+              {loading ? 'Generando...' : 'Generar Calendario'}
+            </Button>
+          )}
+          {step === 4 && generatedSessions.length > 0 && (
+            <Button onClick={handleSave} disabled={loading}>
+              {loading ? 'Guardando...' : group ? 'Actualizar' : 'Crear Grupo'}
+            </Button>
+          )}
+        </>
+      }
+    >
+      <div className="space-y-6">
           {/* STEP 1: Información básica */}
           {step === 1 && (
             <div className="space-y-4 max-w-2xl mx-auto">
@@ -297,76 +386,41 @@ export function GroupFormDialog({ open, onClose, branchId, group, onSaved }: Pro
                 <SessionCalendarEditor
                   sessions={generatedSessions.map(s => ({
                     sessionNumber: s.sessionNumber,
-                    sessionDate: s.scheduledDate,
-                    topics: s.topics.map(t => ({
+                    sessionDate: s.sessionDate,
+                    topics: (s.topics || []).map(t => ({
                       courseId: t.courseId,
-                      courseName: '',
-                      topicMode: t.topicMode,
-                      topicTitle: t.topicName,
-                      topicDescription: '',
+                      courseName: availableCourses.find(c => c.id === t.courseId)?.name || '',
+                      topicMode: t.topicMode || 'auto',
+                      topicTitle: t.topicTitle || t.topicName || 'Tema pendiente',
+                      topicDescription: t.topicDescription || '',
                       instructorId: t.instructorId,
-                      orderIndex: 0,
+                      orderIndex: t.orderIndex || 0,
                     })),
                   }))}
                   onChange={(sessions) => {
                     setGeneratedSessions(sessions.map(s => ({
                       sessionNumber: s.sessionNumber,
-                      scheduledDate: s.sessionDate,
-                      topics: s.topics.map(t => ({
+                      sessionDate: s.sessionDate,
+                      topics: (s.topics || []).map((t, index) => ({
                         courseId: t.courseId,
-                        topicName: t.topicTitle,
+                        topicTitle: t.topicTitle,
+                        topicDescription: t.topicDescription,
                         instructorId: t.instructorId,
                         topicMode: t.topicMode,
+                        orderIndex: index + 1,
                       })),
                     })));
                   }}
-                  courseTopics={{}}
+                  courseTopics={availableCourses.reduce((acc, course) => {
+                    acc[course.id] = course.themes || [];
+                    return acc;
+                  }, {} as Record<string, any[]>)}
                   instructors={availableInstructors}
                 />
               )}
             </div>
           )}
-        </div>
-
-        {/* Footer con navegación */}
-        <div className="flex items-center justify-between pt-4 border-t border-neutral-4">
-          <div className="flex gap-2">
-            {step > 1 && (
-              <Button
-                variant="outline"
-                onClick={() => setStep(step - 1)}
-                disabled={loading}
-              >
-                Anterior
-              </Button>
-            )}
-          </div>
-
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={onClose} disabled={loading}>
-              Cancelar
-            </Button>
-
-            {step < 3 && (
-              <Button onClick={() => setStep(step + 1)} disabled={!canGoNext() || loading}>
-                Siguiente
-              </Button>
-            )}
-
-            {step === 3 && (
-              <Button onClick={handleGenerateCalendar} disabled={loading}>
-                {loading ? 'Generando...' : 'Generar Calendario'}
-              </Button>
-            )}
-
-            {step === 4 && generatedSessions.length > 0 && (
-              <Button onClick={handleSave} disabled={loading}>
-                {loading ? 'Guardando...' : group ? 'Actualizar' : 'Crear Grupo'}
-              </Button>
-            )}
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </ResponsiveDialog>
   );
 }

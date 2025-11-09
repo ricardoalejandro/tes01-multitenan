@@ -76,9 +76,9 @@ export default function SessionCalendarEditor({ sessions, onChange, courseTopics
 
   const filteredSessions = sessions.filter(
     (s) =>
-      s.sessionNumber.toString().includes(searchTerm) ||
-      s.sessionDate.includes(searchTerm) ||
-      s.topics.some((t) => t.topicTitle.toLowerCase().includes(searchTerm.toLowerCase()))
+      (s.sessionNumber?.toString() || '').includes(searchTerm) ||
+      (s.sessionDate || '').includes(searchTerm) ||
+      (s.topics || []).some((t) => (t.topicTitle || '').toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   return (
@@ -143,7 +143,7 @@ export default function SessionCalendarEditor({ sessions, onChange, courseTopics
                     />
                   </div>
 
-                  {session.topics.map((topic, topicIndex) => (
+                  {(session.topics || []).map((topic, topicIndex) => (
                     <div key={topicIndex} className="border border-neutral-3 rounded-lg p-4 space-y-3">
                       <div className="flex items-center justify-between">
                         <h4 className="font-semibold text-accent-11">📚 {topic.courseName}</h4>

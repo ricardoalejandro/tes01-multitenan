@@ -72,7 +72,10 @@ export const groupRoutes: FastifyPluginAsync = async (fastify) => {
     
     let whereCondition = sql`${classGroups.branchId} = ${branchId} AND ${classGroups.status} != 'eliminado'`;
     if (search) {
-      whereCondition = sql`${classGroups.branchId} = ${branchId} AND ${classGroups.status} != 'eliminado' AND ${classGroups.name} ILIKE ${`%${search}%`}`;
+      whereCondition = sql`${classGroups.branchId} = ${branchId} AND ${classGroups.status} != 'eliminado' AND (
+        ${classGroups.name} ILIKE ${`%${search}%`} OR
+        ${classGroups.description} ILIKE ${`%${search}%`}
+      )`;
     }
     
     const [groups, [{ count }]] = await Promise.all([
@@ -176,6 +179,7 @@ export const groupRoutes: FastifyPluginAsync = async (fastify) => {
   // POST /api/groups/generate-calendar - Generar calendario en memoria
   fastify.post('/generate-calendar', async (request, reply) => {
     try {
+      console.log('📅 Generate calendar request body:', JSON.stringify(request.body, null, 2));
       const validatedData = generateCalendarSchema.parse(request.body);
       const { recurrence, courses: groupCoursesInput } = validatedData;
 
@@ -223,7 +227,9 @@ export const groupRoutes: FastifyPluginAsync = async (fastify) => {
 
       return { sessions };
     } catch (error: any) {
-      return reply.code(400).send({ error: error.message });
+      console.error('❌ Generate calendar error:', error);
+      console.error('Error details:', error.issues || error.message);
+      return reply.code(400).send({ error: error.message, details: error.issues });
     }
   });
 
