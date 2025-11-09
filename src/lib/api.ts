@@ -242,6 +242,47 @@ class ApiClient {
     const response = await this.client.get('/attendance/stats', { params: { groupId } });
     return response.data;
   }
+
+  // Nuevos métodos para sistema avanzado de grupos
+  async generateCalendar(data: any) {
+    const response = await this.client.post('/groups/generate-calendar', data);
+    return response.data;
+  }
+
+  async getGroupDetails(id: string) {
+    const response = await this.client.get(`/groups/${id}`);
+    return response.data;
+  }
+
+  async enrollStudents(groupId: string, data: any) {
+    const response = await this.client.post(`/groups/${groupId}/enroll`, data);
+    return response.data;
+  }
+
+  async getGroupStudents(groupId: string) {
+    const response = await this.client.get(`/groups/${groupId}/students`);
+    return response.data;
+  }
+
+  async getAvailableStudents(groupId: string, branchId: string) {
+    const response = await this.client.get(`/groups/${groupId}/available-students`, { params: { branchId } });
+    return response.data;
+  }
+
+  async unenrollStudent(groupId: string, studentId: string) {
+    const response = await this.client.delete(`/groups/${groupId}/enroll/${studentId}`);
+    return response.data;
+  }
+
+  async changeGroupStatus(groupId: string, data: any) {
+    const response = await this.client.put(`/groups/${groupId}/status`, data);
+    return response.data;
+  }
+
+  async getGroupTransactions(groupId: string) {
+    const response = await this.client.get(`/groups/${groupId}/transactions`);
+    return response.data;
+  }
 }
 
 export const api = new ApiClient();

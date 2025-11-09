@@ -1,25 +1,27 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Search, Edit, Trash2 } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, UserPlus, GitMerge, History } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select } from '@/components/ui/select';
-import { ResponsiveDialog } from '@/components/ui/responsive-dialog';
 import { DataTablePagination } from '@/components/ui/data-table-pagination';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
+import { GroupFormDialog } from './GroupFormDialog';
+import { GroupEnrollmentDialog } from './GroupEnrollmentDialog';
+import { GroupStatusChangeDialog } from './GroupStatusChangeDialog';
+import { GroupTransactionsDialog } from './GroupTransactionsDialog';
 
 interface Group {
   id: string;
   name: string;
   description: string;
-  startDate: string;
-  frequency: string;
+  status: string;
+  branch_name: string;
+  recurrence_start_date: string;
+  recurrence_frequency: string;
 }
 
 interface PaginationData {
@@ -33,14 +35,14 @@ export default function GroupsModule({ branchId }: { branchId: string }) {
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingGroup, setEditingGroup] = useState<Group | null>(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    startDate: new Date().toISOString().split('T')[0],
-    frequency: 'Semanal'
-  });
+  
+  // Diálogos
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isEnrollOpen, setIsEnrollOpen] = useState(false);
+  const [isStatusOpen, setIsStatusOpen] = useState(false);
+  const [isTransactionsOpen, setIsTransactionsOpen] = useState(false);
+  
+  const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -62,17 +64,9 @@ export default function GroupsModule({ branchId }: { branchId: string }) {
   const loadGroups = async () => {
     try {
       setLoading(true);
-      const response = await api.getGroups(branchId, page, pageSize, search);
-      
-      if (response.data) {
-        setGroups(response.data);
-      } else {
-        setGroups([]);
-      }
-      
-      if (response.pagination) {
-        setPagination(response.pagination);
-      }
+      const response = await api.getGroups(page, pageSize, search);
+      setGroups(response.groups || []);
+      setPagination(response.pagination || { page: 1, limit: 10, total: 0, totalPages: 0 });
     } catch (error) {
       toast.error('Error al cargar grupos', { duration: 1500 });
       setGroups([]);
@@ -81,39 +75,30 @@ export default function GroupsModule({ branchId }: { branchId: string }) {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      if (editingGroup) {
-        await api.updateGroup(editingGroup.id, { ...formData, branchId });
-        toast.success('Grupo actualizado', { duration: 1500 });
-      } else {
-        await api.createGroup({ ...formData, branchId });
-        toast.success('Grupo creado', { duration: 1500 });
-      }
-      setIsDialogOpen(false);
-      resetForm();
-      loadGroups();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Error al guardar', { duration: 1500 });
-    }
+  const handleEdit = (group: Group) => {
+    setSelectedGroup(group);
+    setIsFormOpen(true);
   };
 
-  const handleEdit = (group: Group) => {
-    setEditingGroup(group);
-    setFormData({
-      name: group.name,
-      description: group.description || '',
-      startDate: group.startDate ? group.startDate.split('T')[0] : '',
-      frequency: group.frequency
-    });
-    setIsDialogOpen(true);
+  const handleEnroll = (group: Group) => {
+    setSelectedGroup(group);
+    setIsEnrollOpen(true);
+  };
+
+  const handleChangeStatus = (group: Group) => {
+    setSelectedGroup(group);
+    setIsStatusOpen(true);
+  };
+
+  const handleViewTransactions = (group: Group) => {
+    setSelectedGroup(group);
+    setIsTransactionsOpen(true);
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('¿Eliminar este grupo definitivamente? Esta acción marcará el registro como eliminado y no se mostrará en el sistema.')) return;
+    if (!confirm('¿Cambiar estado a "Eliminado"? Esta acción se puede revertir desde el cambio de estado.')) return;
     try {
-      await api.deleteGroup(id);
+      await api.changeGroupStatus(id, { newStatus: 'eliminado' });
       toast.success('Grupo eliminado', { duration: 1500 });
       loadGroups();
     } catch (error) {
@@ -121,23 +106,16 @@ export default function GroupsModule({ branchId }: { branchId: string }) {
     }
   };
 
-  const resetForm = () => {
-    setEditingGroup(null);
-    setFormData({
-      name: '',
-      description: '',
-      startDate: new Date().toISOString().split('T')[0],
-      frequency: 'Semanal'
-    });
-  };
-
-  const getFrequencyVariant = (frequency: string) => {
-    switch (frequency) {
-      case 'Diario': return 'success';
-      case 'Semanal': return 'default';
-      case 'Mensual': return 'warning';
-      default: return 'secondary';
-    }
+  const getStatusBadge = (status: string) => {
+    const variants: Record<string, any> = {
+      active: { label: 'Activo', variant: 'success' },
+      closed: { label: 'Cerrado', variant: 'warning' },
+      finished: { label: 'Finalizado', variant: 'default' },
+      eliminado: { label: 'Eliminado', variant: 'destructive' },
+      merged: { label: 'Fusionado', variant: 'secondary' },
+    };
+    const config = variants[status] || { label: status, variant: 'secondary' };
+    return <Badge variant={config.variant}>{config.label}</Badge>;
   };
 
   return (
@@ -150,7 +128,7 @@ export default function GroupsModule({ branchId }: { branchId: string }) {
           <p className="text-neutral-9 mt-1">Gestión de grupos de estudio</p>
         </div>
         <Button
-          onClick={() => { resetForm(); setIsDialogOpen(true); }}
+          onClick={() => { setSelectedGroup(null); setIsFormOpen(true); }}
           className="bg-accent-9 hover:bg-accent-10 text-white"
         >
           <Plus className="mr-2 h-4 w-4" />
@@ -183,7 +161,8 @@ export default function GroupsModule({ branchId }: { branchId: string }) {
                 <TableHead>Nombre</TableHead>
                 <TableHead>Descripción</TableHead>
                 <TableHead>Fecha Inicio</TableHead>
-                <TableHead>Frecuencia</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead>Recurrencia</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
@@ -192,16 +171,54 @@ export default function GroupsModule({ branchId }: { branchId: string }) {
                 <TableRow key={group.id}>
                   <TableCell className="font-medium">{group.name}</TableCell>
                   <TableCell className="max-w-md truncate">{group.description || '-'}</TableCell>
-                  <TableCell>{new Date(group.startDate).toLocaleDateString('es-PE')}</TableCell>
                   <TableCell>
-                    <Badge variant={getFrequencyVariant(group.frequency)}>{group.frequency}</Badge>
+                    {group.recurrence_start_date
+                      ? new Date(group.recurrence_start_date).toLocaleDateString('es-PE')
+                      : '-'}
                   </TableCell>
+                  <TableCell>{getStatusBadge(group.status)}</TableCell>
+                  <TableCell className="capitalize">{group.recurrence_frequency || '-'}</TableCell>
                   <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => handleEdit(group)}>
+                    <div className="flex justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEdit(group)}
+                        title="Editar"
+                      >
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleDelete(group.id)} className="text-red-600 hover:text-red-700 hover:bg-red-50">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEnroll(group)}
+                        title="Inscribir estudiantes"
+                      >
+                        <UserPlus className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleChangeStatus(group)}
+                        title="Cambiar estado"
+                      >
+                        <GitMerge className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleViewTransactions(group)}
+                        title="Ver historial"
+                      >
+                        <History className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(group.id)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        title="Eliminar"
+                      >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -222,59 +239,44 @@ export default function GroupsModule({ branchId }: { branchId: string }) {
         )}
       </div>
 
-      <ResponsiveDialog 
-        open={isDialogOpen} 
-        onOpenChange={setIsDialogOpen}
-        title={`${editingGroup ? 'Editar' : 'Nuevo'} Grupo`}
-      >
-          <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="space-y-4">
-                <div>
-                  <Label>Nombre del Grupo</Label>
-                  <Input
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label>Descripción</Label>
-                  <Textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    rows={3}
-                  />
-                </div>
-                <div>
-                  <Label>Fecha de Inicio</Label>
-                  <Input
-                    type="date"
-                    value={formData.startDate}
-                    onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label>Frecuencia</Label>
-                  <Select
-                    value={formData.frequency}
-                    onChange={(e) => setFormData({ ...formData, frequency: e.target.value })}
-                    required
-                  >
-                    <option value="Diario">Diario</option>
-                    <option value="Semanal">Semanal</option>
-                    <option value="Mensual">Mensual</option>
-                  </Select>
-                </div>
-              </div>
-              <div className="flex justify-end gap-3 pt-4">
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
-                <Button type="submit" className="bg-accent-9 hover:bg-accent-10 text-white">
-                  {editingGroup ? 'Actualizar' : 'Crear'}
-                </Button>
-              </div>
-          </form>
-      </ResponsiveDialog>
+      {/* Diálogos */}
+      <GroupFormDialog
+        open={isFormOpen}
+        onClose={() => setIsFormOpen(false)}
+        branchId={branchId}
+        group={selectedGroup}
+        onSaved={() => {
+          loadGroups();
+          toast.success(selectedGroup ? 'Grupo actualizado' : 'Grupo creado', { duration: 1500 });
+        }}
+      />
+
+      <GroupEnrollmentDialog
+        open={isEnrollOpen}
+        onClose={() => setIsEnrollOpen(false)}
+        groupId={selectedGroup?.id || ''}
+        onEnrolled={() => {
+          loadGroups();
+          toast.success('Estudiantes inscritos correctamente', { duration: 1500 });
+        }}
+      />
+
+      <GroupStatusChangeDialog
+        open={isStatusOpen}
+        onClose={() => setIsStatusOpen(false)}
+        group={selectedGroup}
+        onStatusChanged={() => {
+          loadGroups();
+          toast.success('Estado actualizado correctamente', { duration: 1500 });
+        }}
+      />
+
+      <GroupTransactionsDialog
+        open={isTransactionsOpen}
+        onClose={() => setIsTransactionsOpen(false)}
+        groupId={selectedGroup?.id || null}
+        groupName={selectedGroup?.name || ''}
+      />
     </div>
   );
 }

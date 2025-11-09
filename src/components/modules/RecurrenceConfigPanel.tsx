@@ -1,0 +1,117 @@
+'use client';
+
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
+
+interface RecurrenceConfig {
+  frequency: 'daily' | 'weekly' | 'monthly';
+  interval: number;
+  days?: string[];
+  startDate: string;
+  endDate?: string;
+  maxOccurrences?: number;
+}
+
+interface Props {
+  value: RecurrenceConfig;
+  onChange: (config: RecurrenceConfig) => void;
+}
+
+const DAYS = [
+  { value: 'monday', label: 'L' },
+  { value: 'tuesday', label: 'M' },
+  { value: 'wednesday', label: 'X' },
+  { value: 'thursday', label: 'J' },
+  { value: 'friday', label: 'V' },
+  { value: 'saturday', label: 'S' },
+  { value: 'sunday', label: 'D' },
+];
+
+export default function RecurrenceConfigPanel({ value, onChange }: Props) {
+  const toggleDay = (day: string) => {
+    const days = value.days || [];
+    const newDays = days.includes(day) ? days.filter((d) => d !== day) : [...days, day];
+    onChange({ ...value, days: newDays });
+  };
+
+  return (
+    <div className="space-y-4 border border-neutral-4 rounded-lg p-4">
+      <h3 className="font-semibold">Recurrencia Personalizada</h3>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label>Frecuencia</Label>
+          <Select value={value.frequency} onChange={(e) => onChange({ ...value, frequency: e.target.value as any })}>
+            <option value="daily">Diario</option>
+            <option value="weekly">Semanal</option>
+            <option value="monthly">Mensual</option>
+          </Select>
+        </div>
+
+        <div>
+          <Label>Repetir cada</Label>
+          <Input
+            type="number"
+            min={1}
+            value={value.interval}
+            onChange={(e) => onChange({ ...value, interval: Number(e.target.value) })}
+          />
+        </div>
+      </div>
+
+      {value.frequency === 'weekly' && (
+        <div>
+          <Label>Días de la semana</Label>
+          <div className="flex gap-2 mt-2">
+            {DAYS.map((day) => (
+              <button
+                key={day.value}
+                type="button"
+                onClick={() => toggleDay(day.value)}
+                className={`w-10 h-10 rounded-full font-semibold transition-colors ${
+                  value.days?.includes(day.value)
+                    ? 'bg-accent-9 text-white'
+                    : 'bg-neutral-3 text-neutral-10 hover:bg-neutral-4'
+                }`}
+              >
+                {day.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label>Fecha de inicio</Label>
+          <Input
+            type="date"
+            value={value.startDate}
+            onChange={(e) => onChange({ ...value, startDate: e.target.value })}
+          />
+        </div>
+
+        <div>
+          <Label>Fecha de fin</Label>
+          <Input
+            type="date"
+            value={value.endDate || ''}
+            onChange={(e) => onChange({ ...value, endDate: e.target.value || undefined })}
+          />
+        </div>
+      </div>
+
+      <div>
+        <Label>O después de N ocurrencias</Label>
+        <Input
+          type="number"
+          min={1}
+          placeholder="Opcional"
+          value={value.maxOccurrences || ''}
+          onChange={(e) => onChange({ ...value, maxOccurrences: e.target.value ? Number(e.target.value) : undefined })}
+        />
+      </div>
+    </div>
+  );
+}

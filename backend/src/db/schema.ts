@@ -1,4 +1,5 @@
 import { pgTable, text, uuid, timestamp, decimal, integer, boolean, date, pgEnum, unique, index } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 // Enums
 export const roleEnum = pgEnum('role', ['superadmin', 'admin', 'instructor']);
@@ -9,7 +10,7 @@ export const studentStatusEnum = pgEnum('student_status', ['Activo', 'Fluctuante
 export const admissionReasonEnum = pgEnum('admission_reason', ['Traslado', 'Recuperado', 'Nuevo']);
 export const instructorStatusEnum = pgEnum('instructor_status', ['Activo', 'Inactivo', 'Licencia', 'Eliminado']);
 export const courseStatusEnum = pgEnum('course_status', ['active', 'inactive', 'eliminado']);
-export const groupStatusEnum = pgEnum('group_status', ['active', 'closed', 'finished', 'eliminado']);
+export const groupStatusEnum = pgEnum('group_status', ['active', 'closed', 'finished', 'eliminado', 'merged']);
 export const frequencyEnum = pgEnum('frequency', ['Diario', 'Semanal', 'Mensual']);
 export const dayEnum = pgEnum('day', ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']);
 export const attendanceStatusEnum = pgEnum('attendance_status', ['Presente', 'Ausente', 'Tardanza', 'Justificado']);
@@ -150,6 +151,12 @@ export const classGroups = pgTable('class_groups', {
   frequency: frequencyEnum('frequency').notNull(),
   status: groupStatusEnum('status').notNull().default('active'),
   isScheduleGenerated: boolean('is_schedule_generated').default(false).notNull(),
+  // Campos de recurrencia personalizada
+  recurrenceFrequency: text('recurrence_frequency'), // 'daily' | 'weekly' | 'monthly'
+  recurrenceInterval: integer('recurrence_interval').default(1),
+  recurrenceDays: text('recurrence_days'), // JSON: '["monday","thursday"]'
+  endDate: date('end_date'),
+  maxOccurrences: integer('max_occurrences'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -164,6 +171,8 @@ export const groupCourses = pgTable('group_courses', {
   groupId: uuid('group_id').notNull().references(() => classGroups.id, { onDelete: 'cascade' }),
   courseId: uuid('course_id').notNull().references(() => courses.id),
   instructorId: uuid('instructor_id').notNull().references(() => instructors.id),
+  orderIndex: integer('order_index').notNull().default(1),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
 export const classSessions = pgTable('class_sessions', {
@@ -188,8 +197,50 @@ export const groupEnrollments = pgTable('group_enrollments', {
   id: uuid('id').primaryKey().defaultRandom(),
   groupId: uuid('group_id').notNull().references(() => classGroups.id, { onDelete: 'cascade' }),
   studentId: uuid('student_id').notNull().references(() => students.id, { onDelete: 'cascade' }),
+  enrollmentDate: date('enrollment_date').notNull().default(sql`CURRENT_DATE`),
+  status: text('status').notNull().default('active'),
   enrolledAt: timestamp('enrolled_at').defaultNow().notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
+
+// Tabla: group_sessions (calendario de sesiones del grupo)
+export const groupSessions = pgTable('group_sessions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  groupId: uuid('group_id').notNull().references(() => classGroups.id, { onDelete: 'cascade' }),
+  sessionNumber: integer('session_number').notNull(),
+  sessionDate: date('session_date').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Tabla: group_session_topics (temas por sesión/curso - copia independiente)
+export const groupSessionTopics = pgTable('group_session_topics', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  sessionId: uuid('session_id').notNull().references(() => groupSessions.id, { onDelete: 'cascade' }),
+  courseId: uuid('course_id').notNull().references(() => courses.id, { onDelete: 'cascade' }),
+  topicMode: text('topic_mode').notNull(), // 'auto' | 'selected' | 'manual'
+  topicTitle: text('topic_title').notNull(),
+  topicDescription: text('topic_description'),
+  instructorId: uuid('instructor_id').notNull().references(() => instructors.id, { onDelete: 'restrict' }),
+  orderIndex: integer('order_index').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Tabla: group_transactions (historial de cambios de estado)
+export const groupTransactions = pgTable('group_transactions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  groupId: uuid('group_id').notNull().references(() => classGroups.id, { onDelete: 'cascade' }),
+  transactionType: text('transaction_type').notNull(),
+  description: text('description').notNull(),
+  observation: text('observation'),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+  targetGroupId: uuid('target_group_id').references(() => classGroups.id, { onDelete: 'set null' }),
+  transactionDate: timestamp('transaction_date').defaultNow().notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
 
 export const attendanceRecords = pgTable('attendance_records', {
   id: uuid('id').primaryKey().defaultRandom(),
