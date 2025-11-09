@@ -5,9 +5,14 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
 
+# Install git (required for some npm packages)
+RUN apk add --no-cache git python3 make g++
+
 # Copy package files
-COPY backend/package.json backend/package-lock.json ./
-RUN npm ci
+COPY package.json ./
+
+# Install ALL dependencies
+RUN npm install --verbose
 
 # Stage 2: Builder
 FROM node:20-alpine AS builder
@@ -15,7 +20,7 @@ WORKDIR /app
 
 # Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
-COPY backend/ ./
+COPY . ./
 
 # Build TypeScript
 RUN npm run build
@@ -26,16 +31,24 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Install wget for health checks
-RUN apk add --no-cache wget
+# Install runtime dependencies
+RUN apk add --no-cache wget netcat-openbsd git python3 make g++
 
-# Install production dependencies only
-COPY backend/package.json backend/package-lock.json ./
-RUN npm ci --only=production
+# Copy package file
+COPY package.json ./
 
-# Copy built application
+# Install production dependencies and required tools
+RUN npm install --omit=dev && \
+    npm install -g drizzle-kit tsx
+
+# Copy built application from builder
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/drizzle.config.ts ./
+COPY --from=builder /app/src ./src
+COPY drizzle.config.ts ./
+
+# Copy entrypoint script
+COPY docker-entrypoint.sh ./
+RUN chmod +x docker-entrypoint.sh
 
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs
@@ -51,4 +64,4 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOST="0.0.0.0"
 
-CMD ["node", "dist/index.js"]
+ENTRYPOINT ["./docker-entrypoint.sh"]

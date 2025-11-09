@@ -40,8 +40,8 @@ services:
   # Fastify Backend API
   backend:
     build:
-      context: .
-      dockerfile: backend.Dockerfile
+      context: ./backend
+      dockerfile: ../backend.Dockerfile
     container_name: multitenant_backend
     environment:
       NODE_ENV: production
