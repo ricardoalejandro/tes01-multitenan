@@ -27,17 +27,25 @@ declare module 'fastify' {
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const HOST = process.env.HOST || '0.0.0.0';
 
-// Redis client
+// Redis client (disabled temporarily for testing)
 export const redisClient = createClient({
   url: process.env.REDIS_URL || 'redis://localhost:6379',
+  socket: {
+    connectTimeout: 5000,
+    reconnectStrategy: () => false, // Don't retry
+  },
 });
 
-redisClient.on('error', (err) => console.log('Redis Client Error', err));
+redisClient.on('error', (err) => console.log('Redis Client Error (ignored)', err));
 
 async function start() {
-  // Connect to Redis
-  await redisClient.connect();
-  console.log('✅ Connected to Redis');
+  // Connect to Redis (disabled temporarily for testing)
+  try {
+    await redisClient.connect();
+    console.log('✅ Connected to Redis');
+  } catch (error) {
+    console.log('⚠️  Redis connection failed, continuing without cache');
+  }
 
   // Create Fastify instance
   const fastify = Fastify({

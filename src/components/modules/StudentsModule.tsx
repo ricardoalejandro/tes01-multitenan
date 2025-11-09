@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Search, Edit, Trash2 } from 'lucide-react';
+import { Plus, Search, Edit, History, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,6 +20,9 @@ import {
 } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
+import { StudentStatusChangeDialog } from './StudentStatusChangeDialog';
+import { StudentImportDialog } from './StudentImportDialog';
+import { StudentTransactionsDialog } from './StudentTransactionsDialog';
 
 interface Student { 
   id: string;
@@ -31,12 +34,16 @@ interface Student {
   phone: string | null;
   gender: string;
   birthDate: string | null;
-  status: string;
-  monthlyFee: number;
   documentType: string;
-  admissionDate: string;
-  admissionReason: string;
   address?: string | null;
+  department?: string | null;
+  province?: string | null;
+  district?: string | null;
+  // Campos de student_branches (por filial)
+  status: 'Alta' | 'Baja';
+  admissionDate: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 interface PaginationData {
   page: number;
@@ -61,11 +68,11 @@ export default function StudentsModule({ branchId }: { branchId: string }) {
     email: '',
     phone: '',
     address: '',
+    department: '',
+    province: '',
+    district: '',
     birthDate: '',
     admissionDate: new Date().toISOString().split('T')[0],
-    admissionReason: 'Nuevo',
-    status: 'Activo',
-    monthlyFee: 0,
   });
 
   const [page, setPage] = useState(1);
@@ -77,6 +84,13 @@ export default function StudentsModule({ branchId }: { branchId: string }) {
     totalPages: 0,
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  // Estados para los nuevos diálogos
+  const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [isTransactionsDialogOpen, setIsTransactionsDialogOpen] = useState(false);
+  const [selectedStudentForAction, setSelectedStudentForAction] = useState<Student | null>(null);
+  const [existingStudentData, setExistingStudentData] = useState<any>(null);
 
   useEffect(() => {
     loadStudents();
@@ -173,7 +187,16 @@ export default function StudentsModule({ branchId }: { branchId: string }) {
       const errorMessage = error.response?.data?.error || error.response?.data?.message || 'Error al guardar';
       const errorType = error.response?.data?.type;
       
-      // Si es una validación de negocio (409), mostrar como advertencia
+      // Si es un estudiante duplicado (409), mostrar diálogo de importación
+      if (error.response?.status === 409 && errorType === 'duplicate_student') {
+        const existingData = error.response?.data?.student;
+        setExistingStudentData(existingData);
+        setIsDialogOpen(false); // Cerrar diálogo de creación
+        setIsImportDialogOpen(true); // Abrir diálogo de importación
+        return;
+      }
+      
+      // Si es otra validación de negocio (409), mostrar como advertencia
       if (error.response?.status === 409 || errorType === 'validation') {
         toast.warning(errorMessage, { duration: 3000 });
       } else {
@@ -194,26 +217,15 @@ export default function StudentsModule({ branchId }: { branchId: string }) {
       email: student.email || '',
       phone: student.phone || '',
       address: student.address || '',
+      department: student.department || '',
+      province: student.province || '',
+      district: student.district || '',
       birthDate: student.birthDate ? student.birthDate.split('T')[0] : '',
       admissionDate: student.admissionDate
         ? student.admissionDate.split('T')[0]
         : new Date().toISOString().split('T')[0],
-      admissionReason: student.admissionReason || 'Nuevo',
-      status: student.status || 'Activo',
-      monthlyFee: student.monthlyFee || 0,
     });
     setIsDialogOpen(true);
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!confirm('¿Eliminar este probacionista definitivamente? Esta acción marcará el registro como eliminado y no se mostrará en el sistema.')) return;
-    try {
-      await api.deleteStudent(id);
-      toast.success('Probacionista eliminado', { duration: 1500 });
-      loadStudents();
-    } catch (error) {
-      toast.error('Error al eliminar', { duration: 1500 });
-    }
   };
 
   const resetForm = () => {
@@ -228,26 +240,13 @@ export default function StudentsModule({ branchId }: { branchId: string }) {
       email: '',
       phone: '',
       address: '',
+      department: '',
+      province: '',
+      district: '',
       birthDate: '',
       admissionDate: new Date().toISOString().split('T')[0],
-      admissionReason: 'Nuevo',
-      status: 'Activo',
-      monthlyFee: 0,
     });
     setFormErrors({});
-  };
-
-  const getStatusVariant = (status: string) => {
-    switch (status) {
-      case 'Activo':
-        return 'success';
-      case 'Inactivo':
-        return 'danger';
-      case 'Fluctuante':
-        return 'warning';
-      default:
-        return 'secondary';
-    }
   };
 
   return (
@@ -305,7 +304,6 @@ export default function StudentsModule({ branchId }: { branchId: string }) {
                 <TableHead>Email</TableHead>
                 <TableHead>Teléfono</TableHead>
                 <TableHead>Estado</TableHead>
-                <TableHead>Mensualidad</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
@@ -319,27 +317,41 @@ export default function StudentsModule({ branchId }: { branchId: string }) {
                   <TableCell>{student.email || '-'}</TableCell>
                   <TableCell>{student.phone || '-'}</TableCell>
                   <TableCell>
-                    <Badge variant={getStatusVariant(student.status)}>
+                    <Badge variant={student.status === 'Alta' ? 'success' : 'danger'}>
                       {student.status}
                     </Badge>
                   </TableCell>
-                  <TableCell>S/. {parseFloat(student.monthlyFee as any).toFixed(2)}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleEdit(student)}
+                        onClick={() => {
+                          setSelectedStudentForAction(student);
+                          setIsTransactionsDialogOpen(true);
+                        }}
+                        title="Ver Historial"
                       >
-                        <Edit className="h-4 w-4" />
+                        <History className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleDelete(student.id)}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => {
+                          setSelectedStudentForAction(student);
+                          setIsStatusDialogOpen(true);
+                        }}
+                        title="Cambiar Estado"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <RefreshCw className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEdit(student)}
+                        title="Editar"
+                      >
+                        <Edit className="h-4 w-4" />
                       </Button>
                     </div>
                   </TableCell>
@@ -525,56 +537,39 @@ export default function StudentsModule({ branchId }: { branchId: string }) {
                   />
                 </div>
 
-                {/* Admission Reason */}
+                {/* Department */}
                 <div>
-                  <Label>Motivo de Admisión</Label>
-                  <Select
-                    value={formData.admissionReason}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        admissionReason: e.target.value,
-                      })
-                    }
-                    required
-                  >
-                    <option value="Nuevo">Nuevo</option>
-                    <option value="Traslado">Traslado</option>
-                    <option value="Recuperado">Recuperado</option>
-                  </Select>
-                </div>
-
-                {/* Status */}
-                <div>
-                  <Label>Estado</Label>
-                  <Select
-                    value={formData.status}
-                    onChange={(e) =>
-                      setFormData({ ...formData, status: e.target.value })
-                    }
-                    required
-                  >
-                    <option value="Activo">Activo</option>
-                    <option value="Fluctuante">Fluctuante</option>
-                    <option value="Inactivo">Inactivo</option>
-                    <option value="Baja">Baja</option>
-                  </Select>
-                </div>
-
-                {/* Monthly Fee */}
-                <div className="col-span-2">
-                  <Label>Mensualidad (S/.)</Label>
+                  <Label>Departamento</Label>
                   <Input
-                    type="number"
-                    step="0.01"
-                    value={formData.monthlyFee}
+                    value={formData.department}
                     onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        monthlyFee: parseFloat(e.target.value) || 0,
-                      })
+                      setFormData({ ...formData, department: e.target.value })
                     }
-                    required
+                    placeholder="Ej: Lima"
+                  />
+                </div>
+
+                {/* Province */}
+                <div>
+                  <Label>Provincia</Label>
+                  <Input
+                    value={formData.province}
+                    onChange={(e) =>
+                      setFormData({ ...formData, province: e.target.value })
+                    }
+                    placeholder="Ej: Lima"
+                  />
+                </div>
+
+                {/* District */}
+                <div>
+                  <Label>Distrito</Label>
+                  <Input
+                    value={formData.district}
+                    onChange={(e) =>
+                      setFormData({ ...formData, district: e.target.value })
+                    }
+                    placeholder="Ej: San Miguel"
                   />
                 </div>
               </div>
@@ -592,6 +587,32 @@ export default function StudentsModule({ branchId }: { branchId: string }) {
               </div>
           </form>
       </ResponsiveDialog>
+
+      {/* Status Change Dialog */}
+      <StudentStatusChangeDialog
+        open={isStatusDialogOpen}
+        onOpenChange={setIsStatusDialogOpen}
+        student={selectedStudentForAction}
+        branchId={branchId}
+        onSuccess={loadStudents}
+      />
+
+      {/* Import Dialog */}
+      <StudentImportDialog
+        open={isImportDialogOpen}
+        onOpenChange={setIsImportDialogOpen}
+        existingStudent={existingStudentData}
+        currentBranchId={branchId}
+        onSuccess={loadStudents}
+      />
+
+      {/* Transactions Dialog */}
+      <StudentTransactionsDialog
+        open={isTransactionsDialogOpen}
+        onOpenChange={setIsTransactionsDialogOpen}
+        student={selectedStudentForAction}
+        branchId={branchId}
+      />
     </div>
   );
 }

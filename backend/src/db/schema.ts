@@ -1,4 +1,4 @@
-import { pgTable, text, uuid, timestamp, decimal, integer, boolean, date, pgEnum } from 'drizzle-orm/pg-core';
+import { pgTable, text, uuid, timestamp, decimal, integer, boolean, date, pgEnum, unique, index } from 'drizzle-orm/pg-core';
 
 // Enums
 export const roleEnum = pgEnum('role', ['superadmin', 'admin', 'instructor']);
@@ -35,9 +35,9 @@ export const branches = pgTable('branches', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+// Students table (global - DNI único a nivel global, sin branchId ni status)
 export const students = pgTable('students', {
   id: uuid('id').primaryKey().defaultRandom(),
-  branchId: uuid('branch_id').notNull().references(() => branches.id, { onDelete: 'cascade' }),
   documentType: documentTypeEnum('document_type').notNull(),
   dni: text('dni').notNull(),
   gender: genderEnum('gender').notNull(),
@@ -47,16 +47,40 @@ export const students = pgTable('students', {
   email: text('email'),
   phone: text('phone'),
   birthDate: date('birth_date'),
-  admissionDate: date('admission_date').notNull(),
-  admissionReason: admissionReasonEnum('admission_reason').notNull(),
-  status: studentStatusEnum('status').notNull().default('Activo'),
-  monthlyFee: decimal('monthly_fee', { precision: 10, scale: 2 }),
   address: text('address'),
   department: text('department'),
   province: text('province'),
   district: text('district'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  uniqueDocumentDni: unique('idx_students_document_dni_unique').on(table.documentType, table.dni),
+}));
+
+// Student-Branch relationship (muchos a muchos - un probacionista puede estar en múltiples filiales)
+export const studentBranches = pgTable('student_branches', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  studentId: uuid('student_id').notNull().references(() => students.id, { onDelete: 'cascade' }),
+  branchId: uuid('branch_id').notNull().references(() => branches.id, { onDelete: 'cascade' }),
+  status: text('status').notNull().default('Alta'), // 'Alta' | 'Baja'
+  admissionDate: date('admission_date').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  uniqueStudentBranch: unique('student_branches_student_branch_unique').on(table.studentId, table.branchId),
+}));
+
+// Student transactions (historial de movimientos)
+export const studentTransactions = pgTable('student_transactions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  studentId: uuid('student_id').notNull().references(() => students.id, { onDelete: 'cascade' }),
+  branchId: uuid('branch_id').references(() => branches.id, { onDelete: 'set null' }),
+  transactionType: text('transaction_type').notNull(), // 'Alta' | 'Baja' | 'Traslado' | 'Cambio de Grupo'
+  description: text('description').notNull(),
+  observation: text('observation'),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+  transactionDate: timestamp('transaction_date').defaultNow().notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
 export const courses = pgTable('courses', {

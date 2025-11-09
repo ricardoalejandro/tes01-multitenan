@@ -110,6 +110,23 @@ class ApiClient {
     return response.data;
   }
 
+  async importStudent(studentId: string, data: { branchId: string; admissionDate: string; observation?: string }) {
+    const response = await this.client.post(`/students/${studentId}/import`, data);
+    return response.data;
+  }
+
+  async changeStudentStatus(studentId: string, data: { branchId: string; status: 'Alta' | 'Baja'; observation: string }) {
+    const response = await this.client.put(`/students/${studentId}/status`, data);
+    return response.data;
+  }
+
+  async getStudentTransactions(studentId: string, branchId?: string, page?: number, limit?: number) {
+    const response = await this.client.get(`/students/${studentId}/transactions`, { 
+      params: { branchId, page, limit } 
+    });
+    return response.data;
+  }
+
   // Courses
   async getCourses(branchId: string, page?: number, limit?: number, search?: string) {
     const response = await this.client.get('/courses', { 

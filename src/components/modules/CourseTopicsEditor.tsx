@@ -56,7 +56,7 @@ export default function CourseTopicsEditor({ courseId, initialTopics = [], onCha
         return {
           ...topic,
           [field]: value,
-          _status: topic.id ? 'modified' : 'new',
+          _status: (topic.id ? 'modified' : 'new') as 'new' | 'modified',
         };
       }
       return topic;
