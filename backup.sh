@@ -2,9 +2,9 @@
 # Script para hacer backup de la base de datos de Probacionismo
 
 # Directorio de backups
-BACKUP_DIR="/root/backups/probacionismo"
-DATE=$(date +%Y%m%d_%H%M%S)
-BACKUP_FILE="${BACKUP_DIR}/db_backup_${DATE}.sql.gz"
+BACKUP_DIR="/root/backupsBD/probacionismo"
+DATE=$(date +%Y-%m-%d_%H-%M-%S)
+BACKUP_FILE="${BACKUP_DIR}/backup_${DATE}.sql.gz"
 
 # Crear directorio si no existe
 mkdir -p ${BACKUP_DIR}
