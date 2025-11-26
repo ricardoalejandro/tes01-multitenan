@@ -4,7 +4,13 @@ import { useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Select } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { ResponsiveDialog } from '@/components/ui/responsive-dialog';
 import { Badge } from '@/components/ui/badge';
@@ -32,6 +38,7 @@ export function StudentStatusChangeDialog({
   onSuccess,
 }: StudentStatusChangeDialogProps) {
   const [newStatus, setNewStatus] = useState<'Alta' | 'Baja'>('Alta');
+  const [statusSubtype, setStatusSubtype] = useState('');
   const [observation, setObservation] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -50,6 +57,7 @@ export function StudentStatusChangeDialog({
       await api.changeStudentStatus(student.id, {
         branchId,
         status: newStatus,
+        transactionSubtype: statusSubtype,
         observation: observation.trim(),
       });
 
@@ -75,6 +83,7 @@ export function StudentStatusChangeDialog({
         if (!isOpen) {
           setObservation('');
           setNewStatus('Alta');
+          setStatusSubtype('');
         }
       }}
       title="Cambiar Estado del Probacionista"
@@ -97,15 +106,60 @@ export function StudentStatusChangeDialog({
         <div>
           <Label htmlFor="new-status">Nuevo Estado *</Label>
           <Select
-            id="new-status"
             value={newStatus}
-            onChange={(e) => setNewStatus(e.target.value as 'Alta' | 'Baja')}
+            onValueChange={(value) => setNewStatus(value as 'Alta' | 'Baja')}
             required
           >
-            <option value="Alta">Alta</option>
-            <option value="Baja">Baja</option>
+            <SelectTrigger id="new-status">
+              <SelectValue placeholder="Seleccionar estado" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Alta">Alta</SelectItem>
+              <SelectItem value="Baja">Baja</SelectItem>
+            </SelectContent>
           </Select>
         </div>
+
+        {/* Status Subtype (Conditional) */}
+        {newStatus === 'Baja' && (
+          <div>
+            <Label htmlFor="status-subtype">Motivo de Baja *</Label>
+            <Select
+              value={statusSubtype}
+              onValueChange={setStatusSubtype}
+              required
+            >
+              <SelectTrigger id="status-subtype">
+                <SelectValue placeholder="Seleccionar motivo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Académica">Baja Académica</SelectItem>
+                <SelectItem value="Disciplinaria">Baja Disciplinaria</SelectItem>
+                <SelectItem value="Voluntaria">Retiro Voluntario</SelectItem>
+                <SelectItem value="Administrativa">Administrativa</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {newStatus === 'Alta' && (
+          <div>
+            <Label htmlFor="status-subtype">Tipo de Reingreso *</Label>
+            <Select
+              value={statusSubtype}
+              onValueChange={setStatusSubtype}
+              required
+            >
+              <SelectTrigger id="status-subtype">
+                <SelectValue placeholder="Seleccionar tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Recuperado">Recuperado</SelectItem>
+                <SelectItem value="Reingreso">Reingreso Regular</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         {/* Observation (mandatory) */}
         <div>

@@ -87,7 +87,7 @@ export function CounselingModule({ studentId }: CounselingModuleProps) {
     const config = {
       frio: { label: '❄️ Frío', variant: 'secondary' as const },
       tibio: { label: '😐 Tibio', variant: 'default' as const },
-      caliente: { label: '🔥 Caliente', variant: 'destructive' as const },
+      caliente: { label: '🔥 Caliente', variant: 'danger' as const },
     };
     const ind = config[indicator as keyof typeof config];
     return <Badge variant={ind.variant}>{ind.label}</Badge>;

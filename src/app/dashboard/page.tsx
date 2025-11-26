@@ -92,8 +92,8 @@ export default function DashboardPage() {
   };
 
   // Filtrar branches según toggle
-  const filteredBranches = showInactive 
-    ? branches 
+  const filteredBranches = showInactive
+    ? branches
     : branches.filter(b => b.active !== false);
 
   if (loading) {
@@ -120,7 +120,7 @@ export default function DashboardPage() {
               </p>
             </div>
           </div>
-          
+
           <div className="flex gap-2">
             {/* Dropdown de usuario */}
             <DropdownMenu>
@@ -193,7 +193,7 @@ export default function DashboardPage() {
                 Selecciona una filial para comenzar a trabajar
               </p>
             </div>
-            
+
             <div className="flex items-center gap-4">
               {/* Toggle mostrar inactivas */}
               <label className="flex items-center gap-2 cursor-pointer">
@@ -246,8 +246,8 @@ export default function DashboardPage() {
                     No hay filiales disponibles
                   </h3>
                   <p className="text-sm text-neutral-9">
-                    {showInactive 
-                      ? 'No tienes filiales asignadas' 
+                    {showInactive
+                      ? 'No tienes filiales asignadas'
                       : 'No hay filiales activas. Activa el toggle para ver inactivas.'}
                   </p>
                 </div>
@@ -282,7 +282,7 @@ export default function DashboardPage() {
                     </p>
                     {branch.roleName && (
                       <div className="mb-3">
-                        <Badge variant="outline" className="text-xs">
+                        <Badge variant="secondary" className="text-xs">
                           Rol: {branch.roleName}
                         </Badge>
                       </div>
@@ -323,7 +323,7 @@ export default function DashboardPage() {
                             {branch.description || 'Sin descripción'}
                           </p>
                           {branch.roleName && (
-                            <Badge variant="outline" className="text-xs mt-1">
+                            <Badge variant="secondary" className="text-xs mt-1">
                               Rol: {branch.roleName}
                             </Badge>
                           )}
@@ -353,8 +353,8 @@ export default function DashboardPage() {
                   </thead>
                   <tbody className="divide-y divide-neutral-5">
                     {filteredBranches.map((branch) => (
-                      <tr 
-                        key={branch.id} 
+                      <tr
+                        key={branch.id}
                         className="hover:bg-neutral-2 transition-colors cursor-pointer"
                         onClick={() => handleSelectBranch(branch.id, branch.roleId)}
                       >
@@ -376,7 +376,7 @@ export default function DashboardPage() {
                         </td>
                         <td className="px-4 py-3">
                           {branch.roleName ? (
-                            <Badge variant="outline">{branch.roleName}</Badge>
+                            <Badge variant="secondary">{branch.roleName}</Badge>
                           ) : (
                             <span className="text-sm text-neutral-8">-</span>
                           )}

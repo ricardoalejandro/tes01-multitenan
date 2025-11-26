@@ -2,7 +2,13 @@
 
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface RecurrenceConfig {
   frequency: 'daily' | 'weekly' | 'monthly';
@@ -42,10 +48,18 @@ export default function RecurrenceConfigPanel({ value, onChange }: Props) {
       <div className="grid grid-cols-2 gap-4">
         <div>
           <Label>Frecuencia</Label>
-          <Select value={value.frequency} onChange={(e) => onChange({ ...value, frequency: e.target.value as any })}>
-            <option value="daily">Diario</option>
-            <option value="weekly">Semanal</option>
-            <option value="monthly">Mensual</option>
+          <Select
+            value={value.frequency}
+            onValueChange={(val) => onChange({ ...value, frequency: val as any })}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Seleccionar frecuencia" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="daily">Diario</SelectItem>
+              <SelectItem value="weekly">Semanal</SelectItem>
+              <SelectItem value="monthly">Mensual</SelectItem>
+            </SelectContent>
           </Select>
         </div>
 
@@ -69,11 +83,10 @@ export default function RecurrenceConfigPanel({ value, onChange }: Props) {
                 key={day.value}
                 type="button"
                 onClick={() => toggleDay(day.value)}
-                className={`w-10 h-10 rounded-full font-semibold transition-colors ${
-                  value.days?.includes(day.value)
+                className={`w-10 h-10 rounded-full font-semibold transition-colors ${value.days?.includes(day.value)
                     ? 'bg-accent-9 text-white'
                     : 'bg-neutral-3 text-neutral-10 hover:bg-neutral-4'
-                }`}
+                  }`}
               >
                 {day.label}
               </button>

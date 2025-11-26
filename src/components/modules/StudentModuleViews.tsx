@@ -1,9 +1,15 @@
 'use client';
 
-import { Edit, History, RefreshCw } from 'lucide-react';
+import { Edit, History, RefreshCw, GraduationCap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface Student {
   id: string;
@@ -25,10 +31,11 @@ interface Props {
   onEdit: (student: Student) => void;
   onChangeStatus: (student: Student) => void;
   onViewTransactions: (student: Student) => void;
+  onCounseling?: (student: Student) => void;
 }
 
 // ============= CARDS VIEW =============
-export function StudentModuleCardsView({ students, onEdit, onChangeStatus, onViewTransactions }: Props) {
+export function StudentModuleCardsView({ students, onEdit, onChangeStatus, onViewTransactions, onCounseling }: Props) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
       {students.map((student) => (
@@ -77,29 +84,71 @@ export function StudentModuleCardsView({ students, onEdit, onChangeStatus, onVie
 
           {/* Actions */}
           <div className="flex gap-1 pt-3 border-t border-neutral-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onEdit(student)}
-              className="flex-1"
-            >
-              <Edit className="h-4 w-4 mr-1" />
-              Editar
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onChangeStatus(student)}
-            >
-              <RefreshCw className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onViewTransactions(student)}
-            >
-              <History className="h-4 w-4" />
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onEdit(student)}
+                    className="flex-1"
+                  >
+                    <Edit className="h-4 w-4 mr-1" />
+                    Editar
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Editar información del probacionista</p>
+                </TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onChangeStatus(student)}
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Cambiar estado (Alta/Baja)</p>
+                </TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onViewTransactions(student)}
+                  >
+                    <History className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Ver historial de movimientos</p>
+                </TooltipContent>
+              </Tooltip>
+
+              {onCounseling && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onCounseling(student)}
+                    >
+                      <GraduationCap className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Asesoría Filosófica</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </TooltipProvider>
           </div>
         </div>
       ))}
@@ -108,7 +157,7 @@ export function StudentModuleCardsView({ students, onEdit, onChangeStatus, onVie
 }
 
 // ============= COMPACT VIEW =============
-export function StudentModuleCompactView({ students, onEdit, onChangeStatus, onViewTransactions }: Props) {
+export function StudentModuleCompactView({ students, onEdit, onChangeStatus, onViewTransactions, onCounseling }: Props) {
   return (
     <div className="divide-y divide-neutral-4">
       {students.map((student) => (
@@ -135,15 +184,53 @@ export function StudentModuleCompactView({ students, onEdit, onChangeStatus, onV
 
           {/* Actions */}
           <div className="flex gap-1 shrink-0">
-            <Button variant="ghost" size="sm" onClick={() => onEdit(student)}>
-              <Edit className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => onChangeStatus(student)}>
-              <RefreshCw className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => onViewTransactions(student)}>
-              <History className="h-4 w-4" />
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="sm" onClick={() => onEdit(student)}>
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Editar información</p>
+                </TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="sm" onClick={() => onChangeStatus(student)}>
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Cambiar estado</p>
+                </TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="sm" onClick={() => onViewTransactions(student)}>
+                    <History className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Historial</p>
+                </TooltipContent>
+              </Tooltip>
+
+              {onCounseling && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="sm" onClick={() => onCounseling(student)}>
+                      <GraduationCap className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Asesoría Filosófica</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </TooltipProvider>
           </div>
         </div>
       ))}
@@ -152,7 +239,7 @@ export function StudentModuleCompactView({ students, onEdit, onChangeStatus, onV
 }
 
 // ============= LIST VIEW (TABLE) =============
-export function StudentModuleListView({ students, onEdit, onChangeStatus, onViewTransactions }: Props) {
+export function StudentModuleListView({ students, onEdit, onChangeStatus, onViewTransactions, onCounseling }: Props) {
   return (
     <Table>
       <TableHeader>
@@ -190,15 +277,53 @@ export function StudentModuleListView({ students, onEdit, onChangeStatus, onView
             </TableCell>
             <TableCell className="text-right">
               <div className="flex justify-end gap-1">
-                <Button variant="ghost" size="sm" onClick={() => onEdit(student)}>
-                  <Edit className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => onChangeStatus(student)}>
-                  <RefreshCw className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => onViewTransactions(student)}>
-                  <History className="h-4 w-4" />
-                </Button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="sm" onClick={() => onEdit(student)}>
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Editar</p>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="sm" onClick={() => onChangeStatus(student)}>
+                        <RefreshCw className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Cambiar estado</p>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="sm" onClick={() => onViewTransactions(student)}>
+                        <History className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Historial</p>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  {onCounseling && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" size="sm" onClick={() => onCounseling(student)}>
+                          <GraduationCap className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Asesoría Filosófica</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                </TooltipProvider>
               </div>
             </TableCell>
           </TableRow>

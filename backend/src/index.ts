@@ -20,6 +20,7 @@ import { userRoutes } from './routes/users';
 import { roleRoutes } from './routes/roles';
 import { systemRoutes } from './routes/system';
 import counselingRoutes from './routes/counseling.js';
+import googleAuthRoutes from './routes/googleAuth';
 
 // Extend Fastify types
 declare module 'fastify' {
@@ -151,6 +152,7 @@ async function start() {
   await fastify.register(roleRoutes, { prefix: '/api/roles' });
   await fastify.register(systemRoutes, { prefix: '/api/system' });
   await fastify.register(counselingRoutes, { prefix: '/api/counseling' });
+  await fastify.register(googleAuthRoutes, { prefix: '/api' });
 
   // Start server
   try {

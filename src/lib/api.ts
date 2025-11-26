@@ -45,7 +45,7 @@ class ApiClient {
           (silentError as any).config = error.config;
           return Promise.reject(silentError);
         }
-        
+
         if (error.response?.status === 401) {
           if (typeof window !== 'undefined') {
             localStorage.removeItem('auth_token');
@@ -135,22 +135,22 @@ class ApiClient {
     return response.data;
   }
 
-  async changeStudentStatus(studentId: string, data: { branchId: string; status: 'Alta' | 'Baja'; observation: string }) {
+  async changeStudentStatus(studentId: string, data: { branchId: string; status: 'Alta' | 'Baja'; observation: string; transactionSubtype?: string }) {
     const response = await this.client.put(`/students/${studentId}/status`, data);
     return response.data;
   }
 
   async getStudentTransactions(studentId: string, branchId?: string, page?: number, limit?: number) {
-    const response = await this.client.get(`/students/${studentId}/transactions`, { 
-      params: { branchId, page, limit } 
+    const response = await this.client.get(`/students/${studentId}/transactions`, {
+      params: { branchId, page, limit }
     });
     return response.data;
   }
 
   // Courses
   async getCourses(branchId: string, page?: number, limit?: number, search?: string) {
-    const response = await this.client.get('/courses', { 
-      params: { branchId, page, limit, search } 
+    const response = await this.client.get('/courses', {
+      params: { branchId, page, limit, search }
     });
     return response.data;
   }
@@ -172,8 +172,8 @@ class ApiClient {
 
   // Instructors
   async getInstructors(branchId: string, page?: number, limit?: number, search?: string) {
-    const response = await this.client.get('/instructors', { 
-      params: { branchId, page, limit, search } 
+    const response = await this.client.get('/instructors', {
+      params: { branchId, page, limit, search }
     });
     return response.data;
   }
@@ -195,8 +195,8 @@ class ApiClient {
 
   // Groups
   async getGroups(branchId: string, page?: number, limit?: number, search?: string) {
-    const response = await this.client.get('/groups', { 
-      params: { branchId, page, limit, search } 
+    const response = await this.client.get('/groups', {
+      params: { branchId, page, limit, search }
     });
     return response.data;
   }

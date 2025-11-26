@@ -209,6 +209,49 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     };
   });
 
+  // POST /api/auth/test-email - Endpoint de prueba para diagnóstico (solo en desarrollo)
+  fastify.post('/test-email', async (request, reply) => {
+    const { to } = request.body as { to: string };
+
+    if (!to) {
+      return reply.code(400).send({ error: 'El email destino es requerido' });
+    }
+
+    try {
+      console.log('🧪 [TEST EMAIL] Iniciando prueba de envío a:', to);
+      
+      // Intentar enviar email de prueba
+      await sendPasswordResetEmail(
+        to, 
+        'Usuario de Prueba',
+        'test-token-12345',
+        process.env.FRONTEND_URL || 'http://localhost:5000'
+      );
+
+      console.log('✅ [TEST EMAIL] Email enviado exitosamente');
+      
+      return { 
+        success: true,
+        message: 'Email de prueba enviado exitosamente',
+        to,
+        timestamp: new Date().toISOString()
+      };
+
+    } catch (error: any) {
+      console.error('❌ [TEST EMAIL] Error:', error);
+      
+      return reply.code(500).send({ 
+        success: false,
+        error: 'Error al enviar email de prueba',
+        details: error.message,
+        code: error.code,
+        command: error.command,
+        response: error.response,
+        responseCode: error.responseCode,
+      });
+    }
+  });
+
   // POST /api/auth/forgot-password - Solicitar reseteo de contraseña
   fastify.post('/forgot-password', async (request, reply) => {
     const { email } = request.body as { email: string };
@@ -243,25 +286,29 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
         expiresAt,
       });
 
-      // Enviar email
+      // Enviar email (ahora con OAuth si está disponible)
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5000';
       await sendPasswordResetEmail(user.email, user.username, token, frontendUrl);
 
       return { 
-        message: 'Si el email existe, recibirás instrucciones para restablecer tu contraseña' 
+        message: 'Se ha enviado un email con instrucciones para restablecer tu contraseña' 
       };
 
     } catch (error: any) {
       console.error('Error en forgot-password:', error);
       
-      // Si es error de SMTP, informar específicamente
-      if (error.message && error.message.includes('SMTP')) {
+      // Dar un mensaje más específico según el error
+      if (error.message && error.message.includes('configuración de email')) {
         return reply.code(500).send({ 
-          error: 'Error al enviar el email. El servidor de correo no está configurado correctamente.' 
+          error: 'El servidor de correo no está configurado',
+          message: 'Por favor contacta al administrador para configurar el servicio de email'
         });
       }
       
-      return reply.code(500).send({ error: 'Error al procesar la solicitud' });
+      return reply.code(500).send({ 
+        error: 'Error al procesar la solicitud',
+        message: 'No se pudo enviar el email. Por favor intenta más tarde o contacta al administrador.'
+      });
     }
   });
 

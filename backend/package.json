@@ -26,6 +26,7 @@
     "dotenv": "^16.4.7",
     "drizzle-orm": "^0.36.4",
     "fastify": "^5.3.0",
+    "googleapis": "^166.0.0",
     "nodemailer": "^7.0.10",
     "pino": "^9.5.0",
     "pino-pretty": "^13.0.0",
@@ -36,7 +37,7 @@
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",
-    "@types/node": "^22.0.0",
+    "@types/node": "^22.19.1",
     "drizzle-kit": "https://registry.npmjs.org/drizzle-kit/-/drizzle-kit-0.28.1.tgz",
     "tsx": "^4.19.2",
     "typescript": "^5.7.0"

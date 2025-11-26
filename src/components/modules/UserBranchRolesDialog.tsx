@@ -93,7 +93,7 @@ export function UserBranchRolesDialog({
                     className="flex items-center justify-between p-3 border rounded-lg"
                   >
                     <div className="flex gap-2">
-                      <Badge variant="outline">{getBranchName(assignment.branchId)}</Badge>
+                      <Badge variant="secondary">{getBranchName(assignment.branchId)}</Badge>
                       <Badge>{getRoleName(assignment.roleId)}</Badge>
                     </div>
                     <Button

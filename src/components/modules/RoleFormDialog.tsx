@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { cn } from '@/lib/utils';
 
 const MODULES = [
   { key: 'students', label: 'Estudiantes' },
@@ -78,66 +79,75 @@ export function RoleFormDialog({ open, onOpenChange, role, onSave }: RoleFormDia
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+      <DialogContent onClose={() => onOpenChange(false)} className="max-w-4xl">
         <DialogHeader>
           <DialogTitle>{role ? 'Editar Rol' : 'Nuevo Rol'}</DialogTitle>
         </DialogHeader>
+        
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="space-y-2">
-            <Label htmlFor="name">Nombre del Rol *</Label>
-            <Input
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              placeholder="Ej: Coordinador, Asistente"
-            />
-          </div>
+          <div className="p-8 space-y-6">
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Nombre del Rol *</Label>
+                <Input
+                  id="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  placeholder="Ej: Coordinador, Asistente"
+                />
+              </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="description">Descripción</Label>
-            <Input
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Descripción opcional del rol"
-            />
-          </div>
+              <div className="space-y-2">
+                <Label htmlFor="description">Descripción</Label>
+                <Input
+                  id="description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Descripción opcional del rol"
+                />
+              </div>
+            </div>
 
-          <div className="space-y-4">
-            <h3 className="font-semibold text-neutral-11">Permisos por Módulo</h3>
-            <div className="border rounded-lg overflow-hidden">
-              <table className="w-full">
-                <thead className="bg-neutral-3">
-                  <tr>
-                    <th className="text-left p-3 font-semibold text-sm">Módulo</th>
-                    {PERMISSIONS.map(p => (
-                      <th key={p.key} className="text-center p-3 font-semibold text-sm">{p.label}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {MODULES.map(module => (
-                    <tr key={module.key} className="border-t">
-                      <td className="p-3 font-medium">{module.label}</td>
-                      {PERMISSIONS.map(perm => (
-                        <td key={perm.key} className="text-center p-3">
-                          <Checkbox
-                            checked={permissions[module.key]?.[perm.key] || false}
-                            onCheckedChange={(checked) => 
-                              handlePermissionChange(module.key, perm.key, checked as boolean)
-                            }
-                          />
-                        </td>
+            <div className="space-y-4">
+              <h3 className="font-semibold text-neutral-11 text-lg">Permisos por Módulo</h3>
+              <div className="border rounded-lg overflow-hidden shadow-sm">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gradient-to-r from-neutral-2 to-neutral-3">
+                      <tr>
+                        <th className="text-left p-4 font-semibold text-sm text-neutral-12 min-w-[150px]">Módulo</th>
+                        {PERMISSIONS.map(p => (
+                          <th key={p.key} className="text-center p-4 font-semibold text-sm text-neutral-11 min-w-[100px]">{p.label}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white">
+                      {MODULES.map((module, idx) => (
+                        <tr key={module.key} className={cn("border-t hover:bg-neutral-1 transition-colors", idx % 2 === 0 && "bg-neutral-1/30")}>
+                          <td className="p-4 font-medium text-neutral-12">{module.label}</td>
+                          {PERMISSIONS.map(perm => (
+                            <td key={perm.key} className="text-center p-4">
+                              <div className="flex justify-center">
+                                <Checkbox
+                                  checked={permissions[module.key]?.[perm.key] || false}
+                                  onCheckedChange={(checked) => 
+                                    handlePermissionChange(module.key, perm.key, checked as boolean)
+                                  }
+                                />
+                              </div>
+                            </td>
+                          ))}
+                        </tr>
                       ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="flex gap-2 pt-4 border-t">
+          <div className="flex gap-3 px-8 pb-8 border-t pt-6">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
               Cancelar
             </Button>

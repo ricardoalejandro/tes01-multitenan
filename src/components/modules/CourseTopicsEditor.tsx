@@ -14,7 +14,7 @@ interface CourseTopic {
   id?: string;
   orderIndex: number;
   title: string;
-  description: string;
+  description?: string;
   _status?: 'new' | 'modified' | 'deleted';
 }
 
@@ -105,7 +105,7 @@ export default function CourseTopicsEditor({ courseId, initialTopics = [], onCha
     try {
       const url = `/courses/${courseId}/export?format=${exportFormat}&includeData=${exportIncludeData}`;
       const response = await api.axiosInstance.get(url, { responseType: 'blob' });
-      
+
       const blob = new Blob([response.data]);
       const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -115,7 +115,7 @@ export default function CourseTopicsEditor({ courseId, initialTopics = [], onCha
       link.click();
       link.remove();
       window.URL.revokeObjectURL(downloadUrl);
-      
+
       toast.success('Archivo exportado exitosamente', { duration: 1500 });
       setShowExportDialog(false);
     } catch (error) {
@@ -227,7 +227,7 @@ export default function CourseTopicsEditor({ courseId, initialTopics = [], onCha
                     ↓
                   </Button>
                 </div>
-                
+
                 <div className="flex-1 space-y-3">
                   <div>
                     <Label className="text-sm text-neutral-10">
@@ -372,8 +372,8 @@ export default function CourseTopicsEditor({ courseId, initialTopics = [], onCha
                     <div className="text-sm text-yellow-800">
                       <p className="font-medium">⚠️ Advertencia</p>
                       <p className="mt-1">
-                        Esto reemplazará TODOS los temas actuales del curso ({topics.length} temas) 
-                        con los {importPreview.length} temas del archivo. Los cambios se aplicarán 
+                        Esto reemplazará TODOS los temas actuales del curso ({topics.length} temas)
+                        con los {importPreview.length} temas del archivo. Los cambios se aplicarán
                         en memoria y deberás guardar el curso para confirmar.
                       </p>
                     </div>

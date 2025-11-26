@@ -86,6 +86,7 @@ export const studentTransactions = pgTable('student_transactions', {
   studentId: uuid('student_id').notNull().references(() => students.id, { onDelete: 'cascade' }),
   branchId: uuid('branch_id').references(() => branches.id, { onDelete: 'set null' }),
   transactionType: text('transaction_type').notNull(), // 'Alta' | 'Baja' | 'Traslado' | 'Cambio de Grupo'
+  transactionSubtype: text('transaction_subtype'), // 'Nuevo', 'Recuperado', 'Traslado', 'Baja Académica', etc.
   description: text('description').notNull(),
   observation: text('observation'),
   userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
@@ -334,6 +335,12 @@ export const systemConfig = pgTable('system_config', {
   configKey: text('config_key').notNull().unique(),
   configValue: text('config_value').notNull(),
   isEncrypted: boolean('is_encrypted').notNull().default(false),
+  // OAuth Google para SMTP
+  oauthProvider: text('oauth_provider'), // 'google', 'microsoft', etc.
+  oauthAccessToken: text('oauth_access_token'),
+  oauthRefreshToken: text('oauth_refresh_token'),
+  oauthTokenExpiry: timestamp('oauth_token_expiry'),
+  oauthEmail: text('oauth_email'),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
   updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' }),
 });

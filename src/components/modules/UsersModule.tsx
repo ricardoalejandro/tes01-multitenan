@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -58,11 +58,7 @@ export function UsersModule() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [userBranchRoles, setUserBranchRoles] = useState<UserBranchRole[]>([]);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const [usersRes, branchesRes, rolesRes] = await Promise.all([
@@ -78,7 +74,11 @@ export function UsersModule() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [search]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleSearch = () => {
     loadData();
@@ -133,7 +133,7 @@ export function UsersModule() {
     }
   };
 
-  const filteredUsers = users.filter(u => 
+  const filteredUsers = users.filter(u =>
     u.username.toLowerCase().includes(search.toLowerCase()) ||
     u.fullName?.toLowerCase().includes(search.toLowerCase()) ||
     u.email?.toLowerCase().includes(search.toLowerCase())

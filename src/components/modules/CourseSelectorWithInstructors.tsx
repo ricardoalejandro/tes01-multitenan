@@ -2,7 +2,13 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Select } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Plus, X, GripVertical } from 'lucide-react';
 
 interface CourseWithInstructor {
@@ -110,15 +116,19 @@ export default function CourseSelectorWithInstructors({ value, onChange, availab
               <label className="text-sm font-medium text-neutral-10">Curso</label>
               <Select
                 value={course.courseId}
-                onChange={(e) => updateCourse(index, 'courseId', e.target.value)}
+                onValueChange={(value) => updateCourse(index, 'courseId', value)}
                 required
               >
-                <option value="">Seleccionar curso...</option>
-                {availableCourses.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar curso..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableCourses.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             </div>
 
@@ -126,15 +136,19 @@ export default function CourseSelectorWithInstructors({ value, onChange, availab
               <label className="text-sm font-medium text-neutral-10">Instructor</label>
               <Select
                 value={course.instructorId}
-                onChange={(e) => updateCourse(index, 'instructorId', e.target.value)}
+                onValueChange={(value) => updateCourse(index, 'instructorId', value)}
                 required
               >
-                <option value="">Seleccionar instructor...</option>
-                {availableInstructors.map((instructor) => (
-                  <option key={instructor.id} value={instructor.id}>
-                    {instructor.firstName} {instructor.paternalLastName}
-                  </option>
-                ))}
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar instructor..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableInstructors.map((instructor) => (
+                    <SelectItem key={instructor.id} value={instructor.id}>
+                      {instructor.firstName} {instructor.paternalLastName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             </div>
           </div>
