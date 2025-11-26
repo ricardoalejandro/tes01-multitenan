@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { Button } from './button';
-import { Select } from './select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select';
 
 interface DataTablePaginationProps {
   currentPage: number;
@@ -32,17 +32,21 @@ export function DataTablePagination({
           <p className="text-sm text-neutral-10">Filas por página</p>
           <Select
             value={pageSize.toString()}
-            onChange={(e) => {
-              onPageSizeChange(Number(e.target.value));
+            onValueChange={(value) => {
+              onPageSizeChange(Number(value));
               onPageChange(1);
             }}
-            className="h-8 w-[70px]"
           >
-            {[10, 25, 50, 100].map((size) => (
-              <option key={size} value={size.toString()}>
-                {size}
-              </option>
-            ))}
+            <SelectTrigger className="h-8 w-[70px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {[10, 25, 50, 100].map((size) => (
+                <SelectItem key={size} value={size.toString()}>
+                  {size}
+                </SelectItem>
+              ))}
+            </SelectContent>
           </Select>
         </div>
 

@@ -3,7 +3,13 @@
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Select } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Search, ChevronDown, ChevronRight, Trash2, Plus } from 'lucide-react';
 
@@ -184,19 +190,24 @@ export default function SessionCalendarEditor({ sessions, onChange, courseTopics
                           <label className="text-sm font-medium">Seleccionar tema del curso</label>
                           <Select
                             value={topic.topicTitle}
-                            onChange={(e) => {
-                              const selectedTheme = courseTopics[topic.courseId]?.find((t) => t.title === e.target.value);
-                              updateTopic(sessionIndex, topicIndex, 'topicTitle', e.target.value);
+                            onValueChange={(value) => {
+                              const selectedTheme = courseTopics[topic.courseId]?.find((t) => t.title === value);
+                              updateTopic(sessionIndex, topicIndex, 'topicTitle', value);
                               if (selectedTheme) {
                                 updateTopic(sessionIndex, topicIndex, 'topicDescription', selectedTheme.description || '');
                               }
                             }}
                           >
-                            {courseTopics[topic.courseId]?.map((theme: any) => (
-                              <option key={theme.id} value={theme.title}>
-                                {theme.title}
-                              </option>
-                            ))}
+                            <SelectTrigger>
+                              <SelectValue placeholder="Seleccionar tema" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {courseTopics[topic.courseId]?.map((theme: any) => (
+                                <SelectItem key={theme.id} value={theme.title}>
+                                  {theme.title}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
                           </Select>
                         </div>
                       )}
@@ -232,13 +243,18 @@ export default function SessionCalendarEditor({ sessions, onChange, courseTopics
                         <label className="text-sm font-medium">Instructor</label>
                         <Select
                           value={topic.instructorId}
-                          onChange={(e) => updateTopic(sessionIndex, topicIndex, 'instructorId', e.target.value)}
+                          onValueChange={(value) => updateTopic(sessionIndex, topicIndex, 'instructorId', value)}
                         >
-                          {instructors.map((instructor) => (
-                            <option key={instructor.id} value={instructor.id}>
-                              {instructor.firstName} {instructor.paternalLastName}
-                            </option>
-                          ))}
+                          <SelectTrigger>
+                            <SelectValue placeholder="Seleccionar instructor" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {instructors.map((instructor) => (
+                              <SelectItem key={instructor.id} value={instructor.id}>
+                                {instructor.firstName} {instructor.paternalLastName}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
                         </Select>
                       </div>
                     </div>

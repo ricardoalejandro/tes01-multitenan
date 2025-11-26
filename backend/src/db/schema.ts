@@ -3,6 +3,7 @@ import { sql } from 'drizzle-orm';
 
 // Enums
 export const roleEnum = pgEnum('role', ['superadmin', 'admin', 'instructor']);
+export const userTypeEnum = pgEnum('user_type', ['admin', 'normal']);
 export const statusEnum = pgEnum('status', ['active', 'inactive', 'eliminado']);
 export const documentTypeEnum = pgEnum('document_type', ['DNI', 'CNE', 'Pasaporte']);
 export const genderEnum = pgEnum('gender', ['Masculino', 'Femenino', 'Otro']);
@@ -14,13 +15,20 @@ export const groupStatusEnum = pgEnum('group_status', ['active', 'closed', 'fini
 export const frequencyEnum = pgEnum('frequency', ['Diario', 'Semanal', 'Mensual']);
 export const dayEnum = pgEnum('day', ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']);
 export const attendanceStatusEnum = pgEnum('attendance_status', ['Presente', 'Ausente', 'Tardanza', 'Justificado']);
+export const counselingIndicatorEnum = pgEnum('counseling_indicator', ['frio', 'tibio', 'caliente']);
 
 // Tables
+// Sistema de autenticación y usuarios
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   username: text('username').notNull().unique(),
   passwordHash: text('password_hash').notNull(),
-  role: roleEnum('role').notNull().default('instructor'),
+  fullName: text('full_name'),
+  email: text('email').notNull().unique(),
+  phone: text('phone'),
+  userType: userTypeEnum('user_type').notNull().default('normal'),
+  // Mantener role para compatibilidad temporal durante migración
+  role: roleEnum('role'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -32,6 +40,7 @@ export const branches = pgTable('branches', {
   codeNumber: integer('code_number').unique(),
   description: text('description'),
   status: statusEnum('status').notNull().default('active'),
+  active: boolean('active').notNull().default(true),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -77,6 +86,7 @@ export const studentTransactions = pgTable('student_transactions', {
   studentId: uuid('student_id').notNull().references(() => students.id, { onDelete: 'cascade' }),
   branchId: uuid('branch_id').references(() => branches.id, { onDelete: 'set null' }),
   transactionType: text('transaction_type').notNull(), // 'Alta' | 'Baja' | 'Traslado' | 'Cambio de Grupo'
+  transactionSubtype: text('transaction_subtype'), // 'Nuevo', 'Recuperado', 'Traslado', 'Baja Académica', etc.
   description: text('description').notNull(),
   observation: text('observation'),
   userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
@@ -250,3 +260,104 @@ export const attendanceRecords = pgTable('attendance_records', {
   notes: text('notes'),
   recordedAt: timestamp('recorded_at').defaultNow().notNull(),
 });
+
+// ============================================
+// SISTEMA DE ROLES Y PERMISOS
+// ============================================
+
+// Tabla: roles (Roles personalizados del sistema)
+export const roles = pgTable('roles', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull().unique(),
+  description: text('description'),
+  isSystemRole: boolean('is_system_role').notNull().default(false),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Tabla: role_permissions (Permisos por rol y módulo)
+export const rolePermissions = pgTable('role_permissions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  roleId: uuid('role_id').notNull().references(() => roles.id, { onDelete: 'cascade' }),
+  module: text('module').notNull(), // 'students', 'courses', 'instructors', 'groups', 'attendance', 'counseling', 'enrollments'
+  canView: boolean('can_view').notNull().default(false),
+  canCreate: boolean('can_create').notNull().default(false),
+  canEdit: boolean('can_edit').notNull().default(false),
+  canDelete: boolean('can_delete').notNull().default(false),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  uniqueRoleModule: unique('role_permissions_role_module_unique').on(table.roleId, table.module),
+}));
+
+// Tabla: user_branch_roles (Usuario → Filial → Rol)
+export const userBranchRoles = pgTable('user_branch_roles', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  branchId: uuid('branch_id').notNull().references(() => branches.id, { onDelete: 'cascade' }),
+  roleId: uuid('role_id').notNull().references(() => roles.id, { onDelete: 'restrict' }),
+  assignedAt: timestamp('assigned_at').defaultNow().notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  uniqueUserBranch: unique('user_branch_roles_user_branch_unique').on(table.userId, table.branchId),
+}));
+
+// ============================================
+// ASESORÍAS FILOSÓFICAS (HISTÓRICO)
+// ============================================
+
+// Tabla: philosophical_counseling (Asesorías con datos históricos)
+export const philosophicalCounseling = pgTable('philosophical_counseling', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  studentId: uuid('student_id').notNull().references(() => students.id, { onDelete: 'cascade' }),
+  instructorId: uuid('instructor_id').notNull().references(() => instructors.id, { onDelete: 'restrict' }),
+  branchId: uuid('branch_id').notNull().references(() => branches.id, { onDelete: 'restrict' }),
+  // Datos HISTÓRICOS del grupo (no FK - se mantienen aunque el grupo cambie)
+  groupName: text('group_name').notNull(),
+  groupCode: text('group_code'),
+  counselingDate: date('counseling_date').notNull().default(sql`CURRENT_DATE`),
+  indicator: counselingIndicatorEnum('indicator').notNull(),
+  observations: text('observations').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  idxCounselingStudent: index('idx_counseling_student').on(table.studentId),
+  idxCounselingDate: index('idx_counseling_date').on(table.counselingDate),
+  idxCounselingBranch: index('idx_counseling_branch').on(table.branchId),
+}));
+
+// ============================================
+// CONFIGURACIÓN DEL SISTEMA
+// ============================================
+
+// Tabla: system_config (Configuración SMTP y global)
+export const systemConfig = pgTable('system_config', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  configKey: text('config_key').notNull().unique(),
+  configValue: text('config_value').notNull(),
+  isEncrypted: boolean('is_encrypted').notNull().default(false),
+  // OAuth Google para SMTP
+  oauthProvider: text('oauth_provider'), // 'google', 'microsoft', etc.
+  oauthAccessToken: text('oauth_access_token'),
+  oauthRefreshToken: text('oauth_refresh_token'),
+  oauthTokenExpiry: timestamp('oauth_token_expiry'),
+  oauthEmail: text('oauth_email'),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' }),
+});
+
+// ============================================
+// RESETEO DE CONTRASEÑA
+// ============================================
+
+// Tabla: password_reset_tokens (Tokens temporales para reseteo)
+export const passwordResetTokens = pgTable('password_reset_tokens', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  token: text('token').notNull().unique(),
+  expiresAt: timestamp('expires_at').notNull(),
+  usedAt: timestamp('used_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  idxResetToken: index('idx_reset_token').on(table.token),
+  idxResetExpires: index('idx_reset_expires').on(table.expiresAt),
+}));

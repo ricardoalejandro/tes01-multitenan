@@ -9,7 +9,8 @@ done
 echo "✅ PostgreSQL is ready!"
 
 echo "🔄 Running database migrations..."
-npm run db:push || echo "⚠️  Migrations may have already been applied"
+npm run db:generate 2>/dev/null || echo "⚠️  Generate skip"
+npm run db:migrate || echo "⚠️  Migrations may have already been applied"
 
 echo "🌱 Running database seed..."
 npm run db:seed || echo "⚠️  Database may already be seeded"

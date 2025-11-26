@@ -4,7 +4,13 @@ import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Select } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { api } from '@/lib/api';
 
@@ -87,13 +93,13 @@ export function GroupStatusChangeDialog({ open, onClose, group, branchId, onStat
 
   const handleSubmit = async () => {
     if (!group) return;
-    
+
     // Validar observación
     if (!observation.trim() || observation.trim().length < 5) {
       alert('La observación es requerida y debe tener al menos 5 caracteres');
       return;
     }
-    
+
     if (newStatus === 'merged' && (!targetGroupId || selectedStudents.length === 0)) {
       alert('Para fusionar debes seleccionar un grupo destino y al menos un estudiante');
       return;
@@ -132,37 +138,42 @@ export function GroupStatusChangeDialog({ open, onClose, group, branchId, onStat
         <div className="space-y-4 pt-4">
           <div>
             <Label htmlFor="newStatus">Nuevo Estado</Label>
-            <select
-              id="newStatus"
+            <Select
               value={newStatus}
-              onChange={(e) => setNewStatus(e.target.value)}
-              className="w-full mt-1 px-3 py-2 border border-neutral-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-9 focus:border-transparent"
+              onValueChange={(value) => setNewStatus(value)}
             >
-              <option value="active">Activo</option>
-              <option value="closed">Cerrado</option>
-              <option value="finished">Finalizado</option>
-              <option value="eliminado">Eliminado</option>
-              <option value="merged">Fusionado</option>
-            </select>
+              <SelectTrigger id="newStatus" className="w-full mt-1">
+                <SelectValue placeholder="Seleccionar estado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Activo</SelectItem>
+                <SelectItem value="closed">Cerrado</SelectItem>
+                <SelectItem value="finished">Finalizado</SelectItem>
+                <SelectItem value="eliminado">Eliminado</SelectItem>
+                <SelectItem value="merged">Fusionado</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {isMerging && (
             <>
               <div>
                 <Label htmlFor="targetGroup">Grupo Destino</Label>
-                <select
-                  id="targetGroup"
+                <Select
                   value={targetGroupId}
-                  onChange={(e) => setTargetGroupId(e.target.value)}
-                  className="w-full mt-1 px-3 py-2 border border-neutral-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-9 focus:border-transparent"
+                  onValueChange={(value) => setTargetGroupId(value)}
                 >
-                  <option value="">Selecciona el grupo destino...</option>
-                  {availableGroups.map((g) => (
-                    <option key={g.id} value={g.id}>
-                      {g.name} - {g.branch_name}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger id="targetGroup" className="w-full mt-1">
+                    <SelectValue placeholder="Selecciona el grupo destino..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableGroups.map((g) => (
+                      <SelectItem key={g.id} value={g.id}>
+                        {g.name} - {g.branch_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>

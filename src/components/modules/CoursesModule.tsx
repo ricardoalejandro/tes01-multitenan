@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Plus, Search, Edit, Trash2, X } from 'lucide-react';
 import { CourseCardsView, CourseCompactView, CourseListView } from './CourseViews';
 import { Button } from '@/components/ui/button';
@@ -18,7 +18,7 @@ interface CourseTopic {
   id?: string;
   orderIndex: number;
   title: string;
-  description: string;
+  description?: string;
   _status?: 'new' | 'modified' | 'deleted';
 }
 
@@ -26,7 +26,7 @@ interface Course {
   id: string;
   name: string;
   description: string;
-  themes: CourseTopic[];
+  themes?: CourseTopic[];
 }
 
 interface PaginationData {
@@ -65,9 +65,31 @@ export default function CoursesModule({ branchId }: { branchId: string }) {
     totalPages: 0,
   });
 
+  const loadCourses = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await api.getCourses(branchId, page, pageSize, debouncedSearch);
+
+      if (response.data) {
+        setCourses(response.data);
+      } else {
+        setCourses([]);
+      }
+
+      if (response.pagination) {
+        setPagination(response.pagination);
+      }
+    } catch (error) {
+      toast.error('Error al cargar cursos', { duration: 1500 });
+      setCourses([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [branchId, page, pageSize, debouncedSearch]);
+
   useEffect(() => {
     loadCourses();
-  }, [branchId]);
+  }, [loadCourses]);
 
   // Debounce para búsqueda
   useEffect(() => {
@@ -80,29 +102,7 @@ export default function CoursesModule({ branchId }: { branchId: string }) {
 
   useEffect(() => {
     loadCourses();
-  }, [page, pageSize, debouncedSearch]);
-
-  const loadCourses = async () => {
-    try {
-      setLoading(true);
-      const response = await api.getCourses(branchId, page, pageSize, debouncedSearch);
-      
-      if (response.data) {
-        setCourses(response.data);
-      } else {
-        setCourses([]);
-      }
-      
-      if (response.pagination) {
-        setPagination(response.pagination);
-      }
-    } catch (error) {
-      toast.error('Error al cargar cursos', { duration: 1500 });
-      setCourses([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [loadCourses]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -116,19 +116,19 @@ export default function CoursesModule({ branchId }: { branchId: string }) {
         }));
 
       if (editingCourse) {
-        await api.updateCourse(editingCourse.id, { 
+        await api.updateCourse(editingCourse.id, {
           name: formData.name,
           description: formData.description,
-          branchId, 
-          themes: themesData 
+          branchId,
+          themes: themesData
         });
         toast.success('Curso actualizado', { duration: 1500 });
       } else {
-        await api.createCourse({ 
+        await api.createCourse({
           name: formData.name,
           description: formData.description,
-          branchId, 
-          themes: themesData 
+          branchId,
+          themes: themesData
         });
         toast.success('Curso creado', { duration: 1500 });
       }
@@ -145,13 +145,13 @@ export default function CoursesModule({ branchId }: { branchId: string }) {
     setFormData({
       name: course.name,
       description: course.description || '',
-      themes: course.themes.length > 0 
+      themes: (course.themes && course.themes.length > 0)
         ? course.themes.map((t, idx) => ({
-            id: t.id,
-            orderIndex: t.orderIndex || idx + 1,
-            title: t.title,
-            description: t.description || '',
-          }))
+          id: t.id,
+          orderIndex: t.orderIndex || idx + 1,
+          title: t.title,
+          description: t.description || '',
+        }))
         : []
     });
     setIsDialogOpen(true);
@@ -213,31 +213,28 @@ export default function CoursesModule({ branchId }: { branchId: string }) {
           <div className="flex border border-neutral-4 rounded-lg overflow-hidden bg-white">
             <button
               onClick={() => setViewMode('cards')}
-              className={`px-4 py-2 text-sm font-medium transition-colors ${
-                viewMode === 'cards' 
-                  ? 'bg-accent-9 text-white' 
-                  : 'bg-white text-neutral-11 hover:bg-neutral-2'
-              }`}
+              className={`px-4 py-2 text-sm font-medium transition-colors ${viewMode === 'cards'
+                ? 'bg-accent-9 text-white'
+                : 'bg-white text-neutral-11 hover:bg-neutral-2'
+                }`}
             >
               Tarjetas
             </button>
             <button
               onClick={() => setViewMode('compact')}
-              className={`px-4 py-2 text-sm font-medium transition-colors border-x border-neutral-4 ${
-                viewMode === 'compact' 
-                  ? 'bg-accent-9 text-white' 
-                  : 'bg-white text-neutral-11 hover:bg-neutral-2'
-              }`}
+              className={`px-4 py-2 text-sm font-medium transition-colors border-x border-neutral-4 ${viewMode === 'compact'
+                ? 'bg-accent-9 text-white'
+                : 'bg-white text-neutral-11 hover:bg-neutral-2'
+                }`}
             >
               Compacta
             </button>
             <button
               onClick={() => setViewMode('list')}
-              className={`px-4 py-2 text-sm font-medium transition-colors ${
-                viewMode === 'list' 
-                  ? 'bg-accent-9 text-white' 
-                  : 'bg-white text-neutral-11 hover:bg-neutral-2'
-              }`}
+              className={`px-4 py-2 text-sm font-medium transition-colors ${viewMode === 'list'
+                ? 'bg-accent-9 text-white'
+                : 'bg-white text-neutral-11 hover:bg-neutral-2'
+                }`}
             >
               Lista
             </button>
@@ -248,89 +245,89 @@ export default function CoursesModule({ branchId }: { branchId: string }) {
       {/* CONTENT SCROLLEABLE */}
       <div className="flex-1 overflow-auto">
         <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-neutral-4">
-        {loading ? (
-          <div className="p-8 text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent-9 mx-auto"></div>
-          </div>
-        ) : courses.length === 0 ? (
-          <div className="p-8 text-center text-neutral-10">No se encontraron cursos</div>
-        ) : (
-          <>
-          {/* CONDITIONAL VIEW RENDERING */}
-          {viewMode === 'cards' && (
-            <CourseCardsView 
-              courses={courses}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-            />
+          {loading ? (
+            <div className="p-8 text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent-9 mx-auto"></div>
+            </div>
+          ) : courses.length === 0 ? (
+            <div className="p-8 text-center text-neutral-10">No se encontraron cursos</div>
+          ) : (
+            <>
+              {/* CONDITIONAL VIEW RENDERING */}
+              {viewMode === 'cards' && (
+                <CourseCardsView
+                  courses={courses}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                />
+              )}
+              {viewMode === 'compact' && (
+                <CourseCompactView
+                  courses={courses}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                />
+              )}
+              {viewMode === 'list' && (
+                <CourseListView
+                  courses={courses}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                />
+              )}
+              <DataTablePagination
+                currentPage={pagination.page}
+                totalPages={pagination.totalPages}
+                totalItems={pagination.total}
+                pageSize={pagination.limit}
+                onPageChange={setPage}
+                onPageSizeChange={setPageSize}
+              />
+            </>
           )}
-          {viewMode === 'compact' && (
-            <CourseCompactView 
-              courses={courses}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-            />
-          )}
-          {viewMode === 'list' && (
-            <CourseListView 
-              courses={courses}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-            />
-          )}
-          <DataTablePagination
-            currentPage={pagination.page}
-            totalPages={pagination.totalPages}
-            totalItems={pagination.total}
-            pageSize={pagination.limit}
-            onPageChange={setPage}
-            onPageSizeChange={setPageSize}
-          />
-          </>
-        )}
         </div>
       </div>
 
-      <ResponsiveDialog 
-        open={isDialogOpen} 
+      <ResponsiveDialog
+        open={isDialogOpen}
         onOpenChange={setIsDialogOpen}
         title={`${editingCourse ? 'Editar' : 'Nuevo'} Curso`}
       >
-          <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="space-y-4">
-                <div>
-                  <Label>Nombre del Curso</Label>
-                  <Input
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label>Descripción</Label>
-                  <Textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    rows={3}
-                  />
-                </div>
-                
-                {/* Course Topics Editor with Import/Export */}
-                <CourseTopicsEditor
-                  courseId={editingCourse?.id}
-                  initialTopics={formData.themes}
-                  onChange={(topics) => setFormData({ ...formData, themes: topics })}
-                />
-              </div>
-              <div className="flex justify-end gap-3 pt-4">
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  Cancelar
-                </Button>
-                <Button type="submit" className="bg-accent-9 hover:bg-accent-10 text-white">
-                  {editingCourse ? 'Actualizar' : 'Crear'}
-                </Button>
-              </div>
-          </form>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-4">
+            <div>
+              <Label>Nombre del Curso</Label>
+              <Input
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+              />
+            </div>
+            <div>
+              <Label>Descripción</Label>
+              <Textarea
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                rows={3}
+              />
+            </div>
+
+            {/* Course Topics Editor with Import/Export */}
+            <CourseTopicsEditor
+              courseId={editingCourse?.id}
+              initialTopics={formData.themes}
+              onChange={(topics) => setFormData({ ...formData, themes: topics })}
+            />
+          </div>
+          <div className="flex justify-end gap-3 pt-4">
+            <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button type="submit" className="bg-accent-9 hover:bg-accent-10 text-white">
+              {editingCourse ? 'Actualizar' : 'Crear'}
+            </Button>
+          </div>
+        </form>
       </ResponsiveDialog>
     </div>
   );

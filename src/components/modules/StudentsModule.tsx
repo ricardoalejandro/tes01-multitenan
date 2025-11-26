@@ -1,12 +1,25 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { Plus, Search, Edit, History, RefreshCw } from 'lucide-react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+
+import { Plus, Search, Edit, History, RefreshCw, GraduationCap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { StudentModuleCardsView, StudentModuleCompactView, StudentModuleListView } from './StudentModuleViews';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select } from '@/components/ui/select';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { ResponsiveDialog } from '@/components/ui/responsive-dialog';
 import { DataTablePagination } from '@/components/ui/data-table-pagination';
@@ -24,8 +37,9 @@ import { api } from '@/lib/api';
 import { StudentStatusChangeDialog } from './StudentStatusChangeDialog';
 import { StudentImportDialog } from './StudentImportDialog';
 import { StudentTransactionsDialog } from './StudentTransactionsDialog';
+import { CounselingFormDialog } from './CounselingFormDialog';
 
-interface Student { 
+interface Student {
   id: string;
   dni: string;
   firstName: string;
@@ -66,7 +80,7 @@ export default function StudentsModule({ branchId }: { branchId: string }) {
   const [formData, setFormData] = useState({
     documentType: 'DNI',
     dni: '',
-    gender: 'Masculino',
+    gender: '',
     firstName: '',
     paternalLastName: '',
     maternalLastName: '',
@@ -78,6 +92,7 @@ export default function StudentsModule({ branchId }: { branchId: string }) {
     district: '',
     birthDate: '',
     admissionDate: new Date().toISOString().split('T')[0],
+    admissionType: 'Nuevo', // Nuevo, Recuperado, Traslado
   });
 
   const [page, setPage] = useState(1);
@@ -93,13 +108,44 @@ export default function StudentsModule({ branchId }: { branchId: string }) {
   // Estados para los nuevos diálogos
   const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+
   const [isTransactionsDialogOpen, setIsTransactionsDialogOpen] = useState(false);
+  const [isCounselingDialogOpen, setIsCounselingDialogOpen] = useState(false);
   const [selectedStudentForAction, setSelectedStudentForAction] = useState<Student | null>(null);
   const [existingStudentData, setExistingStudentData] = useState<any>(null);
 
+
+
+  const loadStudents = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await api.getStudents({
+        branchId,
+        page,
+        limit: pageSize,
+        search: debouncedSearch,
+      });
+
+      if (response.data) {
+        setStudents(response.data);
+      } else {
+        setStudents([]);
+      }
+
+      if (response.pagination) {
+        setPagination(response.pagination);
+      }
+    } catch (error) {
+      toast.error('Error al cargar probacionistas', { duration: 1500 });
+      setStudents([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [branchId, page, pageSize, debouncedSearch]);
+
   useEffect(() => {
     loadStudents();
-  }, [branchId]);
+  }, [loadStudents]);
 
   // Debounce para búsqueda
   useEffect(() => {
@@ -112,39 +158,12 @@ export default function StudentsModule({ branchId }: { branchId: string }) {
 
   useEffect(() => {
     loadStudents();
-  }, [page, pageSize, debouncedSearch]);
-
-  const loadStudents = async () => {
-    try {
-      setLoading(true);
-      const response = await api.getStudents({
-        branchId,
-        page,
-        limit: pageSize,
-        search: debouncedSearch,
-      });
-      
-      if (response.data) {
-        setStudents(response.data);
-      } else {
-        setStudents([]);
-      }
-      
-      if (response.pagination) {
-        setPagination(response.pagination);
-      }
-    } catch (error) {
-      toast.error('Error al cargar probacionistas', { duration: 1500 });
-      setStudents([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [loadStudents]);
 
   const handleDniInput = (value: string) => {
     const numericValue = value.replace(/[^0-9]/g, '').slice(0, 8);
     setFormData({ ...formData, dni: numericValue });
-    
+
     if (formErrors.dni && numericValue.length === 8) {
       setFormErrors({ ...formErrors, dni: '' });
     }
@@ -152,34 +171,39 @@ export default function StudentsModule({ branchId }: { branchId: string }) {
 
   const validateForm = () => {
     const errors: Record<string, string> = {};
-    
+
     // DNI: debe ser exactamente 8 dígitos
     if (!/^\d{8}$/.test(formData.dni)) {
       errors.dni = 'El DNI debe tener exactamente 8 dígitos';
     }
-    
+
     // Fechas: birthDate < admissionDate
     if (formData.birthDate && formData.admissionDate) {
       const birthDate = new Date(formData.birthDate);
       const admissionDate = new Date(formData.admissionDate);
-      
+
       if (birthDate >= admissionDate) {
         errors.birthDate = 'La fecha de nacimiento debe ser anterior a la fecha de admisión';
       }
     }
-    
+
+    // Gender validation
+    if (!formData.gender) {
+      errors.gender = 'Debe seleccionar un género';
+    }
+
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       toast.error('Por favor corrige los errores del formulario', { duration: 1500 });
       return;
     }
-    
+
     try {
       if (editingStudent) {
         await api.updateStudent(editingStudent.id, {
@@ -200,7 +224,7 @@ export default function StudentsModule({ branchId }: { branchId: string }) {
     } catch (error: any) {
       const errorMessage = error.response?.data?.error || error.response?.data?.message || 'Error al guardar';
       const errorType = error.response?.data?.type;
-      
+
       // Si es un estudiante duplicado (409), mostrar diálogo de importación
       if (error.response?.status === 409 && errorType === 'duplicate_student') {
         const existingData = error.response?.data?.student;
@@ -209,7 +233,7 @@ export default function StudentsModule({ branchId }: { branchId: string }) {
         setIsImportDialogOpen(true); // Abrir diálogo de importación
         return;
       }
-      
+
       // Si es otra validación de negocio (409), mostrar como advertencia
       if (error.response?.status === 409 || errorType === 'validation') {
         toast.warning(errorMessage, { duration: 3000 });
@@ -224,7 +248,7 @@ export default function StudentsModule({ branchId }: { branchId: string }) {
     setFormData({
       documentType: student.documentType || 'DNI',
       dni: student.dni || '',
-      gender: student.gender || 'Masculino',
+      gender: student.gender || '',
       firstName: student.firstName || '',
       paternalLastName: student.paternalLastName || '',
       maternalLastName: student.maternalLastName || '',
@@ -238,6 +262,7 @@ export default function StudentsModule({ branchId }: { branchId: string }) {
       admissionDate: student.admissionDate
         ? student.admissionDate.split('T')[0]
         : new Date().toISOString().split('T')[0],
+      admissionType: 'Nuevo',
     });
     setIsDialogOpen(true);
   };
@@ -247,7 +272,7 @@ export default function StudentsModule({ branchId }: { branchId: string }) {
     setFormData({
       documentType: 'DNI',
       dni: '',
-      gender: 'Masculino',
+      gender: '',
       firstName: '',
       paternalLastName: '',
       maternalLastName: '',
@@ -259,6 +284,7 @@ export default function StudentsModule({ branchId }: { branchId: string }) {
       district: '',
       birthDate: '',
       admissionDate: new Date().toISOString().split('T')[0],
+      admissionType: 'Nuevo',
     });
     setFormErrors({});
   };
@@ -310,31 +336,28 @@ export default function StudentsModule({ branchId }: { branchId: string }) {
           <div className="flex border border-neutral-4 rounded-lg overflow-hidden bg-white">
             <button
               onClick={() => setViewMode('cards')}
-              className={`px-4 py-2 text-sm font-medium transition-colors ${
-                viewMode === 'cards' 
-                  ? 'bg-accent-9 text-white' 
-                  : 'bg-white text-neutral-11 hover:bg-neutral-2'
-              }`}
+              className={`px-4 py-2 text-sm font-medium transition-colors ${viewMode === 'cards'
+                ? 'bg-accent-9 text-white'
+                : 'bg-white text-neutral-11 hover:bg-neutral-2'
+                }`}
             >
               Tarjetas
             </button>
             <button
               onClick={() => setViewMode('compact')}
-              className={`px-4 py-2 text-sm font-medium transition-colors border-x border-neutral-4 ${
-                viewMode === 'compact' 
-                  ? 'bg-accent-9 text-white' 
-                  : 'bg-white text-neutral-11 hover:bg-neutral-2'
-              }`}
+              className={`px-4 py-2 text-sm font-medium transition-colors border-x border-neutral-4 ${viewMode === 'compact'
+                ? 'bg-accent-9 text-white'
+                : 'bg-white text-neutral-11 hover:bg-neutral-2'
+                }`}
             >
               Compacta
             </button>
             <button
               onClick={() => setViewMode('list')}
-              className={`px-4 py-2 text-sm font-medium transition-colors ${
-                viewMode === 'list' 
-                  ? 'bg-accent-9 text-white' 
-                  : 'bg-white text-neutral-11 hover:bg-neutral-2'
-              }`}
+              className={`px-4 py-2 text-sm font-medium transition-colors ${viewMode === 'list'
+                ? 'bg-accent-9 text-white'
+                : 'bg-white text-neutral-11 hover:bg-neutral-2'
+                }`}
             >
               Lista
             </button>
@@ -345,287 +368,353 @@ export default function StudentsModule({ branchId }: { branchId: string }) {
       {/* CONTENT SCROLLEABLE - Tabla con scroll independiente */}
       <div className="flex-1 overflow-auto">
         <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-neutral-4">
-        {loading ? (
-          <div className="p-8 text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent-9 mx-auto"></div>
-          </div>
-        ) : students.length === 0 ? (
-          <div className="p-8 text-center text-neutral-10">
-            No se encontraron probacionistas
-          </div>
-        ) : (
-          <>
-          {/* CONDITIONAL VIEW RENDERING */}
-          {viewMode === 'cards' && (
-            <StudentModuleCardsView 
-              students={students}
-              onEdit={handleEdit}
-              onChangeStatus={(student) => {
-                setSelectedStudentForAction(student);
-                setIsStatusDialogOpen(true);
-              }}
-              onViewTransactions={(student) => {
-                setSelectedStudentForAction(student);
-                setIsTransactionsDialogOpen(true);
-              }}
-            />
+          {loading ? (
+            <div className="p-8 text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent-9 mx-auto"></div>
+            </div>
+          ) : students.length === 0 ? (
+            <div className="p-8 text-center text-neutral-10">
+              No se encontraron probacionistas
+            </div>
+          ) : (
+            <>
+              {/* CONDITIONAL VIEW RENDERING */}
+              {viewMode === 'cards' && (
+                <StudentModuleCardsView
+                  students={students}
+                  onEdit={handleEdit}
+                  onChangeStatus={(student) => {
+                    setSelectedStudentForAction(student);
+                    setIsStatusDialogOpen(true);
+                  }}
+                  onViewTransactions={(student) => {
+                    setSelectedStudentForAction(student);
+                    setIsTransactionsDialogOpen(true);
+                  }}
+                  onCounseling={(student) => {
+                    setSelectedStudentForAction(student);
+                    setIsCounselingDialogOpen(true);
+                  }}
+                />
+              )}
+              {viewMode === 'compact' && (
+                <StudentModuleCompactView
+                  students={students}
+                  onEdit={handleEdit}
+                  onChangeStatus={(student) => {
+                    setSelectedStudentForAction(student);
+                    setIsStatusDialogOpen(true);
+                  }}
+                  onViewTransactions={(student) => {
+                    setSelectedStudentForAction(student);
+                    setIsTransactionsDialogOpen(true);
+                  }}
+                  onCounseling={(student) => {
+                    setSelectedStudentForAction(student);
+                    setIsCounselingDialogOpen(true);
+                  }}
+                />
+              )}
+              {viewMode === 'list' && (
+                <StudentModuleListView
+                  students={students}
+                  onEdit={handleEdit}
+                  onChangeStatus={(student) => {
+                    setSelectedStudentForAction(student);
+                    setIsStatusDialogOpen(true);
+                  }}
+                  onViewTransactions={(student) => {
+                    setSelectedStudentForAction(student);
+                    setIsTransactionsDialogOpen(true);
+                  }}
+                  onCounseling={(student) => {
+                    setSelectedStudentForAction(student);
+                    setIsCounselingDialogOpen(true);
+                  }}
+                />
+              )}
+              <DataTablePagination
+                currentPage={pagination.page}
+                totalPages={pagination.totalPages}
+                totalItems={pagination.total}
+                pageSize={pagination.limit}
+                onPageChange={setPage}
+                onPageSizeChange={setPageSize}
+              />
+            </>
           )}
-          {viewMode === 'compact' && (
-            <StudentModuleCompactView 
-              students={students}
-              onEdit={handleEdit}
-              onChangeStatus={(student) => {
-                setSelectedStudentForAction(student);
-                setIsStatusDialogOpen(true);
-              }}
-              onViewTransactions={(student) => {
-                setSelectedStudentForAction(student);
-                setIsTransactionsDialogOpen(true);
-              }}
-            />
-          )}
-          {viewMode === 'list' && (
-            <StudentModuleListView 
-              students={students}
-              onEdit={handleEdit}
-              onChangeStatus={(student) => {
-                setSelectedStudentForAction(student);
-                setIsStatusDialogOpen(true);
-              }}
-              onViewTransactions={(student) => {
-                setSelectedStudentForAction(student);
-                setIsTransactionsDialogOpen(true);
-              }}
-            />
-          )}
-          <DataTablePagination
-            currentPage={pagination.page}
-            totalPages={pagination.totalPages}
-            totalItems={pagination.total}
-            pageSize={pagination.limit}
-            onPageChange={setPage}
-            onPageSizeChange={setPageSize}
-          />
-          </>
-        )}
         </div>
       </div>
 
       {/* Dialog */}
-      <ResponsiveDialog 
-        open={isDialogOpen} 
+      <ResponsiveDialog
+        open={isDialogOpen}
         onOpenChange={setIsDialogOpen}
         title={`${editingStudent ? 'Editar' : 'Nuevo'} Probacionista`}
       >
-          <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                {/* Document Type */}
-                <div>
-                  <Label>Tipo de Documento</Label>
-                  <Select
-                    value={formData.documentType}
-                    onChange={(e) =>
-                      setFormData({ ...formData, documentType: e.target.value })
-                    }
-                    required
-                  >
-                    <option value="DNI">DNI</option>
-                    <option value="CNE">CNE</option>
-                    <option value="Pasaporte">Pasaporte</option>
-                  </Select>
-                </div>
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-6"
+        >
+          {editingStudent && (
+            <div className="flex items-center gap-3 pb-4 border-b border-neutral-200">
+              <span className="text-sm font-medium text-neutral-700">Estado Actual:</span>
+              <Badge variant={editingStudent.status === 'Baja' ? 'danger' : 'success'}>
+                {editingStudent.status}
+              </Badge>
+              {editingStudent.status === 'Baja' && (
+                <span className="text-xs text-neutral-500">(Probacionista dado de baja)</span>
+              )}
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-4">
+            {/* Document Type */}
+            <div>
+              <Label>Tipo de Documento</Label>
+              <Select
+                value={formData.documentType}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, documentType: value })
+                }
+                required
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="DNI">DNI</SelectItem>
+                  <SelectItem value="CNE">CNE</SelectItem>
+                  <SelectItem value="Pasaporte">Pasaporte</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-                {/* DNI */}
-                <div>
-                  <Label>Número de Documento *</Label>
-                  <Input
-                    value={formData.dni}
-                    onChange={(e) => handleDniInput(e.target.value)}
-                    placeholder="12345678"
-                    maxLength={8}
-                    required
-                    className={formErrors.dni ? 'border-red-500' : ''}
-                  />
-                  {formErrors.dni && (
-                    <p className="text-sm text-red-500 mt-1">{formErrors.dni}</p>
-                  )}
-                </div>
+            {/* DNI */}
+            <div>
+              <Label>Número de Documento *</Label>
+              <Input
+                value={formData.dni}
+                onChange={(e) => handleDniInput(e.target.value)}
+                placeholder="12345678"
+                maxLength={8}
+                required
+                className={formErrors.dni ? 'border-red-500' : ''}
+              />
+              {formErrors.dni && (
+                <p className="text-sm text-red-500 mt-1">{formErrors.dni}</p>
+              )}
+            </div>
 
-                {/* First Name */}
-                <div>
-                  <Label>Nombres</Label>
-                  <Input
-                    value={formData.firstName}
-                    onChange={(e) =>
-                      setFormData({ ...formData, firstName: e.target.value })
-                    }
-                    required
-                  />
-                </div>
+            {/* First Name */}
+            <div>
+              <Label>Nombres</Label>
+              <Input
+                value={formData.firstName}
+                onChange={(e) =>
+                  setFormData({ ...formData, firstName: e.target.value })
+                }
+                required
+              />
+            </div>
 
-                {/* Paternal Last Name */}
-                <div>
-                  <Label>Apellido Paterno</Label>
-                  <Input
-                    value={formData.paternalLastName}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        paternalLastName: e.target.value,
-                      })
-                    }
-                    required
-                  />
-                </div>
+            {/* Paternal Last Name */}
+            <div>
+              <Label>Apellido Paterno</Label>
+              <Input
+                value={formData.paternalLastName}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    paternalLastName: e.target.value,
+                  })
+                }
+                required
+              />
+            </div>
 
-                {/* Maternal Last Name */}
-                <div>
-                  <Label>Apellido Materno</Label>
-                  <Input
-                    value={formData.maternalLastName}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        maternalLastName: e.target.value,
-                      })
-                    }
-                    required
-                  />
-                </div>
+            {/* Maternal Last Name */}
+            <div>
+              <Label>Apellido Materno</Label>
+              <Input
+                value={formData.maternalLastName}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    maternalLastName: e.target.value,
+                  })
+                }
+                required
+              />
+            </div>
 
-                {/* Gender */}
-                <div>
-                  <Label>Género</Label>
-                  <Select
-                    value={formData.gender}
-                    onChange={(e) =>
-                      setFormData({ ...formData, gender: e.target.value })
-                    }
-                    required
-                  >
-                    <option value="Masculino">Masculino</option>
-                    <option value="Femenino">Femenino</option>
-                    <option value="Otro">Otro</option>
-                  </Select>
-                </div>
+            {/* Gender */}
+            <div>
+              <Label>Género *</Label>
+              <Select
+                value={formData.gender}
+                onValueChange={(value) => {
+                  setFormData({ ...formData, gender: value });
+                  if (formErrors.gender) {
+                    setFormErrors({ ...formErrors, gender: '' });
+                  }
+                }}
+                required
+              >
+                <SelectTrigger className={formErrors.gender ? 'border-red-500' : ''}>
+                  <SelectValue placeholder="Seleccionar género" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Masculino">Masculino</SelectItem>
+                  <SelectItem value="Femenino">Femenino</SelectItem>
+                  <SelectItem value="Otro">Otro</SelectItem>
+                </SelectContent>
+              </Select>
+              {formErrors.gender && (
+                <p className="text-sm text-red-500 mt-1">{formErrors.gender}</p>
+              )}
+            </div>
 
-                {/* Email */}
-                <div>
-                  <Label>Email</Label>
-                  <Input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) =>
-                      setFormData({ ...formData, email: e.target.value })
-                    }
-                  />
-                </div>
+            {/* Email */}
+            <div>
+              <Label>Email</Label>
+              <Input
+                type="email"
+                value={formData.email}
+                onChange={(e) =>
+                  setFormData({ ...formData, email: e.target.value })
+                }
+              />
+            </div>
 
-                {/* Phone */}
-                <div>
-                  <Label>Teléfono</Label>
-                  <Input
-                    value={formData.phone}
-                    onChange={(e) =>
-                      setFormData({ ...formData, phone: e.target.value })
-                    }
-                  />
-                </div>
+            {/* Phone */}
+            <div>
+              <Label>Teléfono</Label>
+              <Input
+                value={formData.phone}
+                onChange={(e) =>
+                  setFormData({ ...formData, phone: e.target.value })
+                }
+              />
+            </div>
 
-                {/* Address */}
-                <div className="col-span-2">
-                  <Label>Dirección</Label>
-                  <Textarea
-                    value={formData.address}
-                    onChange={(e) =>
-                      setFormData({ ...formData, address: e.target.value })
-                    }
-                    placeholder="Dirección completa del probacionista"
-                    rows={3}
-                  />
-                </div>
+            {/* Address */}
+            <div className="col-span-2">
+              <Label>Dirección</Label>
+              <Textarea
+                value={formData.address}
+                onChange={(e) =>
+                  setFormData({ ...formData, address: e.target.value })
+                }
+                placeholder="Dirección completa del probacionista"
+                rows={3}
+              />
+            </div>
 
-                {/* Birth Date */}
-                <div>
-                  <Label>Fecha de Nacimiento</Label>
-                  <Input
-                    type="date"
-                    value={formData.birthDate}
-                    onChange={(e) => {
-                      setFormData({ ...formData, birthDate: e.target.value });
-                      if (formErrors.birthDate) {
-                        setFormErrors({ ...formErrors, birthDate: '' });
-                      }
-                    }}
-                    className={formErrors.birthDate ? 'border-red-500' : ''}
-                  />
-                  {formErrors.birthDate && (
-                    <p className="text-sm text-red-500 mt-1">{formErrors.birthDate}</p>
-                  )}
-                </div>
+            {/* Birth Date */}
+            <div>
+              <Label>Fecha de Nacimiento</Label>
+              <Input
+                type="date"
+                value={formData.birthDate}
+                onChange={(e) => {
+                  setFormData({ ...formData, birthDate: e.target.value });
+                  if (formErrors.birthDate) {
+                    setFormErrors({ ...formErrors, birthDate: '' });
+                  }
+                }}
+                className={formErrors.birthDate ? 'border-red-500' : ''}
+              />
+              {formErrors.birthDate && (
+                <p className="text-sm text-red-500 mt-1">{formErrors.birthDate}</p>
+              )}
+            </div>
 
-                {/* Admission Date */}
-                <div>
-                  <Label>Fecha de Admisión</Label>
-                  <Input
-                    type="date"
-                    value={formData.admissionDate}
-                    onChange={(e) =>
-                      setFormData({ ...formData, admissionDate: e.target.value })
-                    }
-                    required
-                  />
-                </div>
+            {/* Admission Date */}
+            <div>
+              <Label>Fecha de Admisión</Label>
+              <Input
+                type="date"
+                value={formData.admissionDate}
+                onChange={(e) =>
+                  setFormData({ ...formData, admissionDate: e.target.value })
+                }
+                required
+              />
+            </div>
 
-                {/* Department */}
-                <div>
-                  <Label>Departamento</Label>
-                  <Input
-                    value={formData.department}
-                    onChange={(e) =>
-                      setFormData({ ...formData, department: e.target.value })
-                    }
-                    placeholder="Ej: Lima"
-                  />
-                </div>
-
-                {/* Province */}
-                <div>
-                  <Label>Provincia</Label>
-                  <Input
-                    value={formData.province}
-                    onChange={(e) =>
-                      setFormData({ ...formData, province: e.target.value })
-                    }
-                    placeholder="Ej: Lima"
-                  />
-                </div>
-
-                {/* District */}
-                <div>
-                  <Label>Distrito</Label>
-                  <Input
-                    value={formData.district}
-                    onChange={(e) =>
-                      setFormData({ ...formData, district: e.target.value })
-                    }
-                    placeholder="Ej: San Miguel"
-                  />
-                </div>
-              </div>
-              <div className="flex justify-end gap-3 pt-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsDialogOpen(false)}
+            {/* Admission Type (Only for new records) */}
+            {!editingStudent && (
+              <div>
+                <Label>Tipo de Alta</Label>
+                <Select
+                  value={formData.admissionType}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, admissionType: value })
+                  }
+                  required
                 >
-                  Cancelar
-                </Button>
-                <Button type="submit" className="bg-accent-9 hover:bg-accent-10 text-white">
-                  {editingStudent ? 'Actualizar' : 'Crear'}
-                </Button>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Nuevo">Nuevo Ingreso</SelectItem>
+                    <SelectItem value="Recuperado">Recuperado</SelectItem>
+                    <SelectItem value="Traslado">Traslado de otra Sede</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-          </form>
+            )}
+
+
+            {/* Department */}
+            <div>
+              <Label>Departamento</Label>
+              <Input
+                value={formData.department}
+                onChange={(e) =>
+                  setFormData({ ...formData, department: e.target.value })
+                }
+                placeholder="Ej: Lima"
+              />
+            </div>
+
+            {/* Province */}
+            <div>
+              <Label>Provincia</Label>
+              <Input
+                value={formData.province}
+                onChange={(e) =>
+                  setFormData({ ...formData, province: e.target.value })
+                }
+                placeholder="Ej: Lima"
+              />
+            </div>
+
+            {/* District */}
+            <div>
+              <Label>Distrito</Label>
+              <Input
+                value={formData.district}
+                onChange={(e) =>
+                  setFormData({ ...formData, district: e.target.value })
+                }
+                placeholder="Ej: San Miguel"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsDialogOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" className="bg-accent-9 hover:bg-accent-10 text-white">
+              {editingStudent ? 'Actualizar' : 'Crear'}
+            </Button>
+          </div>
+        </form>
       </ResponsiveDialog>
 
       {/* Status Change Dialog */}
@@ -652,6 +741,23 @@ export default function StudentsModule({ branchId }: { branchId: string }) {
         onOpenChange={setIsTransactionsDialogOpen}
         student={selectedStudentForAction}
         branchId={branchId}
+      />
+
+      {/* Counseling Dialog */}
+      <CounselingFormDialog
+        open={isCounselingDialogOpen}
+        onOpenChange={setIsCounselingDialogOpen}
+        counseling={null} // New counseling
+        studentId={selectedStudentForAction?.id || ''}
+        onSave={async (data) => {
+          try {
+            await api.createCounseling(selectedStudentForAction?.id || '', data);
+            toast.success('Asesoría creada correctamente');
+            setIsCounselingDialogOpen(false);
+          } catch (error) {
+            toast.error('Error al crear asesoría');
+          }
+        }}
       />
     </div>
   );

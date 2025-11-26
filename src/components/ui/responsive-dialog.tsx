@@ -32,8 +32,6 @@ export function ResponsiveDialog({
   React.useEffect(() => {
     if (!open) {
       setIsMaximized(defaultMaximized);
-    } else if (open && isMaximized !== defaultMaximized) {
-      setIsMaximized(defaultMaximized);
     }
   }, [open, defaultMaximized]);
 
@@ -59,19 +57,19 @@ export function ResponsiveDialog({
   return (
     <>
       {/* Backdrop */}
-      <div 
+      <div
         className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm transition-opacity"
         onClick={() => !isMaximized && onOpenChange(false)}
       />
-      
+
       {/* Dialog Content */}
       <div
         className={cn(
-          'fixed z-[101] bg-white rounded-xl shadow-2xl overflow-hidden',
-          'animate-in fade-in-0 zoom-in-95 duration-200 flex flex-col',
+          'fixed z-[101] bg-white shadow-2xl overflow-hidden flex flex-col',
+          'animate-in fade-in-0 zoom-in-95 duration-300',
           isMaximized
-            ? 'inset-4 w-[calc(100vw-2rem)] h-[calc(100vh-2rem)]'
-            : 'left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-4xl max-h-[90vh]'
+            ? 'inset-4 rounded-none'
+            : 'left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-4xl max-h-[90vh] rounded-xl'
         )}
       >
         {/* Header */}

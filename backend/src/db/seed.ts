@@ -13,7 +13,8 @@ async function seed() {
     const [admin] = await db.insert(users).values({
       username: 'admin',
       passwordHash,
-      role: 'superadmin',
+      email: 'admin@escolastica.com',
+      userType: 'admin',
     }).returning();
 
     console.log('✅ Created admin user:', admin.username);
