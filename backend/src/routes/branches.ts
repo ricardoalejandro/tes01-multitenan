@@ -1,6 +1,6 @@
 import { FastifyPluginAsync } from 'fastify';
 import { db } from '../db';
-import { branches } from '../db/schema';
+import { branches, departments, provinces, districts, levels } from '../db/schema';
 import { eq, sql, ilike, or, desc, ne, and } from 'drizzle-orm';
 
 export const branchRoutes: FastifyPluginAsync = async (fastify) => {
@@ -25,7 +25,33 @@ export const branchRoutes: FastifyPluginAsync = async (fastify) => {
     }
     
     const [branchList, [{ count }]] = await Promise.all([
-      db.select().from(branches)
+      db.select({
+        id: branches.id,
+        name: branches.name,
+        code: branches.code,
+        codeNumber: branches.codeNumber,
+        description: branches.description,
+        status: branches.status,
+        active: branches.active,
+        departmentId: branches.departmentId,
+        departmentName: departments.name,
+        provinceId: branches.provinceId,
+        provinceName: provinces.name,
+        districtId: branches.districtId,
+        districtName: districts.name,
+        branchManager: branches.branchManager,
+        levelId: branches.levelId,
+        levelName: levels.name,
+        levelManagerName: levels.managerName,
+        levelManagerPhone: levels.managerPhone,
+        createdAt: branches.createdAt,
+        updatedAt: branches.updatedAt,
+      })
+        .from(branches)
+        .leftJoin(departments, eq(branches.departmentId, departments.id))
+        .leftJoin(provinces, eq(branches.provinceId, provinces.id))
+        .leftJoin(districts, eq(branches.districtId, districts.id))
+        .leftJoin(levels, eq(branches.levelId, levels.id))
         .where(whereCondition)
         .orderBy(desc(branches.createdAt))
         .limit(Number(limit))
@@ -47,7 +73,35 @@ export const branchRoutes: FastifyPluginAsync = async (fastify) => {
   // Get branch by ID
   fastify.get('/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
-    const [branch] = await db.select().from(branches).where(eq(branches.id, id)).limit(1);
+    const [branch] = await db.select({
+      id: branches.id,
+      name: branches.name,
+      code: branches.code,
+      codeNumber: branches.codeNumber,
+      description: branches.description,
+      status: branches.status,
+      active: branches.active,
+      departmentId: branches.departmentId,
+      departmentName: departments.name,
+      provinceId: branches.provinceId,
+      provinceName: provinces.name,
+      districtId: branches.districtId,
+      districtName: districts.name,
+      branchManager: branches.branchManager,
+      levelId: branches.levelId,
+      levelName: levels.name,
+      levelManagerName: levels.managerName,
+      levelManagerPhone: levels.managerPhone,
+      createdAt: branches.createdAt,
+      updatedAt: branches.updatedAt,
+    })
+      .from(branches)
+      .leftJoin(departments, eq(branches.departmentId, departments.id))
+      .leftJoin(provinces, eq(branches.provinceId, provinces.id))
+      .leftJoin(districts, eq(branches.districtId, districts.id))
+      .leftJoin(levels, eq(branches.levelId, levels.id))
+      .where(eq(branches.id, id))
+      .limit(1);
     
     if (!branch) {
       return reply.code(404).send({ error: 'Branch not found' });

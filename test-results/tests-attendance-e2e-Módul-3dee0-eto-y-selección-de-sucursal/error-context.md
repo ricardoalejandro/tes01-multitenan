@@ -1,0 +1,56 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - alert [ref=e2]
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - img [ref=e8]
+        - generic [ref=e11]:
+          - heading "Sistema Académico" [level=1] [ref=e12]
+          - paragraph [ref=e13]: Sistema de gestión académica multi-tenant
+      - button "admin" [ref=e15] [cursor=pointer]:
+        - img [ref=e16]
+        - generic [ref=e19]: admin
+        - img [ref=e20]
+    - generic [ref=e22]:
+      - generic [ref=e25]:
+        - generic [ref=e26]:
+          - img [ref=e28]
+          - generic [ref=e31]:
+            - heading "⚙️ PANEL DE ADMINISTRADOR" [level=3] [ref=e32]
+            - paragraph [ref=e33]: Gestionar filiales, usuarios y roles del sistema
+        - button "Entrar" [ref=e34] [cursor=pointer]
+      - generic [ref=e35]:
+        - generic [ref=e36]:
+          - heading "Mis Filiales" [level=2] [ref=e37]
+          - paragraph [ref=e38]: Selecciona una filial para comenzar a trabajar
+        - generic [ref=e39]:
+          - generic [ref=e40] [cursor=pointer]:
+            - checkbox "Mostrar filiales inactivas" [ref=e41]
+            - generic [ref=e42]: Mostrar filiales inactivas
+          - generic [ref=e43]:
+            - button [ref=e44] [cursor=pointer]:
+              - img [ref=e45]
+            - button [ref=e47] [cursor=pointer]:
+              - img [ref=e48]
+            - button [ref=e49] [cursor=pointer]:
+              - img [ref=e50]
+      - generic [ref=e53] [cursor=pointer]:
+        - generic [ref=e54]:
+          - generic [ref=e55]:
+            - img [ref=e57]
+            - generic [ref=e61]: Activa
+          - heading "Iquitos" [level=3] [ref=e62]
+          - paragraph [ref=e63]: FIL-001
+        - generic [ref=e64]:
+          - paragraph [ref=e65]: Sin descripción
+          - generic [ref=e67]: "Rol: Administrador"
+          - button "Entrar" [ref=e68]
+  - region "Notifications alt+T":
+    - list:
+      - status [ref=e69]:
+        - img [ref=e71]
+        - generic [ref=e74]: ¡Bienvenido!
+```

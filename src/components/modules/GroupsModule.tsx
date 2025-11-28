@@ -119,7 +119,7 @@ export default function GroupsModule({ branchId }: { branchId: string }) {
   const handleDelete = async (id: string) => {
     if (!confirm('¿Cambiar estado a "Eliminado"? Esta acción se puede revertir desde el cambio de estado.')) return;
     try {
-      await api.changeGroupStatus(id, { newStatus: 'eliminado' });
+      await api.changeGroupStatus(id, { status: 'eliminado', observation: 'Eliminado desde lista de grupos' });
       toast.success('Grupo eliminado', { duration: 1500 });
       loadGroups();
     } catch (error) {

@@ -10,6 +10,20 @@ import { api } from '@/lib/api';
 import CourseSelectorWithInstructors from './CourseSelectorWithInstructors';
 import RecurrenceConfigPanel from './RecurrenceConfigPanel';
 import SessionCalendarEditor from './SessionCalendarEditor';
+import { TimeRangePicker } from '@/components/ui/time-picker';
+import { AssistantForm, Assistant } from './AssistantForm';
+import { toast } from 'sonner';
+import { AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface Props {
   open: boolean;
@@ -57,6 +71,9 @@ export function GroupFormDialog({ open, onClose, branchId, group, onSaved }: Pro
   // Step 1: Información básica
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [startTime, setStartTime] = useState<string>('');
+  const [endTime, setEndTime] = useState<string>('');
+  const [assistants, setAssistants] = useState<Assistant[]>([]);
 
   // Step 2: Cursos e instructores
   const [selectedCourses, setSelectedCourses] = useState<CourseWithInstructor[]>([]);
@@ -73,6 +90,14 @@ export function GroupFormDialog({ open, onClose, branchId, group, onSaved }: Pro
 
   // Step 4: Calendario generado
   const [generatedSessions, setGeneratedSessions] = useState<GeneratedSession[]>([]);
+
+  // Control de sesiones dictadas
+  const [hasDictatedSessions, setHasDictatedSessions] = useState(false);
+  const [dictatedSessionsCount, setDictatedSessionsCount] = useState(0);
+
+  // Validación y alertas
+  const [validationWarnings, setValidationWarnings] = useState<string[]>([]);
+  const [showWarningDialog, setShowWarningDialog] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -108,6 +133,13 @@ export function GroupFormDialog({ open, onClose, branchId, group, onSaved }: Pro
       
       setName(details.name);
       setDescription(details.description || '');
+      setStartTime(details.startTime || details.start_time || '');
+      setEndTime(details.endTime || details.end_time || '');
+      setAssistants(details.assistants || []);
+      
+      // Verificar si hay sesiones dictadas
+      setHasDictatedSessions(details.hasDictatedSessions || false);
+      setDictatedSessionsCount(details.dictatedSessionsCount || 0);
       
       // Mapear cursos (el backend puede retornar camelCase o snake_case)
       setSelectedCourses(
@@ -158,6 +190,9 @@ export function GroupFormDialog({ open, onClose, branchId, group, onSaved }: Pro
   const resetForm = () => {
     setName('');
     setDescription('');
+    setStartTime('');
+    setEndTime('');
+    setAssistants([]);
     setSelectedCourses([]);
     setRecurrence({
       frequency: 'weekly',
@@ -166,6 +201,9 @@ export function GroupFormDialog({ open, onClose, branchId, group, onSaved }: Pro
       startDate: new Date().toISOString().split('T')[0],
     });
     setGeneratedSessions([]);
+    setHasDictatedSessions(false);
+    setDictatedSessionsCount(0);
+    setValidationWarnings([]);
     setStep(1);
   };
 
@@ -203,6 +241,7 @@ export function GroupFormDialog({ open, onClose, branchId, group, onSaved }: Pro
     const payload = {
       courses: selectedCourses,
       recurrence: cleanRecurrence,
+      branchId, // Incluir branchId para filtrar feriados provinciales
     };
     
     console.log('🚀 Enviando a generateCalendar:', JSON.stringify(payload, null, 2));
@@ -213,6 +252,15 @@ export function GroupFormDialog({ open, onClose, branchId, group, onSaved }: Pro
       console.log('📥 Respuesta del backend:', JSON.stringify(response, null, 2));
       console.log('📅 Primera sesión:', response.sessions?.[0]);
       setGeneratedSessions(response.sessions);
+      
+      // Mostrar mensaje de feriados saltados si corresponde
+      if (response.skippedHolidays && response.skippedHolidays.length > 0) {
+        const holidayNames = response.skippedHolidays
+          .map((h: { date: string; name: string }) => `${h.name} (${new Date(h.date + 'T12:00:00').toLocaleDateString('es-PE', { day: '2-digit', month: 'short' })})`)
+          .join(', ');
+        toast.info(`📅 Se omitieron ${response.skippedHolidays.length} fecha(s) por feriado: ${holidayNames}`);
+      }
+      
       setStep(4);
     } catch (error) {
       console.error('Error generating calendar:', error);
@@ -222,26 +270,101 @@ export function GroupFormDialog({ open, onClose, branchId, group, onSaved }: Pro
     }
   };
 
+  // Función para validar el calendario antes de guardar
+  const validateCalendar = (): { errors: string[]; warnings: string[] } => {
+    const errors: string[] = [];
+    const warnings: string[] = [];
+
+    // 1. Validar hora de fin > hora de inicio
+    if (startTime && endTime && endTime <= startTime) {
+      errors.push('La hora de fin debe ser mayor a la hora de inicio');
+    }
+
+    // 2. Validar orden de fechas (ascendente)
+    for (let i = 1; i < generatedSessions.length; i++) {
+      const prevDate = new Date(generatedSessions[i - 1].sessionDate);
+      const currDate = new Date(generatedSessions[i].sessionDate);
+      if (currDate <= prevDate) {
+        errors.push(`La fecha de la sesión ${i + 1} (${generatedSessions[i].sessionDate}) debe ser posterior a la sesión ${i} (${generatedSessions[i - 1].sessionDate})`);
+      }
+    }
+
+    // 3. Validar que no haya temas vacíos
+    const emptySessions: number[] = [];
+    generatedSessions.forEach((session) => {
+      const hasEmptyTopic = session.topics.some(t => !t.topicTitle || t.topicTitle.trim() === '');
+      if (hasEmptyTopic) {
+        emptySessions.push(session.sessionNumber);
+      }
+    });
+    if (emptySessions.length > 0) {
+      errors.push(`Las siguientes sesiones tienen temas vacíos: ${emptySessions.join(', ')}. Complete todos los temas antes de guardar.`);
+    }
+
+    // 4. Detectar gaps en la frecuencia (warning, no error)
+    if (recurrence.frequency === 'weekly' && generatedSessions.length > 1) {
+      const intervalDays = (recurrence.interval || 1) * 7;
+      const maxExpectedGap = intervalDays + 3; // Permitir algo de margen
+
+      for (let i = 1; i < generatedSessions.length; i++) {
+        const prevDate = new Date(generatedSessions[i - 1].sessionDate);
+        const currDate = new Date(generatedSessions[i].sessionDate);
+        const diffDays = Math.round((currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
+        
+        if (diffDays > maxExpectedGap) {
+          const weeksGap = Math.round(diffDays / 7);
+          warnings.push(`Sesiones ${i} y ${i + 1}: hay ${weeksGap} semana(s) de diferencia (frecuencia: ${recurrence.interval || 1} semana). Posible feriado o día especial.`);
+        }
+      }
+    }
+
+    return { errors, warnings };
+  };
+
   const handleSave = async () => {
     if (!name.trim()) {
-      alert('El nombre del grupo es obligatorio');
+      toast.error('El nombre del grupo es obligatorio');
       return;
     }
     if (selectedCourses.length === 0) {
-      alert('Debes seleccionar al menos un curso');
+      toast.error('Debes seleccionar al menos un curso');
       return;
     }
     if (generatedSessions.length === 0) {
-      alert('Debes generar el calendario antes de guardar');
+      toast.error('Debes generar el calendario antes de guardar');
       return;
     }
 
+    // Ejecutar validaciones
+    const { errors, warnings } = validateCalendar();
+
+    // Si hay errores bloqueantes, mostrarlos y detener
+    if (errors.length > 0) {
+      errors.forEach(err => toast.error(err));
+      return;
+    }
+
+    // Si hay warnings, mostrar diálogo de confirmación
+    if (warnings.length > 0) {
+      setValidationWarnings(warnings);
+      setShowWarningDialog(true);
+      return;
+    }
+
+    // Si no hay errores ni warnings, guardar directamente
+    await performSave();
+  };
+
+  const performSave = async () => {
     setLoading(true);
     try {
       const payload = {
         branchId,
         name,
         description: description.trim() || undefined,
+        startTime: startTime || undefined,
+        endTime: endTime || undefined,
+        assistants: assistants.length > 0 ? assistants : undefined,
         courses: selectedCourses,
         recurrence: recurrence,
         sessions: generatedSessions,
@@ -249,15 +372,17 @@ export function GroupFormDialog({ open, onClose, branchId, group, onSaved }: Pro
 
       if (group) {
         await api.updateGroup(group.id, payload);
+        toast.success('Grupo actualizado correctamente');
       } else {
         await api.createGroup(payload);
+        toast.success('Grupo creado correctamente');
       }
 
       onSaved();
       onClose();
     } catch (error: any) {
       console.error('Error saving group:', error);
-      alert(error.message || 'Error al guardar el grupo');
+      toast.error(error.message || 'Error al guardar el grupo');
     } finally {
       setLoading(false);
     }
@@ -314,7 +439,11 @@ export function GroupFormDialog({ open, onClose, branchId, group, onSaved }: Pro
             </Button>
           )}
           {step === 3 && (
-            <Button onClick={handleGenerateCalendar} disabled={loading || !canGenerateCalendar()}>
+            <Button 
+              onClick={handleGenerateCalendar} 
+              disabled={loading || !canGenerateCalendar() || hasDictatedSessions}
+              title={hasDictatedSessions ? 'No se puede regenerar el calendario porque hay sesiones dictadas' : ''}
+            >
               {loading ? 'Generando...' : 'Generar Calendario'}
             </Button>
           )}
@@ -329,7 +458,7 @@ export function GroupFormDialog({ open, onClose, branchId, group, onSaved }: Pro
       <div className="space-y-6">
           {/* STEP 1: Información básica */}
           {step === 1 && (
-            <div className="space-y-4 max-w-2xl mx-auto">
+            <div className="space-y-6 max-w-2xl mx-auto">
               <div>
                 <Label>Nombre del Grupo *</Label>
                 <Input
@@ -345,7 +474,26 @@ export function GroupFormDialog({ open, onClose, branchId, group, onSaved }: Pro
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Descripción opcional del grupo..."
-                  rows={4}
+                  rows={3}
+                />
+              </div>
+              
+              {/* Horarios */}
+              <div className="pt-4 border-t">
+                <Label className="text-base font-medium mb-3 block">Horario de Clases</Label>
+                <TimeRangePicker
+                  startTime={startTime}
+                  endTime={endTime}
+                  onStartTimeChange={setStartTime}
+                  onEndTimeChange={setEndTime}
+                />
+              </div>
+
+              {/* Asistentes */}
+              <div className="pt-4 border-t">
+                <AssistantForm
+                  assistants={assistants}
+                  onChange={setAssistants}
                 />
               </div>
             </div>
@@ -365,20 +513,45 @@ export function GroupFormDialog({ open, onClose, branchId, group, onSaved }: Pro
 
           {/* STEP 3: Recurrencia */}
           {step === 3 && (
-            <div className="max-w-3xl mx-auto">
+            <div className="max-w-3xl mx-auto space-y-4">
+              {hasDictatedSessions && (
+                <div className="flex items-start gap-3 p-4 rounded-lg bg-amber-50 border border-amber-200 text-amber-800">
+                  <AlertTriangle className="h-5 w-5 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="font-medium">Calendario bloqueado</p>
+                    <p className="text-sm">
+                      Este grupo tiene {dictatedSessionsCount} sesión(es) ya dictada(s). 
+                      No es posible regenerar el calendario para proteger los registros de asistencia existentes.
+                    </p>
+                  </div>
+                </div>
+              )}
               <RecurrenceConfigPanel value={recurrence} onChange={setRecurrence} />
             </div>
           )}
 
           {/* STEP 4: Calendario */}
           {step === 4 && (
-            <div className="max-w-6xl mx-auto">
+            <div className="max-w-6xl mx-auto space-y-4">
+              {hasDictatedSessions && (
+                <div className="flex items-start gap-3 p-4 rounded-lg bg-amber-50 border border-amber-200 text-amber-800">
+                  <AlertTriangle className="h-5 w-5 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="font-medium">Edición limitada</p>
+                    <p className="text-sm">
+                      Este grupo tiene {dictatedSessionsCount} sesión(es) ya dictada(s). 
+                      Solo puedes modificar la información básica del grupo (nombre, descripción, horarios).
+                      Las sesiones dictadas no pueden ser eliminadas ni modificadas.
+                    </p>
+                  </div>
+                </div>
+              )}
               {generatedSessions.length === 0 ? (
                 <div className="text-center py-12">
                   <p className="text-neutral-10 mb-4">
                     El calendario aún no ha sido generado
                   </p>
-                  <Button onClick={handleGenerateCalendar} disabled={loading}>
+                  <Button onClick={handleGenerateCalendar} disabled={loading || hasDictatedSessions}>
                     {loading ? 'Generando...' : 'Generar Calendario'}
                   </Button>
                 </div>
@@ -421,6 +594,45 @@ export function GroupFormDialog({ open, onClose, branchId, group, onSaved }: Pro
             </div>
           )}
       </div>
+
+      {/* Dialog de advertencias no bloqueantes */}
+      <AlertDialog open={showWarningDialog} onOpenChange={setShowWarningDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Advertencias Detectadas
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Se detectaron las siguientes situaciones que podrían requerir su atención:
+                </p>
+                <ul className="space-y-2">
+                  {validationWarnings.map((warning, idx) => (
+                    <li key={idx} className="flex items-start gap-2 text-sm bg-amber-50 dark:bg-amber-950/20 p-2 rounded-md">
+                      <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                      <span>{warning}</span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-sm font-medium pt-2">
+                  Esto podría deberse a feriados o días especiales. ¿Desea continuar de todas formas?
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar y revisar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              setShowWarningDialog(false);
+              performSave();
+            }}>
+              Crear de todas formas
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </ResponsiveDialog>
   );
 }

@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, X, GripVertical, Upload, Download, FileSpreadsheet, FileText, AlertTriangle } from 'lucide-react';
+import { Plus, X, GripVertical, Upload, Download, FileSpreadsheet, FileText, AlertTriangle, ChevronDown, ChevronUp, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
@@ -26,6 +27,7 @@ interface CourseTopicsEditorProps {
 
 export default function CourseTopicsEditor({ courseId, initialTopics = [], onChange }: CourseTopicsEditorProps) {
   const [topics, setTopics] = useState<CourseTopic[]>(initialTopics);
+  const [expandedTopics, setExpandedTopics] = useState<Set<number>>(new Set());
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [exportFormat, setExportFormat] = useState<'excel' | 'csv'>('excel');
@@ -33,6 +35,9 @@ export default function CourseTopicsEditor({ courseId, initialTopics = [], onCha
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importPreview, setImportPreview] = useState<CourseTopic[]>([]);
   const [isImporting, setIsImporting] = useState(false);
+  
+  // Drag state
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   useEffect(() => {
     setTopics(initialTopics);
@@ -48,6 +53,8 @@ export default function CourseTopicsEditor({ courseId, initialTopics = [], onCha
     const updated = [...topics, newTopic];
     setTopics(updated);
     onChange(updated);
+    // Auto-expand new topic
+    setExpandedTopics(new Set([...expandedTopics, topics.length]));
   };
 
   const updateTopic = (index: number, field: keyof CourseTopic, value: string) => {
@@ -72,28 +79,55 @@ export default function CourseTopicsEditor({ courseId, initialTopics = [], onCha
     }));
     setTopics(updated);
     onChange(updated);
+    expandedTopics.delete(index);
+    setExpandedTopics(new Set(expandedTopics));
   };
 
-  const moveUp = (index: number) => {
-    if (index === 0) return;
-    const updated = [...topics];
-    [updated[index - 1], updated[index]] = [updated[index], updated[index - 1]];
-    updated.forEach((topic, idx) => {
-      topic.orderIndex = idx + 1;
-    });
-    setTopics(updated);
-    onChange(updated);
+  const toggleTopicExpand = (index: number) => {
+    const newExpanded = new Set(expandedTopics);
+    if (newExpanded.has(index)) {
+      newExpanded.delete(index);
+    } else {
+      newExpanded.add(index);
+    }
+    setExpandedTopics(newExpanded);
   };
 
-  const moveDown = (index: number) => {
-    if (index === topics.length - 1) return;
-    const updated = [...topics];
-    [updated[index], updated[index + 1]] = [updated[index + 1], updated[index]];
-    updated.forEach((topic, idx) => {
-      topic.orderIndex = idx + 1;
+  const expandAll = () => {
+    setExpandedTopics(new Set(topics.map((_, i) => i)));
+  };
+
+  const collapseAll = () => {
+    setExpandedTopics(new Set());
+  };
+
+  // Drag and drop handlers
+  const handleDragStart = (index: number) => {
+    setDraggedIndex(index);
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === index) return;
+    
+    const newTopics = [...topics];
+    const draggedItem = newTopics[draggedIndex];
+    newTopics.splice(draggedIndex, 1);
+    newTopics.splice(index, 0, draggedItem);
+    
+    // Update order indices
+    newTopics.forEach((t, i) => {
+      t.orderIndex = i + 1;
+      if (t.id) t._status = 'modified';
     });
-    setTopics(updated);
-    onChange(updated);
+    
+    setTopics(newTopics);
+    onChange(newTopics);
+    setDraggedIndex(index);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
   };
 
   const handleExport = async () => {
@@ -153,12 +187,13 @@ export default function CourseTopicsEditor({ courseId, initialTopics = [], onCha
   };
 
   const applyImport = () => {
-    setTopics(importPreview.map((t, idx) => ({
+    const imported = importPreview.map((t, idx) => ({
       ...t,
       orderIndex: idx + 1,
-      _status: 'new',
-    })));
-    onChange(importPreview);
+      _status: 'new' as const,
+    }));
+    setTopics(imported);
+    onChange(imported);
     setShowImportDialog(false);
     setImportFile(null);
     setImportPreview([]);
@@ -168,7 +203,10 @@ export default function CourseTopicsEditor({ courseId, initialTopics = [], onCha
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <Label className="text-base font-semibold">Temas del Curso</Label>
+        <Label className="text-base font-semibold flex items-center gap-2">
+          <BookOpen className="h-4 w-4" />
+          Temas del Curso ({topics.length})
+        </Label>
         <div className="flex gap-2">
           <Button
             type="button"
@@ -189,80 +227,121 @@ export default function CourseTopicsEditor({ courseId, initialTopics = [], onCha
             <Download className="h-4 w-4 mr-1" />
             Exportar
           </Button>
-          <Button type="button" size="sm" onClick={addTopic}>
+          <Button type="button" size="sm" onClick={addTopic} className="bg-accent-9 hover:bg-accent-10 text-white">
             <Plus className="h-4 w-4 mr-1" />
             Añadir Tema
           </Button>
         </div>
       </div>
 
-      <div className="space-y-3">
+      {topics.length > 0 && (
+        <div className="flex gap-2 text-xs">
+          <button type="button" onClick={expandAll} className="text-accent-9 hover:underline">
+            Expandir todos
+          </button>
+          <span className="text-neutral-6">|</span>
+          <button type="button" onClick={collapseAll} className="text-accent-9 hover:underline">
+            Colapsar todos
+          </button>
+        </div>
+      )}
+
+      <div className="space-y-2">
         {topics.length === 0 ? (
-          <div className="text-center py-8 text-neutral-9">
-            No hay temas añadidos. Haz clic en &quot;Añadir Tema&quot; o importa una plantilla.
+          <div className="text-center py-8 border-2 border-dashed border-neutral-4 rounded-lg bg-neutral-1">
+            <BookOpen className="mx-auto h-10 w-10 text-neutral-5" />
+            <p className="mt-3 text-neutral-9">No hay temas añadidos</p>
+            <p className="text-sm text-neutral-7">Haz clic en &quot;Añadir Tema&quot; o importa una plantilla</p>
           </div>
         ) : (
-          topics.map((topic, index) => (
-            <div key={index} className="border border-neutral-4 rounded-lg p-4 space-y-3">
-              <div className="flex items-start gap-2">
-                <div className="flex flex-col gap-1 mt-2">
+          <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+            {topics.map((topic, index) => (
+              <div
+                key={index}
+                draggable
+                onDragStart={() => handleDragStart(index)}
+                onDragOver={(e) => handleDragOver(e, index)}
+                onDragEnd={handleDragEnd}
+                className={`border rounded-lg bg-white transition-all ${
+                  draggedIndex === index 
+                    ? 'opacity-50 border-accent-9 shadow-lg' 
+                    : 'border-neutral-4 hover:border-neutral-5'
+                }`}
+              >
+                {/* Header row - always visible */}
+                <div className="flex items-center gap-2 p-3">
+                  <div className="cursor-grab active:cursor-grabbing hover:bg-neutral-2 rounded p-1 transition-colors">
+                    <GripVertical className="h-4 w-4 text-neutral-5" />
+                  </div>
+                  
+                  <Badge variant="outline" className="shrink-0 font-mono">
+                    {index + 1}
+                  </Badge>
+                  
+                  <div className="flex-1 min-w-0">
+                    {expandedTopics.has(index) ? (
+                      <Input
+                        value={topic.title}
+                        onChange={(e) => updateTopic(index, 'title', e.target.value)}
+                        placeholder="Título del tema"
+                        className="font-medium"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    ) : (
+                      <span 
+                        className={`font-medium truncate block cursor-pointer hover:text-accent-9 ${
+                          !topic.title ? 'text-neutral-6 italic' : ''
+                        }`}
+                        onClick={() => toggleTopicExpand(index)}
+                      >
+                        {topic.title || 'Sin título - clic para editar'}
+                      </span>
+                    )}
+                  </div>
+
                   <Button
                     type="button"
                     size="sm"
                     variant="ghost"
-                    onClick={() => moveUp(index)}
-                    disabled={index === 0}
-                    className="h-6 w-6 p-0"
+                    onClick={() => toggleTopicExpand(index)}
+                    className="shrink-0"
                   >
-                    ↑
+                    {expandedTopics.has(index) ? (
+                      <ChevronUp className="h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" />
+                    )}
                   </Button>
+
                   <Button
                     type="button"
                     size="sm"
                     variant="ghost"
-                    onClick={() => moveDown(index)}
-                    disabled={index === topics.length - 1}
-                    className="h-6 w-6 p-0"
+                    onClick={() => removeTopic(index)}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50 shrink-0"
                   >
-                    ↓
+                    <X className="h-4 w-4" />
                   </Button>
                 </div>
 
-                <div className="flex-1 space-y-3">
-                  <div>
-                    <Label className="text-sm text-neutral-10">
-                      Tema #{index + 1} - Título
-                    </Label>
-                    <Input
-                      value={topic.title}
-                      onChange={(e) => updateTopic(index, 'title', e.target.value)}
-                      placeholder="Título del tema"
-                      required
-                    />
+                {/* Expanded content */}
+                {expandedTopics.has(index) && (
+                  <div className="px-3 pb-3 pt-0 border-t border-neutral-3">
+                    <div className="pl-10 mt-3">
+                      <Label className="text-sm text-neutral-9">Descripción</Label>
+                      <Textarea
+                        value={topic.description}
+                        onChange={(e) => updateTopic(index, 'description', e.target.value)}
+                        placeholder="Descripción detallada del tema..."
+                        rows={2}
+                        className="mt-1"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <Label className="text-sm text-neutral-10">Descripción</Label>
-                    <Textarea
-                      value={topic.description}
-                      onChange={(e) => updateTopic(index, 'description', e.target.value)}
-                      placeholder="Descripción detallada del tema"
-                      rows={2}
-                    />
-                  </div>
-                </div>
-
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => removeTopic(index)}
-                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+                )}
               </div>
-            </div>
-          ))
+            ))}
+          </div>
         )}
       </div>
 
@@ -339,7 +418,7 @@ export default function CourseTopicsEditor({ courseId, initialTopics = [], onCha
           </DialogHeader>
           <DialogBody>
             <div className="space-y-4">
-              <div className="border-2 border-dashed border-neutral-4 rounded-lg p-6 text-center">
+              <div className="border-2 border-dashed border-neutral-4 rounded-lg p-6 text-center hover:border-accent-9 transition-colors">
                 <Input
                   type="file"
                   accept=".xlsx,.xls,.csv"
@@ -373,8 +452,7 @@ export default function CourseTopicsEditor({ courseId, initialTopics = [], onCha
                       <p className="font-medium">⚠️ Advertencia</p>
                       <p className="mt-1">
                         Esto reemplazará TODOS los temas actuales del curso ({topics.length} temas)
-                        con los {importPreview.length} temas del archivo. Los cambios se aplicarán
-                        en memoria y deberás guardar el curso para confirmar.
+                        con los {importPreview.length} temas del archivo.
                       </p>
                     </div>
                   </div>
@@ -383,7 +461,7 @@ export default function CourseTopicsEditor({ courseId, initialTopics = [], onCha
                     <table className="w-full text-sm">
                       <thead className="bg-neutral-2 sticky top-0">
                         <tr>
-                          <th className="p-2 text-left font-medium">#</th>
+                          <th className="p-2 text-left font-medium w-12">#</th>
                           <th className="p-2 text-left font-medium">Título</th>
                           <th className="p-2 text-left font-medium">Descripción</th>
                         </tr>
@@ -391,7 +469,9 @@ export default function CourseTopicsEditor({ courseId, initialTopics = [], onCha
                       <tbody>
                         {importPreview.map((topic, idx) => (
                           <tr key={idx} className="border-t border-neutral-4">
-                            <td className="p-2">{idx + 1}</td>
+                            <td className="p-2">
+                              <Badge variant="outline">{idx + 1}</Badge>
+                            </td>
                             <td className="p-2 font-medium">{topic.title}</td>
                             <td className="p-2 text-neutral-9 truncate max-w-xs">
                               {topic.description || '-'}

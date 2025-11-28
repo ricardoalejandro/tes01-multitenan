@@ -1,5 +1,6 @@
 import { FastifyPluginAsync } from 'fastify';
 import { getSMTPConfig, saveSMTPConfig, testSMTPConnection } from '../services/emailService';
+import { generateTestData, deleteTestData, getTestDataStats } from '../services/testDataService';
 import { z } from 'zod';
 
 const smtpConfigSchema = z.object({
@@ -14,6 +15,13 @@ const smtpConfigSchema = z.object({
     name: z.string().min(1, 'El nombre del remitente es requerido'),
     address: z.string().email('Email del remitente inválido'),
   }),
+});
+
+const generateTestDataSchema = z.object({
+  branchId: z.string().uuid('ID de sucursal inválido'),
+  studentsCount: z.number().min(1).max(100).default(10),
+  coursesCount: z.number().min(1).max(15).default(5),
+  instructorsCount: z.number().min(1).max(20).default(3),
 });
 
 export const systemRoutes: FastifyPluginAsync = async (fastify) => {
@@ -107,6 +115,81 @@ export const systemRoutes: FastifyPluginAsync = async (fastify) => {
         success: false, 
         message: `Error al probar conexión: ${error.message}` 
       });
+    }
+  });
+
+  // ============================================
+  // RUTAS DE DATOS DE PRUEBA
+  // ============================================
+
+  // GET /api/system/test-data/stats - Obtener estadísticas de datos de prueba
+  fastify.get('/test-data/stats', {
+    onRequest: [fastify.authenticate],
+  }, async (request, reply) => {
+    const currentUser = (request.user as any);
+
+    if (currentUser.userType !== 'admin') {
+      return reply.code(403).send({ error: 'No tienes permiso para esta acción' });
+    }
+
+    try {
+      const { branchId } = request.query as { branchId?: string };
+      const stats = await getTestDataStats(branchId);
+      return { data: stats };
+    } catch (error) {
+      console.error('Error al obtener estadísticas:', error);
+      return reply.code(500).send({ error: 'Error al obtener estadísticas' });
+    }
+  });
+
+  // POST /api/system/test-data/generate - Generar datos de prueba
+  fastify.post('/test-data/generate', {
+    onRequest: [fastify.authenticate],
+  }, async (request, reply) => {
+    const currentUser = (request.user as any);
+
+    if (currentUser.userType !== 'admin') {
+      return reply.code(403).send({ error: 'No tienes permiso para esta acción' });
+    }
+
+    try {
+      const options = generateTestDataSchema.parse(request.body);
+      const result = await generateTestData(options);
+      
+      return { 
+        message: 'Datos de prueba generados correctamente',
+        data: result 
+      };
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return reply.code(400).send({ error: 'Datos inválidos', details: error.errors });
+      }
+      console.error('Error al generar datos de prueba:', error);
+      return reply.code(500).send({ error: error.message || 'Error al generar datos de prueba' });
+    }
+  });
+
+  // DELETE /api/system/test-data - Eliminar datos de prueba
+  fastify.delete('/test-data', {
+    onRequest: [fastify.authenticate],
+  }, async (request, reply) => {
+    const currentUser = (request.user as any);
+
+    if (currentUser.userType !== 'admin') {
+      return reply.code(403).send({ error: 'No tienes permiso para esta acción' });
+    }
+
+    try {
+      const { branchId } = request.query as { branchId?: string };
+      const result = await deleteTestData(branchId);
+      
+      return { 
+        message: 'Datos de prueba eliminados correctamente',
+        data: result 
+      };
+    } catch (error: any) {
+      console.error('Error al eliminar datos de prueba:', error);
+      return reply.code(500).send({ error: error.message || 'Error al eliminar datos de prueba' });
     }
   });
 };

@@ -22,7 +22,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider attribute="data-appearance" defaultTheme="light" enableSystem>
         {children}
-        <Toaster position="top-right" />
+        <Toaster position="top-right" duration={2000} />
       </ThemeProvider>
     </QueryClientProvider>
   );

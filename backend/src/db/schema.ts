@@ -41,6 +41,12 @@ export const branches = pgTable('branches', {
   description: text('description'),
   status: statusEnum('status').notNull().default('active'),
   active: boolean('active').notNull().default(true),
+  // Nuevos campos de ubicación y gestión
+  departmentId: uuid('department_id'),
+  provinceId: uuid('province_id'),
+  districtId: uuid('district_id'),
+  branchManager: text('branch_manager'),
+  levelId: uuid('level_id'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -61,6 +67,7 @@ export const students = pgTable('students', {
   department: text('department'),
   province: text('province'),
   district: text('district'),
+  isTestData: boolean('is_test_data').notNull().default(false),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => ({
@@ -100,6 +107,7 @@ export const courses = pgTable('courses', {
   name: text('name').notNull(),
   description: text('description'),
   status: courseStatusEnum('status').notNull().default('active'),
+  isTestData: boolean('is_test_data').notNull().default(false),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -143,6 +151,7 @@ export const instructors = pgTable('instructors', {
   department: text('department'),
   province: text('province'),
   district: text('district'),
+  isTestData: boolean('is_test_data').notNull().default(false),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -158,6 +167,8 @@ export const classGroups = pgTable('class_groups', {
   name: text('name').notNull(),
   description: text('description'),
   startDate: date('start_date').notNull(),
+  startTime: text('start_time'), // Hora de inicio (formato HH:MM)
+  endTime: text('end_time'), // Hora de fin (formato HH:MM)
   frequency: frequencyEnum('frequency').notNull(),
   status: groupStatusEnum('status').notNull().default('active'),
   isScheduleGenerated: boolean('is_schedule_generated').default(false).notNull(),
@@ -167,6 +178,18 @@ export const classGroups = pgTable('class_groups', {
   recurrenceDays: text('recurrence_days'), // JSON: '["monday","thursday"]'
   endDate: date('end_date'),
   maxOccurrences: integer('max_occurrences'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Tabla: group_assistants (asistentes de clase)
+export const groupAssistants = pgTable('group_assistants', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  groupId: uuid('group_id').notNull().references(() => classGroups.id, { onDelete: 'cascade' }),
+  fullName: text('full_name').notNull(),
+  phone: text('phone'),
+  gender: text('gender'), // 'Masculino', 'Femenino', 'Otro'
+  age: integer('age'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -220,6 +243,7 @@ export const groupSessions = pgTable('group_sessions', {
   groupId: uuid('group_id').notNull().references(() => classGroups.id, { onDelete: 'cascade' }),
   sessionNumber: integer('session_number').notNull(),
   sessionDate: date('session_date').notNull(),
+  status: text('status').notNull().default('pendiente'), // 'pendiente' | 'dictada'
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -361,3 +385,145 @@ export const passwordResetTokens = pgTable('password_reset_tokens', {
   idxResetToken: index('idx_reset_token').on(table.token),
   idxResetExpires: index('idx_reset_expires').on(table.expiresAt),
 }));
+
+// ============================================
+// PLANTILLAS DE CURSOS (GLOBALES)
+// ============================================
+
+// Tabla: course_templates (Plantillas globales sin branchId)
+export const courseTemplates = pgTable('course_templates', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  description: text('description'),
+  isActive: boolean('is_active').notNull().default(true),
+  createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Tabla: course_template_topics (Temas de plantilla)
+export const courseTemplateTopics = pgTable('course_template_topics', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  templateId: uuid('template_id').notNull().references(() => courseTemplates.id, { onDelete: 'cascade' }),
+  orderIndex: integer('order_index').notNull(),
+  title: text('title').notNull(),
+  description: text('description'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// ============================================
+// UBICACIONES GEOGRÁFICAS (PERÚ)
+// ============================================
+
+// Tabla: departments (Departamentos del Perú)
+export const departments = pgTable('departments', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  code: text('code').notNull().unique(),
+  name: text('name').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// Tabla: provinces (Provincias)
+export const provinces = pgTable('provinces', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  departmentId: uuid('department_id').notNull().references(() => departments.id, { onDelete: 'cascade' }),
+  code: text('code'),
+  name: text('name').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  idxProvincesDepartment: index('idx_provinces_department').on(table.departmentId),
+}));
+
+// Tabla: districts (Distritos)
+export const districts = pgTable('districts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  provinceId: uuid('province_id').notNull().references(() => provinces.id, { onDelete: 'cascade' }),
+  code: text('code'),
+  name: text('name').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  idxDistrictsProvince: index('idx_districts_province').on(table.provinceId),
+}));
+
+// ============================================
+// NIVELES ORGANIZACIONALES
+// ============================================
+
+// Tabla: levels (Niveles de la organización)
+export const levels = pgTable('levels', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  code: text('code').notNull().unique(),
+  name: text('name').notNull(),
+  managerName: text('manager_name'),
+  managerPhone: text('manager_phone'),
+  isActive: boolean('is_active').notNull().default(true),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// ============================================
+// FERIADOS
+// ============================================
+
+// Enum para tipo de feriado
+export const holidayTypeEnum = pgEnum('holiday_type', ['national', 'provincial']);
+
+// Tabla: holidays (Feriados nacionales y provinciales)
+export const holidays = pgTable('holidays', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  description: text('description'),
+  date: date('date').notNull(),
+  year: integer('year').notNull(),
+  type: text('type').notNull(), // 'national' | 'provincial'
+  departmentId: uuid('department_id').references(() => departments.id, { onDelete: 'cascade' }),
+  isActive: boolean('is_active').notNull().default(true),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  idxHolidaysYear: index('idx_holidays_year').on(table.year),
+  idxHolidaysType: index('idx_holidays_type').on(table.type),
+  idxHolidaysDate: index('idx_holidays_date').on(table.date),
+}));
+
+// ============================================
+// SISTEMA DE ASISTENCIAS
+// ============================================
+
+// Tabla: session_attendance (Asistencia de estudiantes por sesión)
+export const sessionAttendance = pgTable('session_attendance', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  sessionId: uuid('session_id').notNull().references(() => groupSessions.id, { onDelete: 'cascade' }),
+  studentId: uuid('student_id').notNull().references(() => students.id, { onDelete: 'cascade' }),
+  status: text('status').notNull().default('pendiente'), // 'pendiente' | 'asistio' | 'no_asistio' | 'tarde' | 'justificado' | 'permiso'
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  uniqueSessionStudent: unique('session_attendance_session_student_unique').on(table.sessionId, table.studentId),
+  idxSessionAttendanceSession: index('idx_session_attendance_session').on(table.sessionId),
+  idxSessionAttendanceStudent: index('idx_session_attendance_student').on(table.studentId),
+}));
+
+// Tabla: attendance_observations (Historial de observaciones por asistencia)
+export const attendanceObservations = pgTable('attendance_observations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  attendanceId: uuid('attendance_id').notNull().references(() => sessionAttendance.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+  content: text('content').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  idxObservationsAttendance: index('idx_observations_attendance').on(table.attendanceId),
+}));
+
+// Tabla: session_execution (Ejecución real de la sesión - puede diferir de la planificación)
+export const sessionExecution = pgTable('session_execution', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  sessionId: uuid('session_id').notNull().unique().references(() => groupSessions.id, { onDelete: 'cascade' }),
+  actualInstructorId: uuid('actual_instructor_id').references(() => instructors.id, { onDelete: 'set null' }),
+  actualAssistantId: uuid('actual_assistant_id').references(() => groupAssistants.id, { onDelete: 'set null' }),
+  actualTopic: text('actual_topic'),
+  actualDate: date('actual_date').notNull(),
+  notes: text('notes'),
+  executedBy: uuid('executed_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});

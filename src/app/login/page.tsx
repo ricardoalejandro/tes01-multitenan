@@ -171,10 +171,6 @@ export default function LoginPage() {
               </form>
             </DialogContent>
           </Dialog>
-          <div className="mt-4 text-center text-sm text-neutral-10">
-            <p>Credenciales por defecto:</p>
-            <p className="font-mono">admin / escolastica123</p>
-          </div>
         </CardContent>
       </Card>
     </div>
