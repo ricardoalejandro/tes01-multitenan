@@ -1,13 +1,15 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Plus, Search, Edit, Trash2, X } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, X, BookOpen, Eye, FileDown, ChevronDown } from 'lucide-react';
 import { CourseCardsView, CourseCompactView, CourseListView } from './CourseViews';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 import { ResponsiveDialog } from '@/components/ui/responsive-dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter } from '@/components/ui/dialog';
 import { DataTablePagination } from '@/components/ui/data-table-pagination';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { toast } from 'sonner';
@@ -27,6 +29,14 @@ interface Course {
   name: string;
   description: string;
   themes?: CourseTopic[];
+}
+
+interface CourseTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  topicsCount: number;
+  topics?: CourseTopic[];
 }
 
 interface PaginationData {
@@ -56,6 +66,12 @@ export default function CoursesModule({ branchId }: { branchId: string }) {
     themes: []
   });
 
+  // Template states
+  const [templates, setTemplates] = useState<CourseTemplate[]>([]);
+  const [showTemplateSelector, setShowTemplateSelector] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<CourseTemplate | null>(null);
+  const [previewTemplate, setPreviewTemplate] = useState<CourseTemplate | null>(null);
+
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [pagination, setPagination] = useState<PaginationData>({
@@ -64,6 +80,20 @@ export default function CoursesModule({ branchId }: { branchId: string }) {
     total: 0,
     totalPages: 0,
   });
+
+  // Load templates on mount
+  useEffect(() => {
+    const loadTemplates = async () => {
+      try {
+        const response = await api.axiosInstance.get('/course-templates');
+        setTemplates(response.data.data || []);
+      } catch (error) {
+        // Silently fail - templates are optional
+        setTemplates([]);
+      }
+    };
+    loadTemplates();
+  }, []);
 
   const loadCourses = useCallback(async () => {
     try {
@@ -171,6 +201,58 @@ export default function CoursesModule({ branchId }: { branchId: string }) {
   const resetForm = () => {
     setEditingCourse(null);
     setFormData({ name: '', description: '', themes: [] });
+    setSelectedTemplate(null);
+    setShowTemplateSelector(false);
+  };
+
+  // Apply template to form
+  const applyTemplate = async (template: CourseTemplate) => {
+    try {
+      // Fetch full template with topics
+      const response = await api.axiosInstance.get(`/course-templates/${template.id}`);
+      const fullTemplate = response.data;
+      
+      // Si es curso existente, confirmar reemplazo
+      if (editingCourse && formData.themes.length > 0) {
+        const confirmed = confirm(
+          `¿Deseas reemplazar los ${formData.themes.length} temas actuales con los ${fullTemplate.topics?.length || 0} temas de la plantilla "${template.name}"?`
+        );
+        if (!confirmed) return;
+      }
+      
+      setFormData({
+        ...formData,
+        name: formData.name || fullTemplate.name, // Keep name if already set
+        description: formData.description || fullTemplate.description || '',
+        themes: (fullTemplate.topics || []).map((t: CourseTopic, idx: number) => ({
+          orderIndex: idx + 1,
+          title: t.title,
+          description: t.description || '',
+          _status: 'new' as const,
+        })),
+      });
+      
+      setSelectedTemplate(template);
+      setShowTemplateSelector(false);
+      
+      if (editingCourse) {
+        toast.success(`Temas reemplazados con plantilla "${template.name}" (${fullTemplate.topics?.length || 0} temas). Guarda para aplicar cambios.`);
+      } else {
+        toast.success(`Plantilla "${template.name}" aplicada con ${fullTemplate.topics?.length || 0} temas`);
+      }
+    } catch (error) {
+      toast.error('Error al cargar plantilla');
+    }
+  };
+
+  // Preview template
+  const handlePreviewTemplate = async (template: CourseTemplate) => {
+    try {
+      const response = await api.axiosInstance.get(`/course-templates/${template.id}`);
+      setPreviewTemplate(response.data);
+    } catch (error) {
+      toast.error('Error al cargar vista previa');
+    }
   };
 
   return (
@@ -294,22 +376,137 @@ export default function CoursesModule({ branchId }: { branchId: string }) {
         title={`${editingCourse ? 'Editar' : 'Nuevo'} Curso`}
       >
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="space-y-4">
-            <div>
-              <Label>Nombre del Curso</Label>
-              <Input
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                required
-              />
+          {/* Template Selector - Available for both new and existing courses */}
+          {templates.length > 0 && (
+            <div className="p-4 bg-gradient-to-r from-accent-2 to-accent-3 rounded-lg border border-accent-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <BookOpen className="h-5 w-5 text-accent-9" />
+                  <Label className="text-base font-semibold text-accent-11">
+                    {editingCourse ? 'Importar desde Plantilla' : 'Usar Plantilla'} (Opcional)
+                  </Label>
+                </div>
+                {selectedTemplate && (
+                  <Badge variant="default" className="bg-accent-9">
+                    {selectedTemplate.name}
+                  </Badge>
+                )}
+              </div>
+              
+              {editingCourse && (
+                <p className="text-xs text-amber-700 bg-amber-50 p-2 rounded mb-2">
+                  ⚠️ Al importar una plantilla se <strong>reemplazarán todos los temas</strong> del curso actual
+                </p>
+              )}
+              
+              {!showTemplateSelector ? (
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowTemplateSelector(true)}
+                    className="flex-1 justify-between bg-white"
+                  >
+                    <span className="text-neutral-9">
+                      {selectedTemplate 
+                        ? `✓ ${selectedTemplate.name} (${selectedTemplate.topicsCount} temas)`
+                        : editingCourse ? 'Importar temas de plantilla...' : 'Seleccionar plantilla...'
+                      }
+                    </span>
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                  {selectedTemplate && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedTemplate(null);
+                        if (!editingCourse) {
+                          setFormData({ ...formData, themes: [] });
+                        }
+                      }}
+                      className="text-red-600"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="max-h-48 overflow-y-auto space-y-1 bg-white rounded-lg p-2 border">
+                    {templates.map((template) => (
+                      <div
+                        key={template.id}
+                        className="flex items-center justify-between p-2 hover:bg-neutral-2 rounded-lg cursor-pointer group"
+                        onClick={() => applyTemplate(template)}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium truncate">{template.name}</div>
+                          {template.description && (
+                            <div className="text-xs text-neutral-9 truncate">{template.description}</div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Badge variant="outline">{template.topicsCount} temas</Badge>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handlePreviewTemplate(template);
+                            }}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowTemplateSelector(false)}
+                    className="w-full"
+                  >
+                    Cerrar selector
+                  </Button>
+                </div>
+              )}
+              
+              <p className="text-xs text-accent-10 mt-2">
+                💡 {editingCourse 
+                  ? 'Importa los temas de una plantilla para reemplazar el contenido actual' 
+                  : 'Selecciona una plantilla para cargar los temas automáticamente'}
+              </p>
             </div>
-            <div>
-              <Label>Descripción</Label>
-              <Textarea
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                rows={3}
-              />
+          )}
+
+          <div className="space-y-4">
+            <div className="p-4 bg-neutral-2 rounded-lg space-y-4">
+              <h3 className="font-semibold text-neutral-11 flex items-center gap-2">
+                📝 Información del Curso
+              </h3>
+              <div>
+                <Label>Nombre del Curso *</Label>
+                <Input
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="Ej: Filosofía Básica I"
+                  required
+                />
+              </div>
+              <div>
+                <Label>Descripción</Label>
+                <Textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Descripción del curso..."
+                  rows={2}
+                />
+              </div>
             </div>
 
             {/* Course Topics Editor with Import/Export */}
@@ -319,16 +516,71 @@ export default function CoursesModule({ branchId }: { branchId: string }) {
               onChange={(topics) => setFormData({ ...formData, themes: topics })}
             />
           </div>
-          <div className="flex justify-end gap-3 pt-4">
+          <div className="flex justify-end gap-3 pt-4 border-t">
             <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
               Cancelar
             </Button>
             <Button type="submit" className="bg-accent-9 hover:bg-accent-10 text-white">
-              {editingCourse ? 'Actualizar' : 'Crear'}
+              {editingCourse ? 'Actualizar' : 'Crear'} Curso
             </Button>
           </div>
         </form>
       </ResponsiveDialog>
+
+      {/* Template Preview Dialog */}
+      <Dialog open={!!previewTemplate} onOpenChange={() => setPreviewTemplate(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5" />
+              Vista Previa: {previewTemplate?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <DialogBody>
+            {previewTemplate?.description && (
+              <p className="text-neutral-9 mb-4">{previewTemplate.description}</p>
+            )}
+            <div className="space-y-2">
+              <h4 className="font-semibold text-neutral-11">
+                Temas ({previewTemplate?.topics?.length || 0})
+              </h4>
+              {previewTemplate?.topics?.length === 0 ? (
+                <p className="text-neutral-9 italic">Sin temas definidos</p>
+              ) : (
+                <div className="max-h-[300px] overflow-y-auto space-y-2">
+                  {previewTemplate?.topics?.map((topic, idx) => (
+                    <div key={idx} className="p-3 bg-neutral-2 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline">{idx + 1}</Badge>
+                        <span className="font-medium">{topic.title}</span>
+                      </div>
+                      {topic.description && (
+                        <p className="text-sm text-neutral-9 mt-1 ml-8">{topic.description}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPreviewTemplate(null)}>
+              Cerrar
+            </Button>
+            <Button 
+              onClick={() => {
+                if (previewTemplate) {
+                  applyTemplate(previewTemplate);
+                  setPreviewTemplate(null);
+                }
+              }}
+              className="bg-accent-9 hover:bg-accent-10"
+            >
+              Usar esta plantilla
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

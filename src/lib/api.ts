@@ -408,6 +408,126 @@ class ApiClient {
     const response = await this.client.put('/profile/me', data);
     return response.data;
   }
+
+  // Course Templates
+  async getCourseTemplates() {
+    const response = await this.client.get('/course-templates');
+    return response.data;
+  }
+
+  async getCourseTemplate(id: string) {
+    const response = await this.client.get(`/course-templates/${id}`);
+    return response.data;
+  }
+
+  async createCourseTemplate(data: any) {
+    const response = await this.client.post('/course-templates', data);
+    return response.data;
+  }
+
+  async updateCourseTemplate(id: string, data: any) {
+    const response = await this.client.put(`/course-templates/${id}`, data);
+    return response.data;
+  }
+
+  async deleteCourseTemplate(id: string) {
+    const response = await this.client.delete(`/course-templates/${id}`);
+    return response.data;
+  }
+
+  // ============================================
+  // ATTENDANCE MODULE
+  // ============================================
+
+  // Get groups with attendance stats
+  async getAttendanceGroups(branchId: string) {
+    const response = await this.client.get('/attendance/groups', {
+      params: { branchId },
+    });
+    return response.data;
+  }
+
+  // Get sessions for a group
+  async getGroupSessions(groupId: string, status?: 'pendiente' | 'dictada' | 'all') {
+    const response = await this.client.get(`/attendance/groups/${groupId}/sessions`, {
+      params: { status },
+    });
+    return response.data;
+  }
+
+  // Get pending sessions (alerts)
+  async getPendingSessions(branchId: string) {
+    const response = await this.client.get('/attendance/pending', {
+      params: { branchId },
+    });
+    return response.data;
+  }
+
+  // Get session detail
+  async getSessionDetail(sessionId: string) {
+    const response = await this.client.get(`/attendance/sessions/${sessionId}`);
+    return response.data;
+  }
+
+  // Get students with attendance for a session
+  async getSessionStudents(sessionId: string) {
+    const response = await this.client.get(`/attendance/sessions/${sessionId}/students`);
+    return response.data;
+  }
+
+  // Update attendance status
+  async updateAttendanceStatus(attendanceId: string, status: string) {
+    const response = await this.client.put(`/attendance/students/${attendanceId}`, { status });
+    return response.data;
+  }
+
+  // Add observation
+  async addAttendanceObservation(attendanceId: string, content: string, userId?: string) {
+    const response = await this.client.post(`/attendance/students/${attendanceId}/observations`, {
+      content,
+      userId,
+    });
+    return response.data;
+  }
+
+  // Get observations history
+  async getAttendanceObservations(attendanceId: string) {
+    const response = await this.client.get(`/attendance/students/${attendanceId}/observations`);
+    return response.data;
+  }
+
+  // Update session execution
+  async updateSessionExecution(sessionId: string, data: {
+    actualInstructorId?: string | null;
+    actualAssistantId?: string | null;
+    actualTopic?: string | null;
+    actualDate: string;
+    notes?: string | null;
+    executedBy?: string;
+  }) {
+    const response = await this.client.put(`/attendance/sessions/${sessionId}/execution`, data);
+    return response.data;
+  }
+
+  // Mark session as dictada
+  async completeSession(sessionId: string, executedBy?: string) {
+    const response = await this.client.put(`/attendance/sessions/${sessionId}/complete`, { executedBy });
+    return response.data;
+  }
+
+  // Get calendar view
+  async getAttendanceCalendar(groupId: string, month?: number, year?: number) {
+    const response = await this.client.get(`/attendance/calendar/${groupId}`, {
+      params: { month, year },
+    });
+    return response.data;
+  }
+
+  // Get instructors for attendance
+  async getAttendanceInstructors() {
+    const response = await this.client.get('/attendance/instructors');
+    return response.data;
+  }
 }
 
 export const api = new ApiClient();

@@ -63,7 +63,7 @@ export function DialogContent({
       className={cn(
         'relative bg-white rounded-xl shadow-2xl overflow-hidden',
         isMaximized ? 'w-[95vw] h-[95vh]' : 'max-h-[90vh]',
-        'animate-in fade-in-0 zoom-in-95 duration-200',
+        'animate-in fade-in-0 slide-in-from-bottom-4 duration-300',
         className
       )}
       {...props}

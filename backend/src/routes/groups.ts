@@ -3,9 +3,10 @@ import { db } from '../db';
 import { 
   classGroups, groupCourses, groupSessions, groupSessionTopics, 
   groupEnrollments, groupTransactions, courses, courseThemes, 
-  instructors, students, studentBranches 
+  instructors, students, studentBranches, holidays, branches,
+  groupAssistants
 } from '../db/schema';
-import { eq, sql, desc, and, inArray } from 'drizzle-orm';
+import { eq, sql, desc, and, inArray, asc } from 'drizzle-orm';
 import { z } from 'zod';
 import { generateRecurrenceDates, RecurrenceConfig } from '../utils/recurrence';
 
@@ -25,15 +26,26 @@ const courseWithInstructorSchema = z.object({
   orderIndex: z.number(),
 });
 
+const assistantSchema = z.object({
+  fullName: z.string().min(1),
+  phone: z.string().optional(),
+  gender: z.enum(['Masculino', 'Femenino', 'Otro']).optional(),
+  age: z.number().min(1).max(120).optional(),
+});
+
 const generateCalendarSchema = z.object({
   recurrence: recurrenceSchema,
   courses: z.array(courseWithInstructorSchema),
+  branchId: z.string().uuid().optional(), // Para filtrar feriados provinciales
 });
 
 const groupCreateSchema = z.object({
   branchId: z.string().uuid(),
   name: z.string().min(1),
   description: z.string().optional(),
+  startTime: z.string().optional(), // HH:MM format
+  endTime: z.string().optional(), // HH:MM format
+  assistants: z.array(assistantSchema).optional(),
   recurrence: recurrenceSchema,
   courses: z.array(courseWithInstructorSchema),
   sessions: z.array(z.object({
@@ -168,11 +180,31 @@ export const groupRoutes: FastifyPluginAsync = async (fastify) => {
       .innerJoin(students, eq(groupEnrollments.studentId, students.id))
       .where(eq(groupEnrollments.groupId, id));
 
+    // Obtener asistentes de clase
+    const assistantsData = await db
+      .select()
+      .from(groupAssistants)
+      .where(eq(groupAssistants.groupId, id))
+      .orderBy(groupAssistants.createdAt);
+
+    // Contar sesiones dictadas
+    const [sessionStats] = await db
+      .select({
+        totalSessions: sql<number>`count(*)::int`,
+        dictatedSessions: sql<number>`count(*) filter (where ${groupSessions.status} = 'dictada')::int`,
+      })
+      .from(groupSessions)
+      .where(eq(groupSessions.groupId, id));
+
     return {
       ...group,
       courses: groupCoursesData,
       sessions: sessionsWithTopics,
       enrollments: enrollmentsData,
+      assistants: assistantsData,
+      hasDictatedSessions: (sessionStats?.dictatedSessions || 0) > 0,
+      dictatedSessionsCount: sessionStats?.dictatedSessions || 0,
+      totalSessionsCount: sessionStats?.totalSessions || 0,
     };
   });
 
@@ -181,9 +213,58 @@ export const groupRoutes: FastifyPluginAsync = async (fastify) => {
     try {
       console.log('📅 Generate calendar request body:', JSON.stringify(request.body, null, 2));
       const validatedData = generateCalendarSchema.parse(request.body);
-      const { recurrence, courses: groupCoursesInput } = validatedData;
+      const { recurrence, courses: groupCoursesInput, branchId } = validatedData;
 
-      const dates = generateRecurrenceDates(recurrence as RecurrenceConfig);
+      // Generar todas las fechas posibles según recurrencia
+      const allDates = generateRecurrenceDates(recurrence as RecurrenceConfig);
+      
+      // Obtener departamento de la filial (si se proporciona branchId)
+      let departmentId: string | null = null;
+      if (branchId) {
+        const [branch] = await db
+          .select({ departmentId: branches.departmentId })
+          .from(branches)
+          .where(eq(branches.id, branchId))
+          .limit(1);
+        departmentId = branch?.departmentId || null;
+      }
+      
+      // Obtener feriados en el rango de fechas
+      const startDate = allDates[0];
+      const endDate = allDates[allDates.length - 1];
+      
+      const holidayList = await db
+        .select({
+          date: holidays.date,
+          name: holidays.name,
+          type: holidays.type,
+        })
+        .from(holidays)
+        .where(and(
+          eq(holidays.isActive, true),
+          sql`${holidays.date} >= ${startDate}::date`,
+          sql`${holidays.date} <= ${endDate}::date`,
+          departmentId 
+            ? sql`(${holidays.type} = 'national' OR ${holidays.departmentId} = ${departmentId}::uuid)`
+            : eq(holidays.type, 'national')
+        ))
+        .orderBy(asc(holidays.date));
+      
+      // Crear set de fechas de feriados para búsqueda rápida
+      const holidayDates = new Set(holidayList.map(h => h.date));
+      const skippedHolidays: Array<{ date: string; name: string }> = [];
+      
+      // Filtrar fechas que no sean feriados
+      const validDates = allDates.filter(date => {
+        if (holidayDates.has(date)) {
+          const holiday = holidayList.find(h => h.date === date);
+          if (holiday) {
+            skippedHolidays.push({ date, name: holiday.name });
+          }
+          return false;
+        }
+        return true;
+      });
 
       const coursesWithThemes = await Promise.all(
         groupCoursesInput.map(async (gc) => {
@@ -203,18 +284,21 @@ export const groupRoutes: FastifyPluginAsync = async (fastify) => {
         })
       );
 
-      const sessions = dates.map((date, index) => {
+      const sessions = validDates.map((date, index) => {
         const topics = coursesWithThemes.map((course) => {
-          const theme = course.themes[index] || course.themes[course.themes.length - 1] || { title: 'Tema pendiente', description: '' };
+          // Si hay tema disponible para este índice, usarlo; si no, dejar vacío
+          const theme = course.themes[index];
+          const hasTheme = !!theme;
           
           return {
             courseId: course.courseId,
             courseName: course.courseName,
-            topicMode: 'auto' as const,
-            topicTitle: theme.title,
-            topicDescription: theme.description || '',
+            topicMode: hasTheme ? 'auto' as const : 'manual' as const,
+            topicTitle: hasTheme ? theme.title : '',
+            topicDescription: hasTheme ? (theme.description || '') : '',
             instructorId: course.instructorId,
             orderIndex: course.orderIndex,
+            isEmpty: !hasTheme, // Indicador para el frontend
           };
         });
 
@@ -225,7 +309,13 @@ export const groupRoutes: FastifyPluginAsync = async (fastify) => {
         };
       });
 
-      return { sessions };
+      return { 
+        sessions,
+        skippedHolidays,
+        message: skippedHolidays.length > 0 
+          ? `Se omitieron ${skippedHolidays.length} fecha(s) por ser feriado` 
+          : null,
+      };
     } catch (error: any) {
       console.error('❌ Generate calendar error:', error);
       console.error('Error details:', error.issues || error.message);
@@ -237,7 +327,14 @@ export const groupRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post('/', async (request, reply) => {
     try {
       const validatedData = groupCreateSchema.parse(request.body);
-      const { branchId, name, description, recurrence, courses: coursesInput, sessions: sessionsInput } = validatedData;
+      const { branchId, name, description, startTime, endTime, assistants, recurrence, courses: coursesInput, sessions: sessionsInput } = validatedData;
+
+      // Calcular fecha de fin a partir de las sesiones
+      let calculatedEndDate = recurrence.endDate || null;
+      if (!calculatedEndDate && sessionsInput && sessionsInput.length > 0) {
+        const lastSession = sessionsInput[sessionsInput.length - 1];
+        calculatedEndDate = lastSession.sessionDate;
+      }
 
       const [newGroup] = await db
         .insert(classGroups)
@@ -246,16 +343,31 @@ export const groupRoutes: FastifyPluginAsync = async (fastify) => {
           name,
           description,
           startDate: recurrence.startDate,
+          startTime: startTime || null,
+          endTime: endTime || null,
           frequency: 'Semanal',
           recurrenceFrequency: recurrence.frequency,
           recurrenceInterval: recurrence.interval,
           recurrenceDays: recurrence.days ? JSON.stringify(recurrence.days) : null,
-          endDate: recurrence.endDate || null,
+          endDate: calculatedEndDate,
           maxOccurrences: recurrence.maxOccurrences || null,
           status: 'active',
           isScheduleGenerated: true,
         })
         .returning();
+
+      // Guardar asistentes si existen
+      if (assistants && assistants.length > 0) {
+        await db.insert(groupAssistants).values(
+          assistants.map((a) => ({
+            groupId: newGroup.id,
+            fullName: a.fullName,
+            phone: a.phone || null,
+            gender: a.gender || null,
+            age: a.age || null,
+          }))
+        );
+      }
 
       await db.insert(groupCourses).values(
         coursesInput.map((c) => ({
@@ -566,5 +678,75 @@ export const groupRoutes: FastifyPluginAsync = async (fastify) => {
     const { id } = request.params as { id: string };
     const transactions = await db.select().from(groupTransactions).where(eq(groupTransactions.groupId, id)).orderBy(desc(groupTransactions.transactionDate));
     return { data: transactions };
+  });
+
+  // ============================================
+  // ENDPOINTS DE ASISTENTES DE CLASE
+  // ============================================
+
+  // GET /api/groups/:id/assistants - Listar asistentes
+  fastify.get('/:id/assistants', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const assistants = await db
+      .select()
+      .from(groupAssistants)
+      .where(eq(groupAssistants.groupId, id))
+      .orderBy(groupAssistants.createdAt);
+    return { data: assistants };
+  });
+
+  // POST /api/groups/:id/assistants - Agregar asistente
+  fastify.post('/:id/assistants', async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string };
+      const validatedData = assistantSchema.parse(request.body);
+      
+      const [newAssistant] = await db
+        .insert(groupAssistants)
+        .values({
+          groupId: id,
+          fullName: validatedData.fullName,
+          phone: validatedData.phone || null,
+          gender: validatedData.gender || null,
+          age: validatedData.age || null,
+        })
+        .returning();
+      
+      return { success: true, assistant: newAssistant };
+    } catch (error: any) {
+      return reply.code(400).send({ error: error.message });
+    }
+  });
+
+  // PUT /api/groups/:id/assistants/:assistantId - Editar asistente
+  fastify.put('/:id/assistants/:assistantId', async (request, reply) => {
+    try {
+      const { id, assistantId } = request.params as { id: string; assistantId: string };
+      const validatedData = assistantSchema.partial().parse(request.body);
+      
+      const [updated] = await db
+        .update(groupAssistants)
+        .set({
+          ...validatedData,
+          updatedAt: sql`NOW()`,
+        })
+        .where(and(eq(groupAssistants.id, assistantId), eq(groupAssistants.groupId, id)))
+        .returning();
+      
+      if (!updated) {
+        return reply.code(404).send({ error: 'Assistant not found' });
+      }
+      
+      return { success: true, assistant: updated };
+    } catch (error: any) {
+      return reply.code(400).send({ error: error.message });
+    }
+  });
+
+  // DELETE /api/groups/:id/assistants/:assistantId - Eliminar asistente
+  fastify.delete('/:id/assistants/:assistantId', async (request, reply) => {
+    const { id, assistantId } = request.params as { id: string; assistantId: string };
+    await db.delete(groupAssistants).where(and(eq(groupAssistants.id, assistantId), eq(groupAssistants.groupId, id)));
+    return { success: true };
   });
 };

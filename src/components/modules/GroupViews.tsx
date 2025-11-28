@@ -1,6 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Users, Calendar, Edit, UserPlus, GitMerge, History, Trash2 } from 'lucide-react';
+import { Users, Calendar, Edit, UserPlus, GitMerge, History, Trash2, Clock } from 'lucide-react';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 
 interface Group {
@@ -8,9 +8,15 @@ interface Group {
   name: string;
   description: string;
   status: string;
-  branch_name: string;
-  recurrence_start_date: string;
-  recurrence_frequency: string;
+  branchId: string;
+  startDate: string;
+  endDate: string | null;
+  startTime: string | null;
+  endTime: string | null;
+  frequency: string;
+  recurrenceFrequency: string;
+  recurrenceInterval: number;
+  maxOccurrences: number | null;
 }
 
 interface ViewProps {
@@ -58,15 +64,21 @@ export function GroupCardsView({ groups, onEdit, onViewStudents, onEnroll, onCha
           <p className="text-sm text-neutral-11 line-clamp-2 mb-3">{group.description || '-'}</p>
           
           <div className="space-y-2 text-xs text-neutral-10 mb-3">
-            {group.recurrence_start_date && (
+            {group.startDate && (
               <div className="flex items-center gap-2">
                 <Calendar className="h-3 w-3" />
-                <span>Inicio: {new Date(group.recurrence_start_date).toLocaleDateString('es-PE')}</span>
+                <span>Inicio: {new Date(group.startDate).toLocaleDateString('es-PE')}</span>
               </div>
             )}
-            {group.recurrence_frequency && (
+            {(group.startTime || group.endTime) && (
+              <div className="flex items-center gap-2">
+                <Clock className="h-3 w-3" />
+                <span>{group.startTime || '--:--'} - {group.endTime || '--:--'}</span>
+              </div>
+            )}
+            {group.frequency && (
               <div className="flex items-center gap-2 capitalize">
-                <span>Frecuencia: {group.recurrence_frequency}</span>
+                <span>Frecuencia: {group.frequency}</span>
               </div>
             )}
           </div>
@@ -123,9 +135,9 @@ export function GroupCompactView({ groups, onEdit, onViewStudents, onEnroll, onC
             </div>
             <div className="flex items-center gap-4 text-sm text-neutral-10">
               <span className="truncate">{group.description || '-'}</span>
-              {group.recurrence_start_date && (
+              {group.startDate && (
                 <span className="text-xs whitespace-nowrap">
-                  {new Date(group.recurrence_start_date).toLocaleDateString('es-PE')}
+                  {new Date(group.startDate).toLocaleDateString('es-PE')}
                 </span>
               )}
             </div>
@@ -182,12 +194,12 @@ export function GroupListView({ groups, onEdit, onViewStudents, onEnroll, onChan
             <TableCell className="font-medium">{group.name}</TableCell>
             <TableCell className="max-w-md truncate">{group.description || '-'}</TableCell>
             <TableCell>
-              {group.recurrence_start_date
-                ? new Date(group.recurrence_start_date).toLocaleDateString('es-PE')
+              {group.startDate
+                ? new Date(group.startDate).toLocaleDateString('es-PE')
                 : '-'}
             </TableCell>
             <TableCell>{getStatusBadge(group.status)}</TableCell>
-            <TableCell className="capitalize">{group.recurrence_frequency || '-'}</TableCell>
+            <TableCell className="capitalize">{group.frequency || '-'}</TableCell>
             <TableCell className="text-right">
               <div className="flex justify-end gap-1">
                 <Button variant="ghost" size="sm" onClick={() => onEdit(group)} title="Editar">

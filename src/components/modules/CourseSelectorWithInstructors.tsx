@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Plus, X, GripVertical } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface CourseWithInstructor {
   courseId: string;
@@ -25,7 +26,17 @@ interface Props {
 }
 
 export default function CourseSelectorWithInstructors({ value, onChange, availableCourses, availableInstructors }: Props) {
+  // Cursos ya seleccionados
+  const selectedCourseIds = value.map(c => c.courseId).filter(Boolean);
+
   const addCourse = () => {
+    // Si hay cursos sin seleccionar, no permitir añadir más
+    const hasEmptyCourse = value.some(c => !c.courseId);
+    if (hasEmptyCourse) {
+      toast.info('Selecciona un curso en la fila vacía antes de añadir otra');
+      return;
+    }
+    
     const newCourse: CourseWithInstructor = {
       courseId: '',
       instructorId: '',
@@ -116,18 +127,34 @@ export default function CourseSelectorWithInstructors({ value, onChange, availab
               <label className="text-sm font-medium text-neutral-10">Curso</label>
               <Select
                 value={course.courseId}
-                onValueChange={(value) => updateCourse(index, 'courseId', value)}
+                onValueChange={(newValue) => {
+                  // Verificar si el curso ya está seleccionado en otra fila
+                  const isAlreadySelected = value.some((c, i) => i !== index && c.courseId === newValue);
+                  if (isAlreadySelected) {
+                    toast.warning('Este curso ya está añadido al grupo');
+                    return;
+                  }
+                  updateCourse(index, 'courseId', newValue);
+                }}
                 required
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Seleccionar curso..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {availableCourses.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
+                  {availableCourses.map((c) => {
+                    const isSelected = selectedCourseIds.includes(c.id) && course.courseId !== c.id;
+                    return (
+                      <SelectItem 
+                        key={c.id} 
+                        value={c.id}
+                        disabled={isSelected}
+                        className={isSelected ? 'opacity-50' : ''}
+                      >
+                        {c.name} {isSelected ? '(ya añadido)' : ''}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>

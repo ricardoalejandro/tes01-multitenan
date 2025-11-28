@@ -21,6 +21,7 @@ import StudentsModule from '@/components/modules/StudentsModule';
 import CoursesModule from '@/components/modules/CoursesModule';
 import InstructorsModule from '@/components/modules/InstructorsModule';
 import GroupsModule from '@/components/modules/GroupsModule';
+import AttendanceModule from '@/components/modules/AttendanceModule';
 
 const modules = [
   { id: 'home', name: 'Inicio', icon: Home },
@@ -28,7 +29,7 @@ const modules = [
   { id: 'courses', name: 'Cursos', icon: BookOpen },
   { id: 'instructors', name: 'Instructores', icon: UserCheck },
   { id: 'groups', name: 'Grupos', icon: FolderKanban },
-  { id: 'attendance', name: 'Asistencia', icon: ClipboardCheck, disabled: true },
+  { id: 'attendance', name: 'Asistencia', icon: ClipboardCheck },
 ];
 
 function WorkspaceContent() {
@@ -246,12 +247,12 @@ function WorkspaceContent() {
                   <h3 className="text-xl font-semibold mb-2 text-neutral-11">Grupos</h3>
                   <p className="text-neutral-9">Organiza grupos de clases</p>
                 </div>
-                <div className="bg-white p-6 rounded-2xl shadow-lg opacity-60 border border-neutral-4">
-                  <div className="bg-neutral-5 p-3 rounded-xl w-fit mb-4">
-                    <ClipboardCheck className="h-8 w-8 text-neutral-9" />
+                <div className="bg-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-neutral-4 cursor-pointer" onClick={() => setActiveModule('attendance')}>
+                  <div className="bg-accent-9 p-3 rounded-xl w-fit mb-4">
+                    <ClipboardCheck className="h-8 w-8 text-white" />
                   </div>
                   <h3 className="text-xl font-semibold mb-2 text-neutral-11">Asistencia</h3>
-                  <p className="text-neutral-9">Próximamente disponible</p>
+                  <p className="text-neutral-9">Registra asistencia de sesiones</p>
                 </div>
               </div>
             </div>
@@ -271,6 +272,10 @@ function WorkspaceContent() {
 
           {activeModule === 'groups' && branchId && (
             <GroupsModule branchId={branchId} />
+          )}
+
+          {activeModule === 'attendance' && branchId && (
+            <AttendanceModule branchId={branchId} />
           )}
         </div>
       </div>

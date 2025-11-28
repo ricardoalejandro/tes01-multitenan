@@ -1,0 +1,63 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - alert [ref=e2]
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - heading "Iquitos" [level=2] [ref=e6]
+        - paragraph [ref=e7]: FIL-001
+        - button "Volver al Dashboard" [ref=e8] [cursor=pointer]:
+          - img [ref=e9]
+          - text: Volver al Dashboard
+      - button "Contraer menú" [ref=e12] [cursor=pointer]:
+        - img [ref=e13]
+        - generic [ref=e14]: Contraer menú
+      - navigation [ref=e15]:
+        - button "Inicio" [active] [ref=e16] [cursor=pointer]:
+          - img [ref=e17]
+          - generic [ref=e20]: Inicio
+        - button "Probacionistas" [ref=e21] [cursor=pointer]:
+          - img [ref=e22]
+          - generic [ref=e27]: Probacionistas
+        - button "Cursos" [ref=e28] [cursor=pointer]:
+          - img [ref=e29]
+          - generic [ref=e32]: Cursos
+        - button "Instructores" [ref=e33] [cursor=pointer]:
+          - img [ref=e34]
+          - generic [ref=e38]: Instructores
+        - button "Grupos" [ref=e39] [cursor=pointer]:
+          - img [ref=e40]
+          - generic [ref=e42]: Grupos
+        - button "Asistencia" [ref=e43] [cursor=pointer]:
+          - img [ref=e44]
+          - generic [ref=e48]: Asistencia
+      - button "Cerrar Sesión" [ref=e50] [cursor=pointer]:
+        - img [ref=e51]
+        - text: Cerrar Sesión
+    - generic [ref=e56]:
+      - heading "Bienvenido" [level=1] [ref=e57]
+      - paragraph [ref=e58]: Selecciona un módulo para comenzar
+      - generic [ref=e59]:
+        - generic [ref=e60] [cursor=pointer]:
+          - img [ref=e62]
+          - heading "Probacionistas" [level=3] [ref=e67]
+          - paragraph [ref=e68]: Gestiona estudiantes y sus datos
+        - generic [ref=e69] [cursor=pointer]:
+          - img [ref=e71]
+          - heading "Cursos" [level=3] [ref=e74]
+          - paragraph [ref=e75]: Administra cursos y temas
+        - generic [ref=e76] [cursor=pointer]:
+          - img [ref=e78]
+          - heading "Instructores" [level=3] [ref=e82]
+          - paragraph [ref=e83]: Gestiona el personal docente
+        - generic [ref=e84] [cursor=pointer]:
+          - img [ref=e86]
+          - heading "Grupos" [level=3] [ref=e88]
+          - paragraph [ref=e89]: Organiza grupos de clases
+        - generic [ref=e90] [cursor=pointer]:
+          - img [ref=e92]
+          - heading "Asistencia" [level=3] [ref=e96]
+          - paragraph [ref=e97]: Registra asistencia de sesiones
+```

@@ -195,11 +195,209 @@ Cada plan debe incluir:
 - Si es extenso: "Creé el plan en `docs_readme/plan_XXX.md`. Por favor revísalo."
 
 ### Después de implementar:
-1. ✅ Resumen de lo implementado
-2. 🎯 Alcance cubierto (Frontend/Backend/BD)
-3. 🚀 Cómo probarlo
-4. 💡 Recomendaciones y mejoras sugeridas
-5. ⚠️ Advertencias o consideraciones
+1. 🧪 **EJECUTAR PRUEBAS AUTOMATIZADAS** (obligatorio)
+2. 🖥️ **VERIFICAR EN SIMPLE BROWSER** (obligatorio)
+3. ✅ Resumen de lo implementado
+4. 🎯 Alcance cubierto (Frontend/Backend/BD)
+5. 📊 Resultado de pruebas (X/X pasaron)
+6. 🚀 Cómo probarlo manualmente
+7. 💡 Recomendaciones y mejoras sugeridas
+8. ⚠️ Advertencias o consideraciones
+
+## 🧪 FASE DE TESTING OBLIGATORIA (QA SENIOR)
+
+### DESPUÉS DE CADA IMPLEMENTACIÓN, SIEMPRE:
+
+#### 1. CREAR PLAN DE PRUEBAS COMPLETO
+
+Antes de dar por terminada cualquier funcionalidad, elabora un plan de pruebas como lo haría un QA Senior:
+
+```markdown
+# Plan de Pruebas: [Nombre de la Funcionalidad]
+
+## 📋 Información General
+- Módulo: [nombre]
+- Fecha: [fecha]
+- Alcance: [Frontend/Backend/Integración]
+
+## 🎯 Objetivos de Testing
+- [Qué se debe validar]
+
+## 🔍 CASOS DE PRUEBA
+
+### API Tests (Backend)
+| ID | Endpoint | Método | Descripción | Datos de Entrada | Resultado Esperado |
+|----|----------|--------|-------------|------------------|-------------------|
+| API-01 | /api/xxx | GET | Descripción | Query params | Status 200, formato JSON |
+| API-02 | /api/xxx | POST | Descripción | Body JSON | Status 201, ID creado |
+
+### E2E Tests con Playwright (OBLIGATORIO)
+| ID | Flujo | Pasos de Navegación | Resultado Esperado |
+|----|-------|---------------------|-------------------|
+| E2E-01 | Login | 1. Ir a /login 2. Ingresar credenciales 3. Click submit | Redirección a /workspace |
+| E2E-02 | Navegación módulo | 1. Click en módulo 2. Esperar carga | Componentes visibles |
+| E2E-03 | CRUD completo | 1. Crear 2. Ver 3. Editar 4. Eliminar | Datos persistidos, UI actualizada |
+
+### Casos Negativos
+| ID | Escenario | Resultado Esperado |
+|----|-----------|-------------------|
+| NEG-01 | Token inválido | 401 Unauthorized |
+| NEG-02 | Datos inválidos | 400 + mensaje de error |
+
+### Casos de Borde
+| ID | Escenario | Resultado Esperado |
+|----|-----------|-------------------|
+| EDGE-01 | Campos vacíos | Validación frontend visible |
+| EDGE-02 | Caracteres especiales | Escape correcto |
+```
+
+#### 2. CREAR SCRIPT DE PRUEBAS PLAYWRIGHT (OBLIGATORIO)
+
+**SIEMPRE** crear un archivo de pruebas Playwright en `/tests/[nombre].spec.ts`:
+
+```typescript
+import { test, expect } from '@playwright/test';
+
+test.describe('[Nombre del Módulo]', () => {
+  
+  test.beforeEach(async ({ page }) => {
+    // Login antes de cada test
+    await page.goto('http://localhost:5000/login');
+    await page.fill('input[name="username"]', 'admin');
+    await page.fill('input[name="password"]', 'escolastica123');
+    await page.click('button[type="submit"]');
+    await page.waitForURL('**/workspace');
+  });
+
+  test('debe cargar el módulo sin errores', async ({ page }) => {
+    // Capturar errores de consola
+    const consoleErrors: string[] = [];
+    page.on('console', msg => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
+    });
+
+    // Navegar al módulo
+    await page.click('text=[Nombre del Módulo]');
+    await page.waitForLoadState('networkidle');
+
+    // Verificar que no hay errores de consola
+    expect(consoleErrors).toHaveLength(0);
+    
+    // Verificar elementos visibles
+    await expect(page.locator('[data-testid="modulo-container"]')).toBeVisible();
+  });
+
+  test('debe realizar acción principal', async ({ page }) => {
+    // Navegación y acciones
+    await page.click('text=[Nombre del Módulo]');
+    await page.click('button:has-text("Crear")');
+    
+    // Llenar formulario
+    await page.fill('input[name="nombre"]', 'Test');
+    await page.click('button[type="submit"]');
+    
+    // Verificar resultado
+    await expect(page.locator('text=Creado exitosamente')).toBeVisible();
+  });
+
+  test('debe manejar errores correctamente', async ({ page }) => {
+    // Probar caso de error
+    await page.click('text=[Nombre del Módulo]');
+    await page.click('button:has-text("Crear")');
+    await page.click('button[type="submit"]'); // Sin llenar campos
+    
+    // Verificar mensajes de error visibles
+    await expect(page.locator('.text-destructive, .text-red-500')).toBeVisible();
+  });
+});
+```
+
+**El script Playwright DEBE incluir:**
+- ✅ Login automático antes de cada test
+- ✅ Captura de errores de consola del navegador
+- ✅ Navegación real por el frontend
+- ✅ Verificación de elementos visibles
+- ✅ Pruebas de formularios y validaciones
+- ✅ Pruebas de flujos completos E2E
+- ✅ Manejo de estados de carga (waitForLoadState)
+
+#### 3. EJECUTAR PRUEBAS PLAYWRIGHT
+
+**ANTES de informar al usuario que terminaste:**
+
+1. **Ejecutar las pruebas de Playwright:**
+   ```bash
+   npx playwright test tests/[nombre].spec.ts --headed
+   ```
+
+2. **Si hay errores:**
+   - Revisar el reporte HTML: `npx playwright show-report`
+   - Identificar qué componente falló
+   - Corregir el código del frontend
+   - Volver a ejecutar hasta que TODOS pasen
+
+3. **Verificar errores de consola:**
+   - Las pruebas deben capturar `console.error`
+   - Si hay errores de JavaScript, corregirlos antes de continuar
+
+#### 4. SCRIPT ADICIONAL DE API (OPCIONAL)
+
+Si la funcionalidad tiene endpoints de API, también crear `/tests/test-[nombre]-api.js`:
+
+```javascript
+#!/usr/bin/env node
+const API_URL = 'http://localhost:3000/api';
+// Tests de endpoints...
+```
+
+#### 5. CRITERIOS DE COMPLETITUD
+
+**NO informes al usuario que terminaste hasta que:**
+- ✅ **Pruebas Playwright ejecutadas y pasando al 100%**
+- ✅ **Sin errores de consola capturados en el navegador**
+- ✅ Sin errores de TypeScript (`npx tsc --noEmit`)
+- ✅ Backend respondiendo correctamente
+- ✅ Flujo E2E completo probado con navegación real
+
+### FLUJO DE QA OBLIGATORIO
+
+```
+Implementación → Crear Plan QA → Crear Script Playwright
+                                          ↓
+                                 npx playwright test --headed
+                                          ↓
+                                   ¿Todos pasan?
+                                   ↓         ↓
+                                 NO         SÍ
+                                 ↓           ↓
+                            Corregir     ¿Errores de consola?
+                                 ↓           ↓
+                            [volver]      NO → INFORMAR AL USUARIO
+                                          ↓
+                                         SÍ → Corregir → [volver]
+```
+
+### COMANDOS DE PLAYWRIGHT
+
+```bash
+# Ejecutar todas las pruebas
+npx playwright test
+
+# Ejecutar un archivo específico
+npx playwright test tests/[nombre].spec.ts
+
+# Ejecutar con navegador visible (debugging)
+npx playwright test --headed
+
+# Ejecutar en modo debug paso a paso
+npx playwright test --debug
+
+# Ver reporte de pruebas
+npx playwright show-report
+
+# Generar código grabando acciones
+npx playwright codegen http://localhost:5000
+```
 
 ## 💡 RECOMENDACIONES AL FINAL
 
@@ -221,6 +419,68 @@ SIEMPRE proporciona:
 - ❌ Ignorar responsive design
 - ❌ No manejar estados de error/loading
 - ❌ Hacer suposiciones sin preguntar
+- ❌ **Entregar funcionalidad sin ejecutar pruebas Playwright**
+- ❌ **Decir "terminé" sin haber navegado por el frontend con Playwright**
+- ❌ **Ignorar errores de consola del navegador**
+- ❌ **No capturar errores de JavaScript en el frontend**
+
+## 🛠️ HERRAMIENTAS DE TESTING DISPONIBLES
+
+### 1. Playwright (OBLIGATORIO para pruebas E2E)
+Herramienta principal para pruebas de navegación en el frontend:
+```bash
+# Ejecutar pruebas con navegador visible
+npx playwright test tests/[nombre].spec.ts --headed
+
+# Modo debug paso a paso
+npx playwright test --debug
+
+# Generar código grabando acciones
+npx playwright codegen http://localhost:5000
+
+# Ver reporte HTML de pruebas
+npx playwright show-report
+```
+
+**Playwright permite:**
+- ✅ Navegar por el frontend como un usuario real
+- ✅ Capturar errores de consola del navegador
+- ✅ Detectar componentes que no renderizan
+- ✅ Probar formularios y validaciones
+- ✅ Verificar estados de carga y loading
+- ✅ Tomar screenshots en caso de fallo
+- ✅ Grabar videos de las pruebas
+
+### 2. Simple Browser (para verificación rápida)
+Usa `open_simple_browser` para verificar visualmente:
+```
+URL Frontend: http://localhost:5000
+URL Backend Docs: http://localhost:3000/docs
+```
+
+### 3. Scripts de API (complementario)
+Para pruebas de endpoints backend:
+```bash
+node tests/test-[nombre]-api.js
+```
+
+### 3. TypeScript Check
+Antes de entregar, verifica que no hay errores:
+```bash
+docker compose exec backend npx tsc --noEmit
+```
+
+### 4. Logs del Backend
+Para debugging de errores:
+```bash
+docker compose logs backend --tail=50
+```
+
+### 5. Drizzle Push (para BD)
+Sincronizar schema:
+```bash
+docker compose exec backend npx drizzle-kit push --force
+```
 
 ## 📝 CONSULTAS SIMPLES vs CAMBIOS
 

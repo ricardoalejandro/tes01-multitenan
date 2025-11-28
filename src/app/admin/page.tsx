@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Building2, Users, Shield, Mail } from 'lucide-react';
+import { ArrowLeft, Building2, Users, Shield, Mail, FileStack, Calendar, Layers, MapPin, Wand2 } from 'lucide-react';
 
 export default function AdminPage() {
   const router = useRouter();
@@ -101,6 +101,51 @@ export default function AdminPage() {
       path: '/admin/smtp',
       color: 'from-orange-50 to-orange-100 border-orange-200',
       iconBg: 'bg-orange-500',
+    },
+    {
+      id: 'templates',
+      title: '📚 Plantillas de Cursos',
+      description: 'Crear y gestionar plantillas de cursos reutilizables',
+      icon: FileStack,
+      path: '/admin/templates',
+      color: 'from-teal-50 to-teal-100 border-teal-200',
+      iconBg: 'bg-teal-500',
+    },
+    {
+      id: 'holidays',
+      title: '📅 Feriados',
+      description: 'Configurar feriados nacionales y provinciales',
+      icon: Calendar,
+      path: '/admin/holidays',
+      color: 'from-red-50 to-red-100 border-red-200',
+      iconBg: 'bg-red-500',
+    },
+    {
+      id: 'levels',
+      title: '🏢 Niveles',
+      description: 'Gestionar niveles organizacionales',
+      icon: Layers,
+      path: '/admin/levels',
+      color: 'from-indigo-50 to-indigo-100 border-indigo-200',
+      iconBg: 'bg-indigo-500',
+    },
+    {
+      id: 'locations',
+      title: '🗺️ Ubicaciones',
+      description: 'Gestionar departamentos, provincias y distritos',
+      icon: MapPin,
+      path: '/admin/locations',
+      color: 'from-cyan-50 to-cyan-100 border-cyan-200',
+      iconBg: 'bg-cyan-500',
+    },
+    {
+      id: 'test-data',
+      title: '🧪 Datos de Prueba',
+      description: 'Generar y gestionar datos de prueba realistas',
+      icon: Wand2,
+      path: '/admin/test-data',
+      color: 'from-pink-50 to-purple-100 border-purple-200',
+      iconBg: 'bg-gradient-to-br from-purple-500 to-pink-500',
     },
   ];
 
