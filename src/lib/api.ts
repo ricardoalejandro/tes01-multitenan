@@ -481,6 +481,12 @@ class ApiClient {
     return response.data;
   }
 
+  // Update or create attendance by session and student
+  async upsertAttendance(sessionId: string, studentId: string, status: string) {
+    const response = await this.client.put(`/attendance/sessions/${sessionId}/students/${studentId}`, { status });
+    return response.data;
+  }
+
   // Add observation
   async addAttendanceObservation(attendanceId: string, content: string, userId?: string) {
     const response = await this.client.post(`/attendance/students/${attendanceId}/observations`, {

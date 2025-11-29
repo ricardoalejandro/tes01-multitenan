@@ -407,6 +407,70 @@ export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
   // ACTUALIZAR ASISTENCIA
   // ============================================
 
+  // PUT /api/attendance/sessions/:sessionId/students/:studentId - Crear o actualizar asistencia individual
+  fastify.put('/sessions/:sessionId/students/:studentId', async (request, reply) => {
+    const { sessionId, studentId } = request.params as { sessionId: string; studentId: string };
+    
+    try {
+      const validatedData = updateAttendanceSchema.parse(request.body);
+
+      // Verificar que la sesión existe y no está dictada
+      const [session] = await db
+        .select({ status: groupSessions.status })
+        .from(groupSessions)
+        .where(eq(groupSessions.id, sessionId))
+        .limit(1);
+
+      if (!session) {
+        return reply.status(404).send({ error: 'Sesión no encontrada' });
+      }
+
+      if (session.status === 'dictada') {
+        return reply.status(403).send({ error: 'No se puede modificar una sesión ya dictada' });
+      }
+
+      // Buscar si ya existe un registro de asistencia
+      const [existingAttendance] = await db
+        .select()
+        .from(sessionAttendance)
+        .where(and(
+          eq(sessionAttendance.sessionId, sessionId),
+          eq(sessionAttendance.studentId, studentId)
+        ))
+        .limit(1);
+
+      let result;
+      if (existingAttendance) {
+        // Actualizar registro existente
+        [result] = await db
+          .update(sessionAttendance)
+          .set({ 
+            status: validatedData.status,
+            updatedAt: new Date(),
+          })
+          .where(eq(sessionAttendance.id, existingAttendance.id))
+          .returning();
+      } else {
+        // Crear nuevo registro
+        [result] = await db
+          .insert(sessionAttendance)
+          .values({
+            sessionId,
+            studentId,
+            status: validatedData.status,
+          })
+          .returning();
+      }
+
+      return { success: true, data: result };
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return reply.status(400).send({ error: 'Datos inválidos', details: error.errors });
+      }
+      throw error;
+    }
+  });
+
   // PUT /api/attendance/students/:attendanceId - Actualizar estado de asistencia
   fastify.put('/students/:attendanceId', async (request, reply) => {
     const { attendanceId } = request.params as { attendanceId: string };
@@ -820,13 +884,14 @@ export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
       ))
       .orderBy(asc(students.paternalLastName), asc(students.firstName));
 
-    // 4. Obtener toda la asistencia para las sesiones filtradas
+    // 4. Obtener toda la asistencia para las sesiones filtradas (incluyendo id para edición)
     const sessionIds = filteredSessions.map(s => s.id);
     
-    let attendanceRecords: { sessionId: string; studentId: string; status: string }[] = [];
+    let attendanceRecords: { id: string; sessionId: string; studentId: string; status: string }[] = [];
     if (sessionIds.length > 0) {
       attendanceRecords = await db
         .select({
+          id: sessionAttendance.id,
           sessionId: sessionAttendance.sessionId,
           studentId: sessionAttendance.studentId,
           status: sessionAttendance.status,
@@ -835,13 +900,35 @@ export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
         .where(sql`${sessionAttendance.sessionId} IN (${sql.join(sessionIds.map(id => sql`${id}`), sql`, `)})`);
     }
 
-    // 5. Crear mapa de asistencia por estudiante y sesión
-    const attendanceMap = new Map<string, Map<string, string>>();
+    // 4.1. Obtener conteo de observaciones por attendanceId
+    const attendanceIds = attendanceRecords.map(r => r.id);
+    let observationCounts: Record<string, number> = {};
+    if (attendanceIds.length > 0) {
+      const obsResults = await db
+        .select({
+          attendanceId: attendanceObservations.attendanceId,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(attendanceObservations)
+        .where(sql`${attendanceObservations.attendanceId} IN (${sql.join(attendanceIds.map(id => sql`${id}`), sql`, `)})`)
+        .groupBy(attendanceObservations.attendanceId);
+      
+      obsResults.forEach(r => {
+        observationCounts[r.attendanceId] = r.count;
+      });
+    }
+
+    // 5. Crear mapa de asistencia por estudiante y sesión (ahora incluye id y conteo de observaciones)
+    const attendanceMap = new Map<string, Map<string, { id: string; status: string; observationCount: number }>>();
     attendanceRecords.forEach(record => {
       if (!attendanceMap.has(record.studentId)) {
         attendanceMap.set(record.studentId, new Map());
       }
-      attendanceMap.get(record.studentId)!.set(record.sessionId, record.status);
+      attendanceMap.get(record.studentId)!.set(record.sessionId, {
+        id: record.id,
+        status: record.status,
+        observationCount: observationCounts[record.id] || 0,
+      });
     });
 
     // 6. Calcular estadísticas por estudiante (sobre TODAS las sesiones, no solo las paginadas)
@@ -858,7 +945,8 @@ export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
       let justified = 0;
 
       completedSessions.forEach(session => {
-        const status = studentAttendance.get(session.id) || 'pendiente';
+        const attendanceData = studentAttendance.get(session.id);
+        const status = attendanceData?.status || 'pendiente';
         if (status === 'asistio') attended++;
         else if (status === 'no_asistio') absences++;
         else if (status === 'tarde') { attended++; late++; }
@@ -871,9 +959,15 @@ export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
         : 100;
 
       // Obtener asistencia solo para las sesiones paginadas (para mostrar en la matriz)
-      const sessionData: Record<string, string> = {};
+      // Ahora incluye attendanceId y observationCount para edición interactiva
+      const sessionData: Record<string, { status: string; attendanceId: string | null; observationCount: number }> = {};
       paginatedSessions.forEach(session => {
-        sessionData[session.id] = studentAttendance.get(session.id) || 'pendiente';
+        const attendanceData = studentAttendance.get(session.id);
+        sessionData[session.id] = {
+          status: attendanceData?.status || 'pendiente',
+          attendanceId: attendanceData?.id || null,
+          observationCount: attendanceData?.observationCount || 0,
+        };
       });
 
       return {
@@ -929,7 +1023,8 @@ export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
 
       studentsData.forEach(student => {
         const studentAttendance = attendanceMap.get(student.studentId);
-        const status = studentAttendance?.get(session.id) || 'pendiente';
+        const attendanceData = studentAttendance?.get(session.id);
+        const status = attendanceData?.status || 'pendiente';
         if (status === 'asistio' || status === 'tarde') attended++;
       });
 

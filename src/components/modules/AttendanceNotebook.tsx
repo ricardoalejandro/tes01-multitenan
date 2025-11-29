@@ -16,12 +16,16 @@ import {
   Clock,
   FileCheck,
   AlertCircle,
+  MessageSquare,
+  CheckCircle2,
+  Plus,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -35,6 +39,20 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -60,6 +78,13 @@ interface StudentStats {
   isCritical: boolean;
 }
 
+interface StudentObservation {
+  id: string;
+  content: string;
+  createdAt: string;
+  userName: string | null;
+}
+
 interface NotebookStudent {
   id: string;
   enrollmentId: string;
@@ -68,7 +93,7 @@ interface NotebookStudent {
   paternalLastName: string;
   maternalLastName: string | null;
   dni: string | null;
-  sessions: Record<string, string>;
+  sessions: Record<string, { status: string; attendanceId: string | null; observationCount: number }>;
   stats: StudentStats;
 }
 
@@ -85,6 +110,11 @@ interface GlobalStats {
   completedSessions: number;
   averageAttendance: number;
   criticalStudents: number;
+}
+
+interface Instructor {
+  id: string;
+  fullName: string;
 }
 
 interface NotebookData {
@@ -122,37 +152,54 @@ interface AttendanceNotebookProps {
   onBack: () => void;
 }
 
+// Status options for dropdown
+const STATUS_OPTIONS = [
+  { value: 'asistio', label: 'Asistió', icon: Check, color: 'text-green-600', bg: 'bg-green-100' },
+  { value: 'no_asistio', label: 'Falta', icon: X, color: 'text-red-600', bg: 'bg-red-100' },
+  { value: 'tarde', label: 'Tardanza', icon: Clock, color: 'text-amber-600', bg: 'bg-amber-100' },
+  { value: 'justificado', label: 'Justificado', icon: FileCheck, color: 'text-blue-600', bg: 'bg-blue-100' },
+  { value: 'permiso', label: 'Permiso', icon: FileCheck, color: 'text-purple-600', bg: 'bg-purple-100' },
+];
+
 // Status icon component
-const StatusIcon = ({ status }: { status: string }) => {
+const StatusIcon = ({ status, size = 'md' }: { status: string; size?: 'sm' | 'md' }) => {
+  const sizeClass = size === 'sm' ? 'w-6 h-6' : 'w-8 h-8';
+  const iconSize = size === 'sm' ? 'h-3 w-3' : 'h-4 w-4';
+  
   switch (status) {
     case 'asistio':
       return (
-        <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-          <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
+        <div className={cn(sizeClass, 'rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center')}>
+          <Check className={cn(iconSize, 'text-green-600 dark:text-green-400')} />
         </div>
       );
     case 'no_asistio':
       return (
-        <div className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-          <X className="h-4 w-4 text-red-600 dark:text-red-400" />
+        <div className={cn(sizeClass, 'rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center')}>
+          <X className={cn(iconSize, 'text-red-600 dark:text-red-400')} />
         </div>
       );
     case 'tarde':
       return (
-        <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-          <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+        <div className={cn(sizeClass, 'rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center')}>
+          <Clock className={cn(iconSize, 'text-amber-600 dark:text-amber-400')} />
         </div>
       );
     case 'justificado':
+      return (
+        <div className={cn(sizeClass, 'rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center')}>
+          <FileCheck className={cn(iconSize, 'text-blue-600 dark:text-blue-400')} />
+        </div>
+      );
     case 'permiso':
       return (
-        <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-          <FileCheck className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+        <div className={cn(sizeClass, 'rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center')}>
+          <FileCheck className={cn(iconSize, 'text-purple-600 dark:text-purple-400')} />
         </div>
       );
     default:
       return (
-        <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+        <div className={cn(sizeClass, 'rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center')}>
           <div className="w-2 h-2 rounded-full bg-gray-400" />
         </div>
       );
@@ -175,6 +222,7 @@ const getStatusLabel = (status: string): string => {
 export function AttendanceNotebook({ groupId, groupName, onBack }: AttendanceNotebookProps) {
   const [data, setData] = useState<NotebookData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [instructors, setInstructors] = useState<Instructor[]>([]);
   
   // Filters state
   const [page, setPage] = useState(1);
@@ -185,6 +233,29 @@ export function AttendanceNotebook({ groupId, groupName, onBack }: AttendanceNot
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
+
+  // Session finalization modal
+  const [sessionModalOpen, setSessionModalOpen] = useState(false);
+  const [selectedSession, setSelectedSession] = useState<NotebookSession | null>(null);
+  const [sessionFormData, setSessionFormData] = useState({
+    actualDate: '',
+    actualInstructorId: '',
+    actualTopic: '',
+    notes: '',
+  });
+  const [savingSession, setSavingSession] = useState(false);
+
+  // Observations modal
+  const [observationsModalOpen, setObservationsModalOpen] = useState(false);
+  const [selectedStudentForObs, setSelectedStudentForObs] = useState<{
+    student: NotebookStudent;
+    sessionId: string;
+    attendanceId: string | null;
+  } | null>(null);
+  const [loadedObservations, setLoadedObservations] = useState<StudentObservation[]>([]);
+  const [loadingObservations, setLoadingObservations] = useState(false);
+  const [newObservation, setNewObservation] = useState('');
+  const [savingObservation, setSavingObservation] = useState(false);
 
   // Load data
   const loadData = useCallback(async () => {
@@ -209,9 +280,20 @@ export function AttendanceNotebook({ groupId, groupName, onBack }: AttendanceNot
     }
   }, [groupId, page, sessionsPerPage, studentFilter, searchTerm, sortBy, sortOrder, startDate, endDate]);
 
+  // Load instructors
+  const loadInstructors = useCallback(async () => {
+    try {
+      const response = await api.getAttendanceInstructors();
+      setInstructors(response.data || []);
+    } catch (error) {
+      console.error('Error loading instructors:', error);
+    }
+  }, []);
+
   useEffect(() => {
     loadData();
-  }, [loadData]);
+    loadInstructors();
+  }, [loadData, loadInstructors]);
 
   // Reset page when filters change
   useEffect(() => {
@@ -228,6 +310,132 @@ export function AttendanceNotebook({ groupId, groupName, onBack }: AttendanceNot
     }
   };
 
+  // Handle attendance status change
+  const handleStatusChange = async (studentId: string, sessionId: string, attendanceId: string | null, newStatus: string) => {
+    try {
+      if (attendanceId) {
+        // Update existing attendance record
+        await api.updateAttendanceStatus(attendanceId, newStatus);
+      } else {
+        // Create new attendance record using upsert endpoint
+        await api.upsertAttendance(sessionId, studentId, newStatus);
+      }
+      toast.success('Asistencia actualizada');
+      loadData();
+    } catch (error) {
+      console.error('Error updating attendance:', error);
+      toast.error('Error al actualizar asistencia');
+    }
+  };
+
+  // Open session finalization modal
+  const openSessionModal = (session: NotebookSession) => {
+    setSelectedSession(session);
+    setSessionFormData({
+      actualDate: session.date,
+      actualInstructorId: '',
+      actualTopic: '',
+      notes: '',
+    });
+    setSessionModalOpen(true);
+  };
+
+  // Handle session finalization
+  const handleFinalizeSession = async () => {
+    if (!selectedSession) return;
+
+    try {
+      setSavingSession(true);
+      
+      // Update execution data
+      await api.updateSessionExecution(selectedSession.id, {
+        actualDate: sessionFormData.actualDate,
+        actualInstructorId: sessionFormData.actualInstructorId || null,
+        actualTopic: sessionFormData.actualTopic || null,
+        notes: sessionFormData.notes || null,
+      });
+
+      // Mark session as completed
+      await api.completeSession(selectedSession.id);
+
+      toast.success('Sesión finalizada correctamente');
+      setSessionModalOpen(false);
+      loadData();
+    } catch (error) {
+      console.error('Error finalizing session:', error);
+      toast.error('Error al finalizar la sesión');
+    } finally {
+      setSavingSession(false);
+    }
+  };
+
+  // Open observations modal
+  const openObservationsModal = async (student: NotebookStudent, sessionId: string, attendanceId: string | null) => {
+    setSelectedStudentForObs({ student, sessionId, attendanceId });
+    setNewObservation('');
+    setLoadedObservations([]);
+    setObservationsModalOpen(true);
+
+    // Load observations from backend if we have an attendanceId
+    if (attendanceId) {
+      setLoadingObservations(true);
+      try {
+        const result = await api.getAttendanceObservations(attendanceId);
+        setLoadedObservations(result.data || []);
+      } catch (error) {
+        console.error('Error loading observations:', error);
+      } finally {
+        setLoadingObservations(false);
+      }
+    }
+  };
+
+  // Add observation
+  const handleAddObservation = async () => {
+    if (!selectedStudentForObs || !newObservation.trim()) return;
+
+    // If there's no attendanceId, we need to create the attendance first
+    let attendanceId = selectedStudentForObs.attendanceId;
+
+    try {
+      setSavingObservation(true);
+
+      // If no attendance record exists, create one with status 'pendiente' first
+      if (!attendanceId) {
+        const result = await api.upsertAttendance(
+          selectedStudentForObs.sessionId,
+          selectedStudentForObs.student.id,
+          'pendiente'
+        );
+        attendanceId = result.data?.id;
+        if (!attendanceId) {
+          throw new Error('No se pudo crear el registro de asistencia');
+        }
+        // Update the state with the new attendanceId
+        setSelectedStudentForObs({
+          ...selectedStudentForObs,
+          attendanceId,
+        });
+      }
+
+      await api.addAttendanceObservation(attendanceId, newObservation.trim());
+      toast.success('Observación agregada');
+      setNewObservation('');
+      
+      // Reload observations
+      const result = await api.getAttendanceObservations(attendanceId);
+      setLoadedObservations(result.data || []);
+      
+      // Refresh main data to update the observation count
+      loadData();
+    } catch (error) {
+      console.error('Error adding observation:', error);
+      toast.error('Error al agregar observación');
+    } finally {
+      setSavingObservation(false);
+    }
+  };
+
   // Export to CSV
   const exportToCSV = () => {
     if (!data) return;
@@ -236,7 +444,7 @@ export function AttendanceNotebook({ groupId, groupName, onBack }: AttendanceNot
     const rows = data.students.map(student => [
       student.fullName,
       student.dni || '',
-      ...data.sessions.map(s => getStatusLabel(student.sessions[s.id] || 'pendiente')),
+      ...data.sessions.map(s => getStatusLabel(student.sessions[s.id]?.status || 'pendiente')),
       `${student.stats.percentage}%`,
       student.stats.attended.toString(),
       student.stats.absences.toString(),
@@ -258,6 +466,15 @@ export function AttendanceNotebook({ groupId, groupName, onBack }: AttendanceNot
     });
   };
 
+  const formatFullDate = (dateStr: string) => {
+    return new Date(dateStr + 'T00:00:00').toLocaleDateString('es-ES', {
+      weekday: 'long',
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    });
+  };
+
   if (loading && !data) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -274,6 +491,14 @@ export function AttendanceNotebook({ groupId, groupName, onBack }: AttendanceNot
       </div>
     );
   }
+
+  // Check if all attendance in a session is marked (no "pendiente")
+  const isSessionReadyToFinalize = (sessionId: string) => {
+    return data.students.every(student => {
+      const status = student.sessions[sessionId]?.status || 'pendiente';
+      return status !== 'pendiente';
+    });
+  };
 
   return (
     <TooltipProvider>
@@ -484,21 +709,42 @@ export function AttendanceNotebook({ groupId, groupName, onBack }: AttendanceNot
                           <ArrowUpDown className="h-3 w-3" />
                         </Button>
                       </th>
-                      {data.sessions.map((session) => (
-                        <th
-                          key={session.id}
-                          className={cn(
-                            'p-2 text-center min-w-[80px]',
-                            session.status === 'pendiente' && 'bg-gray-100 dark:bg-gray-800'
-                          )}
-                        >
-                          <div className="text-xs font-medium">Ses. {session.number}</div>
-                          <div className="text-xs text-muted-foreground">{formatDate(session.date)}</div>
-                          {session.status === 'pendiente' && (
-                            <Badge variant="secondary" className="text-[10px] mt-1">Pend.</Badge>
-                          )}
-                        </th>
-                      ))}
+                      {data.sessions.map((session) => {
+                        const isReady = isSessionReadyToFinalize(session.id);
+                        const isPending = session.status === 'pendiente';
+                        
+                        return (
+                          <th
+                            key={session.id}
+                            className={cn(
+                              'p-2 text-center min-w-[100px] cursor-pointer transition-colors',
+                              isPending && isReady && 'bg-green-50 dark:bg-green-950/30 hover:bg-green-100',
+                              isPending && !isReady && 'bg-amber-50 dark:bg-amber-950/20 hover:bg-amber-100',
+                              !isPending && 'bg-gray-100 dark:bg-gray-800'
+                            )}
+                            onClick={() => openSessionModal(session)}
+                          >
+                            <div className="text-xs font-medium">Ses. {session.number}</div>
+                            <div className="text-xs text-muted-foreground">{formatDate(session.date)}</div>
+                            {isPending ? (
+                              isReady ? (
+                                <Badge variant="success" className="text-[10px] mt-1 cursor-pointer">
+                                  <CheckCircle2 className="h-3 w-3 mr-1" />
+                                  Listo
+                                </Badge>
+                              ) : (
+                                <Badge variant="warning" className="text-[10px] mt-1">
+                                  Pendiente
+                                </Badge>
+                              )
+                            ) : (
+                              <Badge variant="secondary" className="text-[10px] mt-1">
+                                ✓ Dictada
+                              </Badge>
+                            )}
+                          </th>
+                        );
+                      })}
                       <th className="p-2 text-center min-w-[100px] bg-muted/80">
                         <Button
                           variant="ghost"
@@ -560,24 +806,66 @@ export function AttendanceNotebook({ groupId, groupName, onBack }: AttendanceNot
                               </div>
                             </div>
                           </td>
-                          {data.sessions.map((session) => (
-                            <td
-                              key={session.id}
-                              className={cn(
-                                'p-2 text-center',
-                                session.status === 'pendiente' && 'bg-gray-50 dark:bg-gray-800/50'
-                              )}
-                            >
-                              <Tooltip>
-                                <TooltipTrigger className="mx-auto">
-                                  <StatusIcon status={student.sessions[session.id] || 'pendiente'} />
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  {getStatusLabel(student.sessions[session.id] || 'pendiente')}
-                                </TooltipContent>
-                              </Tooltip>
-                            </td>
-                          ))}
+                          {data.sessions.map((session) => {
+                            const sessionData = student.sessions[session.id] || { status: 'pendiente', attendanceId: null, observationCount: 0 };
+                            const hasObservations = sessionData.observationCount > 0;
+                            
+                            return (
+                              <td
+                                key={session.id}
+                                className={cn(
+                                  'p-2 text-center',
+                                  session.status === 'pendiente' && 'bg-gray-50/50 dark:bg-gray-800/30'
+                                )}
+                              >
+                                <div className="flex flex-col items-center gap-1">
+                                  {/* Attendance dropdown */}
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <button className="focus:outline-none hover:scale-110 transition-transform">
+                                        <StatusIcon status={sessionData.status} />
+                                      </button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="center">
+                                      {STATUS_OPTIONS.map((option) => (
+                                        <DropdownMenuItem
+                                          key={option.value}
+                                          onClick={() => handleStatusChange(student.id, session.id, sessionData.attendanceId, option.value)}
+                                          className="gap-2"
+                                        >
+                                          <div className={cn('w-6 h-6 rounded-full flex items-center justify-center', option.bg)}>
+                                            <option.icon className={cn('h-3 w-3', option.color)} />
+                                          </div>
+                                          {option.label}
+                                        </DropdownMenuItem>
+                                      ))}
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+
+                                  {/* Observations indicator/button */}
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <button
+                                        onClick={() => openObservationsModal(student, session.id, sessionData.attendanceId)}
+                                        className={cn(
+                                          'text-xs flex items-center gap-0.5 hover:underline',
+                                          hasObservations ? 'text-blue-600' : 'text-gray-400'
+                                        )}
+                                      >
+                                        <MessageSquare className="h-3 w-3" />
+                                        {hasObservations && <span>{sessionData.observationCount}</span>}
+                                      </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      {hasObservations 
+                                        ? `${sessionData.observationCount} observación(es)` 
+                                        : 'Agregar observación'}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </div>
+                              </td>
+                            );
+                          })}
                           <td className="p-2 text-center bg-muted/30">
                             <div className="flex flex-col items-center gap-1">
                               <span
@@ -660,23 +948,27 @@ export function AttendanceNotebook({ groupId, groupName, onBack }: AttendanceNot
             <div className="flex flex-wrap items-center gap-6 text-sm">
               <span className="font-medium">Leyenda:</span>
               <div className="flex items-center gap-2">
-                <StatusIcon status="asistio" />
+                <StatusIcon status="asistio" size="sm" />
                 <span>Asistió</span>
               </div>
               <div className="flex items-center gap-2">
-                <StatusIcon status="no_asistio" />
+                <StatusIcon status="no_asistio" size="sm" />
                 <span>Falta</span>
               </div>
               <div className="flex items-center gap-2">
-                <StatusIcon status="tarde" />
+                <StatusIcon status="tarde" size="sm" />
                 <span>Tardanza</span>
               </div>
               <div className="flex items-center gap-2">
-                <StatusIcon status="justificado" />
-                <span>Justificado/Permiso</span>
+                <StatusIcon status="justificado" size="sm" />
+                <span>Justificado</span>
               </div>
               <div className="flex items-center gap-2">
-                <StatusIcon status="pendiente" />
+                <StatusIcon status="permiso" size="sm" />
+                <span>Permiso</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <StatusIcon status="pendiente" size="sm" />
                 <span>Pendiente</span>
               </div>
               <Separator orientation="vertical" className="h-6" />
@@ -684,9 +976,200 @@ export function AttendanceNotebook({ groupId, groupName, onBack }: AttendanceNot
                 <AlertTriangle className="h-4 w-4 text-amber-500" />
                 <span>Asistencia crítica (&lt;70%)</span>
               </div>
+              <div className="flex items-center gap-2">
+                <MessageSquare className="h-4 w-4 text-blue-500" />
+                <span>Click para observaciones</span>
+              </div>
             </div>
           </CardContent>
         </Card>
+
+        {/* Session Finalization Modal */}
+        <Dialog open={sessionModalOpen} onOpenChange={setSessionModalOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Calendar className="h-5 w-5" />
+                {selectedSession?.status === 'dictada' ? 'Detalles de Sesión' : 'Finalizar Sesión'}
+              </DialogTitle>
+              <DialogDescription>
+                Sesión #{selectedSession?.number} - {selectedSession && formatFullDate(selectedSession.date)}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              {/* Session status indicator */}
+              {selectedSession?.status === 'pendiente' && (
+                <div className={cn(
+                  'p-3 rounded-lg',
+                  isSessionReadyToFinalize(selectedSession?.id || '') 
+                    ? 'bg-green-50 border border-green-200' 
+                    : 'bg-amber-50 border border-amber-200'
+                )}>
+                  {isSessionReadyToFinalize(selectedSession?.id || '') ? (
+                    <p className="text-sm text-green-700 flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4" />
+                      Todas las asistencias están marcadas. Puede finalizar la sesión.
+                    </p>
+                  ) : (
+                    <p className="text-sm text-amber-700 flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4" />
+                      Aún hay asistencias pendientes de marcar.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Actual date */}
+              <div className="space-y-2">
+                <Label>Fecha real de dictado</Label>
+                <Input
+                  type="date"
+                  value={sessionFormData.actualDate}
+                  onChange={(e) => setSessionFormData(prev => ({ ...prev, actualDate: e.target.value }))}
+                  disabled={selectedSession?.status === 'dictada'}
+                />
+              </div>
+
+              {/* Instructor */}
+              <div className="space-y-2">
+                <Label>Instructor</Label>
+                <Select
+                  value={sessionFormData.actualInstructorId}
+                  onValueChange={(v: string) => setSessionFormData(prev => ({ ...prev, actualInstructorId: v }))}
+                  disabled={selectedSession?.status === 'dictada'}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar instructor..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {instructors.map((instructor) => (
+                      <SelectItem key={instructor.id} value={instructor.id}>
+                        {instructor.fullName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Topic */}
+              <div className="space-y-2">
+                <Label>Tema dictado</Label>
+                <Input
+                  placeholder="Tema de la sesión..."
+                  value={sessionFormData.actualTopic}
+                  onChange={(e) => setSessionFormData(prev => ({ ...prev, actualTopic: e.target.value }))}
+                  disabled={selectedSession?.status === 'dictada'}
+                />
+              </div>
+
+              {/* Notes */}
+              <div className="space-y-2">
+                <Label>Notas / Observaciones</Label>
+                <Textarea
+                  placeholder="Observaciones de la sesión..."
+                  value={sessionFormData.notes}
+                  onChange={(e) => setSessionFormData(prev => ({ ...prev, notes: e.target.value }))}
+                  rows={3}
+                  disabled={selectedSession?.status === 'dictada'}
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setSessionModalOpen(false)}>
+                Cancelar
+              </Button>
+              {selectedSession?.status === 'pendiente' && (
+                <Button
+                  onClick={handleFinalizeSession}
+                  disabled={savingSession}
+                  className="gap-2"
+                >
+                  {savingSession ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="h-4 w-4" />
+                  )}
+                  Finalizar Sesión
+                </Button>
+              )}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Observations Modal */}
+        <Dialog open={observationsModalOpen} onOpenChange={setObservationsModalOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5" />
+                Observaciones
+              </DialogTitle>
+              <DialogDescription>
+                {selectedStudentForObs?.student.fullName}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              {/* Existing observations */}
+              {selectedStudentForObs && (
+                <div className="space-y-2">
+                  <Label>Historial de observaciones</Label>
+                  <ScrollArea className="h-40 border rounded-lg p-2">
+                    {loadingObservations ? (
+                      <div className="flex items-center justify-center py-4">
+                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : loadedObservations.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-4">
+                        No hay observaciones registradas
+                      </p>
+                    ) : (
+                      loadedObservations.map((obs: StudentObservation, idx: number) => (
+                        <div key={obs.id || idx} className="p-2 bg-muted/50 rounded mb-2">
+                          <p className="text-sm">{obs.content}</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {obs.userName || 'Usuario'} - {new Date(obs.createdAt).toLocaleString('es-ES')}
+                          </p>
+                        </div>
+                      ))
+                    )}
+                  </ScrollArea>
+                </div>
+              )}
+
+              {/* Add new observation */}
+              <div className="space-y-2">
+                <Label>Nueva observación</Label>
+                <Textarea
+                  placeholder="Escribir observación..."
+                  value={newObservation}
+                  onChange={(e) => setNewObservation(e.target.value)}
+                  rows={3}
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setObservationsModalOpen(false)}>
+                Cerrar
+              </Button>
+              <Button
+                onClick={handleAddObservation}
+                disabled={savingObservation || !newObservation.trim()}
+                className="gap-2"
+              >
+                {savingObservation ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Plus className="h-4 w-4" />
+                )}
+                Agregar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </TooltipProvider>
   );

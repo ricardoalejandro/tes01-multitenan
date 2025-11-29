@@ -82,7 +82,7 @@ export default function AttendanceModule({ branchId }: { branchId: string }) {
   const [sessions, setSessions] = useState<GroupSession[]>([]);
   const [pendingSessions, setPendingSessions] = useState<PendingSession[]>([]);
   const [selectedSession, setSelectedSession] = useState<GroupSession | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [viewMode, setViewMode] = useState<ViewMode>('notebook');  // Default to notebook view
   const [loading, setLoading] = useState(true);
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [showAttendanceSheet, setShowAttendanceSheet] = useState(false);
