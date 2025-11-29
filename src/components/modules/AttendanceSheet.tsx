@@ -488,7 +488,7 @@ export function AttendanceSheet({
               {isReadOnly ? (
                 <Badge className="bg-green-600">Dictada</Badge>
               ) : (
-                <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-300">
+                <Badge variant="secondary" className="bg-amber-100 text-amber-700 border-amber-300">
                   Pendiente
                 </Badge>
               )}
@@ -507,7 +507,7 @@ export function AttendanceSheet({
 
         {!isReadOnly && (
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={handleSaveExecution} disabled={saving}>
+            <Button variant="secondary" onClick={handleSaveExecution} disabled={saving}>
               {saving ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
               ) : (
@@ -741,7 +741,7 @@ export function AttendanceSheet({
 
                       {/* Observations indicator */}
                       {student.observations.length > 0 && (
-                        <Badge variant="outline" className="ml-2">
+                        <Badge variant="secondary" className="ml-2">
                           <MessageSquarePlus className="h-3 w-3 mr-1" />
                           {student.observations.length}
                         </Badge>
@@ -760,7 +760,7 @@ export function AttendanceSheet({
 
                       {/* Observations button */}
                       <Button
-                        variant="outline"
+                        variant="secondary"
                         size="icon"
                         className="h-8 w-8"
                         onClick={() => {
@@ -898,7 +898,7 @@ export function AttendanceSheet({
 
           <DialogFooter>
             <Button
-              variant="outline"
+              variant="secondary"
               onClick={() => setCompleteDialogOpen(false)}
               disabled={completing}
             >

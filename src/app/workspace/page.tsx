@@ -24,12 +24,12 @@ import GroupsModule from '@/components/modules/GroupsModule';
 import AttendanceModule from '@/components/modules/AttendanceModule';
 
 const modules = [
-  { id: 'home', name: 'Inicio', icon: Home },
-  { id: 'students', name: 'Probacionistas', icon: Users },
-  { id: 'courses', name: 'Cursos', icon: BookOpen },
-  { id: 'instructors', name: 'Instructores', icon: UserCheck },
-  { id: 'groups', name: 'Grupos', icon: FolderKanban },
-  { id: 'attendance', name: 'Asistencia', icon: ClipboardCheck },
+  { id: 'home', name: 'Inicio', icon: Home, disabled: false },
+  { id: 'students', name: 'Probacionistas', icon: Users, disabled: false },
+  { id: 'courses', name: 'Cursos', icon: BookOpen, disabled: false },
+  { id: 'instructors', name: 'Instructores', icon: UserCheck, disabled: false },
+  { id: 'groups', name: 'Grupos', icon: FolderKanban, disabled: false },
+  { id: 'attendance', name: 'Asistencia', icon: ClipboardCheck, disabled: false },
 ];
 
 function WorkspaceContent() {

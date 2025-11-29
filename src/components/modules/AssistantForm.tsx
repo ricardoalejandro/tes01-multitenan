@@ -68,7 +68,7 @@ function AssistantCard({ assistant, index, onEdit, onDelete, disabled }: Assista
                 </Badge>
               )}
               {assistant.age && (
-                <Badge variant="outline" className="text-xs py-0">
+                <Badge variant="secondary" className="text-xs py-0">
                   {assistant.age} años
                 </Badge>
               )}
@@ -207,9 +207,9 @@ function AssistantEditor({ assistant, onSave, onCancel }: AssistantEditorProps) 
             <X className="h-4 w-4 mr-1" />
             Cancelar
           </Button>
-          <Button 
-            type="button" 
-            size="sm" 
+          <Button
+            type="button"
+            size="sm"
             onClick={handleSave}
             disabled={!formData.fullName.trim()}
           >
@@ -296,7 +296,7 @@ export function AssistantForm({ assistants, onChange, disabled, className }: Ass
       {!isAdding && !disabled && editingIndex === null && (
         <Button
           type="button"
-          variant="outline"
+          variant="secondary"
           className="w-full border-dashed"
           onClick={() => setIsAdding(true)}
         >

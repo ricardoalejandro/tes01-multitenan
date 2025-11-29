@@ -302,7 +302,7 @@ export default function LocationsModule() {
               renderRow={(item) => (
                 <>
                   <TableCell>
-                    <Badge variant="outline" className="font-mono">{item.code}</Badge>
+                    <Badge variant="secondary" className="font-mono">{item.code}</Badge>
                   </TableCell>
                   <TableCell className="font-medium">{item.name}</TableCell>
                 </>
@@ -509,7 +509,7 @@ export default function LocationsModule() {
             )}
           </DialogBody>
           <DialogFooter>
-            <Button variant="outline" onClick={handleCloseDialog}>Cancelar</Button>
+            <Button variant="secondary" onClick={handleCloseDialog}>Cancelar</Button>
             <Button onClick={handleSave}>
               {editingItem?.id ? 'Guardar Cambios' : 'Crear'}
             </Button>
@@ -539,7 +539,7 @@ export default function LocationsModule() {
             </p>
           </DialogBody>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>Cancelar</Button>
+            <Button variant="secondary" onClick={() => setIsDeleteDialogOpen(false)}>Cancelar</Button>
             <Button variant="destructive" onClick={handleDelete}>Eliminar</Button>
           </DialogFooter>
         </DialogContent>

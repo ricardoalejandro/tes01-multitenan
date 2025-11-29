@@ -120,7 +120,7 @@ export function CounselingModule({ studentId }: CounselingModuleProps) {
           {counselings.length === 0 ? (
             <div className="text-center py-8 text-neutral-9">
               <p>No hay asesorías registradas</p>
-              <Button onClick={handleCreate} variant="outline" className="mt-4">
+              <Button onClick={handleCreate} variant="secondary" className="mt-4">
                 Crear primera asesoría
               </Button>
             </div>
@@ -155,12 +155,12 @@ export function CounselingModule({ studentId }: CounselingModuleProps) {
                       <TableCell className="max-w-xs truncate">{counseling.observations}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          <Button size="sm" variant="outline" onClick={() => handleEdit(counseling)}>
+                          <Button size="sm" variant="secondary" onClick={() => handleEdit(counseling)}>
                             <Edit className="h-4 w-4" />
                           </Button>
                           <Button
                             size="sm"
-                            variant="outline"
+                            variant="secondary"
                             onClick={() => handleDelete(counseling.id)}
                             className="text-red-600 hover:text-red-700"
                           >

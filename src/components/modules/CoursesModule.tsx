@@ -403,7 +403,7 @@ export default function CoursesModule({ branchId }: { branchId: string }) {
                 <div className="flex items-center gap-2">
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="secondary"
                     onClick={() => setShowTemplateSelector(true)}
                     className="flex-1 justify-between bg-white"
                   >
@@ -448,7 +448,7 @@ export default function CoursesModule({ branchId }: { branchId: string }) {
                           )}
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                          <Badge variant="outline">{template.topicsCount} temas</Badge>
+                          <Badge variant="secondary">{template.topicsCount} temas</Badge>
                           <Button
                             type="button"
                             size="sm"
@@ -517,7 +517,7 @@ export default function CoursesModule({ branchId }: { branchId: string }) {
             />
           </div>
           <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+            <Button type="button" variant="secondary" onClick={() => setIsDialogOpen(false)}>
               Cancelar
             </Button>
             <Button type="submit" className="bg-accent-9 hover:bg-accent-10 text-white">
@@ -551,7 +551,7 @@ export default function CoursesModule({ branchId }: { branchId: string }) {
                   {previewTemplate?.topics?.map((topic, idx) => (
                     <div key={idx} className="p-3 bg-neutral-2 rounded-lg">
                       <div className="flex items-center gap-2">
-                        <Badge variant="outline">{idx + 1}</Badge>
+                        <Badge variant="secondary">{idx + 1}</Badge>
                         <span className="font-medium">{topic.title}</span>
                       </div>
                       {topic.description && (
@@ -564,7 +564,7 @@ export default function CoursesModule({ branchId }: { branchId: string }) {
             </div>
           </DialogBody>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setPreviewTemplate(null)}>
+            <Button variant="secondary" onClick={() => setPreviewTemplate(null)}>
               Cerrar
             </Button>
             <Button 

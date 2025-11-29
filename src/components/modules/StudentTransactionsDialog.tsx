@@ -174,7 +174,7 @@ export function StudentTransactionsDialog({
 
         {/* Close Button */}
         <div className="flex justify-end pt-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="secondary" onClick={() => onOpenChange(false)}>
             Cerrar
           </Button>
         </div>

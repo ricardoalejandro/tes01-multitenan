@@ -229,7 +229,7 @@ export function SMTPModule() {
                 </div>
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="secondary"
                   onClick={handleDisconnectGoogle}
                   className="text-red-600 hover:bg-red-50"
                 >
@@ -394,7 +394,7 @@ export function SMTPModule() {
           <div className="flex gap-2 pt-4 border-t">
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               onClick={handleTest}
               disabled={testing || !config.host || !config.auth.user}
               className="flex-1"

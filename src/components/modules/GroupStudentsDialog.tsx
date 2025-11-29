@@ -179,7 +179,7 @@ export function GroupStudentsDialog({ open, onClose, groupId, groupName, onStude
                     </div>
 
                     <Button
-                      variant="outline"
+                      variant="secondary"
                       size="sm"
                       onClick={() => handleRemoveStudent(
                         student.studentId,

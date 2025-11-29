@@ -423,14 +423,14 @@ export function GroupFormDialog({ open, onClose, branchId, group, onSaved }: Pro
         <>
           {step > 1 && (
             <Button
-              variant="outline"
+              variant="secondary"
               onClick={() => setStep(step - 1)}
               disabled={loading}
             >
               Anterior
             </Button>
           )}
-          <Button variant="outline" onClick={onClose} disabled={loading}>
+          <Button variant="secondary" onClick={onClose} disabled={loading}>
             Cancelar
           </Button>
           {step < 3 && (

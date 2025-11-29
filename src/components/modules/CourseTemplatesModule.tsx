@@ -289,23 +289,23 @@ export default function CourseTemplatesModule() {
                   <div className="flex items-center justify-between text-sm text-neutral-9 mb-4">
                     <span>Creado por: {template.creatorName || 'Sistema'}</span>
                     {!template.isActive && (
-                      <Badge variant="outline" className="text-orange-600 border-orange-300">
+                      <Badge variant="secondary" className="text-orange-600 border-orange-300">
                         Inactiva
                       </Badge>
                     )}
                   </div>
                   <div className="flex gap-2">
-                    <Button size="sm" variant="outline" onClick={() => handlePreview(template)}>
+                    <Button size="sm" variant="secondary" onClick={() => handlePreview(template)}>
                       <Eye className="h-4 w-4" />
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => handleEdit(template)}>
+                    <Button size="sm" variant="secondary" onClick={() => handleEdit(template)}>
                       <Edit className="h-4 w-4" />
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => handleDuplicate(template)}>
+                    <Button size="sm" variant="secondary" onClick={() => handleDuplicate(template)}>
                       <Copy className="h-4 w-4" />
                     </Button>
                     {template.isActive && (
-                      <Button size="sm" variant="outline" className="text-red-600 hover:bg-red-50" onClick={() => handleDelete(template.id)}>
+                      <Button size="sm" variant="secondary" className="text-red-600 hover:bg-red-50" onClick={() => handleDelete(template.id)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     )}
@@ -386,7 +386,7 @@ export default function CourseTemplatesModule() {
                       <div className="cursor-grab hover:bg-neutral-2 rounded p-1">
                         <GripVertical className="h-4 w-4 text-neutral-6" />
                       </div>
-                      <Badge variant="outline" className="shrink-0">{index + 1}</Badge>
+                      <Badge variant="secondary" className="shrink-0">{index + 1}</Badge>
                       <div className="flex-1 min-w-0">
                         {expandedTopics.has(index) ? (
                           <Input
@@ -447,7 +447,7 @@ export default function CourseTemplatesModule() {
 
           {/* Actions */}
           <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+            <Button type="button" variant="secondary" onClick={() => setIsDialogOpen(false)}>
               Cancelar
             </Button>
             <Button type="submit" className="bg-accent-9 hover:bg-accent-10 text-white">
@@ -481,7 +481,7 @@ export default function CourseTemplatesModule() {
                   {previewTemplate?.topics?.map((topic, idx) => (
                     <div key={idx} className="p-3 bg-neutral-2 rounded-lg">
                       <div className="flex items-center gap-2">
-                        <Badge variant="outline">{idx + 1}</Badge>
+                        <Badge variant="secondary">{idx + 1}</Badge>
                         <span className="font-medium">{topic.title}</span>
                       </div>
                       {topic.description && (
@@ -494,7 +494,7 @@ export default function CourseTemplatesModule() {
             </div>
           </DialogBody>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setPreviewTemplate(null)}>
+            <Button variant="secondary" onClick={() => setPreviewTemplate(null)}>
               Cerrar
             </Button>
           </DialogFooter>

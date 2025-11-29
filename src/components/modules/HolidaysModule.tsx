@@ -229,7 +229,7 @@ export default function HolidaysModule() {
                 ))}
               </SelectContent>
             </Select>
-            <Button variant="outline" onClick={() => setIsReplicateDialogOpen(true)}>
+            <Button variant="secondary" onClick={() => setIsReplicateDialogOpen(true)}>
               <Copy className="h-4 w-4 mr-2" />
               Replicar Año
             </Button>
@@ -362,7 +362,7 @@ export default function HolidaysModule() {
             </div>
           </DialogBody>
           <DialogFooter>
-            <Button variant="outline" onClick={handleCloseDialog}>
+            <Button variant="secondary" onClick={handleCloseDialog}>
               Cancelar
             </Button>
             <Button onClick={handleSave}>
@@ -385,7 +385,7 @@ export default function HolidaysModule() {
             </p>
           </DialogBody>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+            <Button variant="secondary" onClick={() => setIsDeleteDialogOpen(false)}>
               Cancelar
             </Button>
             <Button variant="destructive" onClick={handleDelete}>
@@ -446,7 +446,7 @@ export default function HolidaysModule() {
             </div>
           </DialogBody>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsReplicateDialogOpen(false)}>
+            <Button variant="secondary" onClick={() => setIsReplicateDialogOpen(false)}>
               Cancelar
             </Button>
             <Button onClick={handleReplicate}>
@@ -514,7 +514,7 @@ function HolidayTable({
               <TableCell className="font-medium">{holiday.name}</TableCell>
               {showDepartment && (
                 <TableCell>
-                  <Badge variant="outline">{holiday.departmentName || '-'}</Badge>
+                  <Badge variant="secondary">{holiday.departmentName || '-'}</Badge>
                 </TableCell>
               )}
               <TableCell className="text-muted-foreground text-sm max-w-[300px] truncate">

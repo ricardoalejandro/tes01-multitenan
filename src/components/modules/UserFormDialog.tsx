@@ -147,7 +147,7 @@ export function UserFormDialog({ open, onOpenChange, user, onSave }: UserFormDia
           </div>
 
           <div className="flex gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
+            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} className="flex-1">
               Cancelar
             </Button>
             <Button type="submit" className="flex-1 bg-accent-9 hover:bg-accent-10">

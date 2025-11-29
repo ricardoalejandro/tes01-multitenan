@@ -190,7 +190,7 @@ export default function LevelsModule() {
                 {levels.map((level) => (
                   <TableRow key={level.id} className="hover:bg-muted/30">
                     <TableCell>
-                      <Badge variant="outline" className="font-mono">
+                      <Badge variant="secondary" className="font-mono">
                         {level.code}
                       </Badge>
                     </TableCell>
@@ -311,7 +311,7 @@ export default function LevelsModule() {
             </div>
           </DialogBody>
           <DialogFooter>
-            <Button variant="outline" onClick={handleCloseDialog}>
+            <Button variant="secondary" onClick={handleCloseDialog}>
               Cancelar
             </Button>
             <Button onClick={handleSave}>
@@ -334,7 +334,7 @@ export default function LevelsModule() {
             </p>
           </DialogBody>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+            <Button variant="secondary" onClick={() => setIsDeleteDialogOpen(false)}>
               Cancelar
             </Button>
             <Button variant="destructive" onClick={handleDelete}>

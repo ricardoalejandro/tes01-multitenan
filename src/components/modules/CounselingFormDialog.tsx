@@ -132,7 +132,7 @@ export function CounselingFormDialog({ open, onOpenChange, counseling, studentId
             <Label htmlFor="groupName">Nombre del Grupo *</Label>
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={() => setGroupInputMode(groupInputMode === 'select' ? 'manual' : 'select')}
               className="h-7 text-xs"
@@ -210,7 +210,7 @@ export function CounselingFormDialog({ open, onOpenChange, counseling, studentId
         </div>
 
         <div className="flex gap-2 pt-4 border-t">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
+          <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} className="flex-1">
             Cancelar
           </Button>
           <Button type="submit" className="flex-1 bg-accent-9 hover:bg-accent-10">

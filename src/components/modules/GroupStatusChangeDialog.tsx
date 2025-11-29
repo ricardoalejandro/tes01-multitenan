@@ -221,7 +221,7 @@ export function GroupStatusChangeDialog({ open, onClose, group, branchId, onStat
         </div>
 
         <div className="flex justify-end gap-2 pt-4 border-t border-neutral-4">
-          <Button variant="outline" onClick={onClose} disabled={loading}>
+          <Button variant="secondary" onClick={onClose} disabled={loading}>
             Cancelar
           </Button>
           <Button onClick={handleSubmit} disabled={loading}>

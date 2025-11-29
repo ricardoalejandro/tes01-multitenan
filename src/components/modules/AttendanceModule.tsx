@@ -15,6 +15,7 @@ import {
   CalendarDays,
   Timer,
   GitGraph,
+  BookOpen,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -26,6 +27,7 @@ import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { AttendanceSheet } from './AttendanceSheet';
+import { AttendanceNotebook } from './AttendanceNotebook';
 import { cn } from '@/lib/utils';
 
 // Types
@@ -72,7 +74,7 @@ interface PendingSession {
   isToday: boolean;
 }
 
-type ViewMode = 'list' | 'calendar' | 'pending' | 'timeline';
+type ViewMode = 'list' | 'calendar' | 'pending' | 'timeline' | 'notebook';
 
 export default function AttendanceModule({ branchId }: { branchId: string }) {
   const [groups, setGroups] = useState<GroupWithStats[]>([]);
@@ -226,6 +228,10 @@ export default function AttendanceModule({ branchId }: { branchId: string }) {
                 <ListChecks className="h-4 w-4" />
                 Lista
               </TabsTrigger>
+              <TabsTrigger value="notebook" className="gap-2">
+                <BookOpen className="h-4 w-4" />
+                Cuaderno
+              </TabsTrigger>
               <TabsTrigger value="calendar" className="gap-2">
                 <CalendarDays className="h-4 w-4" />
                 Calendario
@@ -267,6 +273,12 @@ export default function AttendanceModule({ branchId }: { branchId: string }) {
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
+        ) : viewMode === 'notebook' ? (
+          <AttendanceNotebook
+            groupId={selectedGroup.id}
+            groupName={selectedGroup.name}
+            onBack={handleBackToGroups}
+          />
         ) : viewMode === 'list' ? (
           <SessionListView
             sessions={sessions}

@@ -110,7 +110,7 @@ export function GroupTransactionsDialog({ open, onClose, groupId, groupName }: P
         </div>
 
         <div className="flex justify-end pt-4 border-t border-neutral-4">
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="secondary" onClick={onClose}>
             Cerrar
           </Button>
         </div>

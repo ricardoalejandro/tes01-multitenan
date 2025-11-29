@@ -457,7 +457,7 @@ export default function InstructorsModule({ branchId }: { branchId: string }) {
             <div className="col-span-2">
               <div className="flex items-center justify-between mb-2">
                 <Label>Capacitado en</Label>
-                <Button type="button" size="sm" variant="outline" onClick={addSpecialty}>
+                <Button type="button" size="sm" variant="secondary" onClick={addSpecialty}>
                   <Plus className="h-4 w-4 mr-1" /> Agregar
                 </Button>
               </div>
@@ -480,7 +480,7 @@ export default function InstructorsModule({ branchId }: { branchId: string }) {
             </div>
           </div>
           <div className="flex justify-end gap-3 pt-4">
-            <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
+            <Button type="button" variant="secondary" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
             <Button type="submit" className="bg-accent-9 hover:bg-accent-10 text-white">
               {editingInstructor ? 'Actualizar' : 'Crear'}
             </Button>

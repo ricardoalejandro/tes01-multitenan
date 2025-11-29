@@ -112,7 +112,7 @@ export function GroupEnrollmentDialog({ open, onClose, groupId, branchId, onEnro
       defaultMaximized={false}
       footer={
         <>
-          <Button variant="outline" onClick={onClose} disabled={loading}>
+          <Button variant="secondary" onClick={onClose} disabled={loading}>
             Cancelar
           </Button>
           <Button
@@ -220,7 +220,7 @@ export function GroupEnrollmentDialog({ open, onClose, groupId, branchId, onEnro
             </div>
             <div className="flex gap-2">
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
@@ -233,7 +233,7 @@ export function GroupEnrollmentDialog({ open, onClose, groupId, branchId, onEnro
                 </span>
               </div>
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages}

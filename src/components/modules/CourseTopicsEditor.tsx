@@ -211,7 +211,7 @@ export default function CourseTopicsEditor({ courseId, initialTopics = [], onCha
           <Button
             type="button"
             size="sm"
-            variant="outline"
+            variant="secondary"
             onClick={() => setShowImportDialog(true)}
           >
             <Upload className="h-4 w-4 mr-1" />
@@ -220,7 +220,7 @@ export default function CourseTopicsEditor({ courseId, initialTopics = [], onCha
           <Button
             type="button"
             size="sm"
-            variant="outline"
+            variant="secondary"
             onClick={() => setShowExportDialog(true)}
             disabled={!courseId}
           >
@@ -274,7 +274,7 @@ export default function CourseTopicsEditor({ courseId, initialTopics = [], onCha
                     <GripVertical className="h-4 w-4 text-neutral-5" />
                   </div>
                   
-                  <Badge variant="outline" className="shrink-0 font-mono">
+                  <Badge variant="secondary" className="shrink-0 font-mono">
                     {index + 1}
                   </Badge>
                   
@@ -400,7 +400,7 @@ export default function CourseTopicsEditor({ courseId, initialTopics = [], onCha
             </div>
           </DialogBody>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowExportDialog(false)}>
+            <Button variant="secondary" onClick={() => setShowExportDialog(false)}>
               Cancelar
             </Button>
             <Button onClick={handleExport} className="bg-accent-9 hover:bg-accent-10">
@@ -470,7 +470,7 @@ export default function CourseTopicsEditor({ courseId, initialTopics = [], onCha
                         {importPreview.map((topic, idx) => (
                           <tr key={idx} className="border-t border-neutral-4">
                             <td className="p-2">
-                              <Badge variant="outline">{idx + 1}</Badge>
+                              <Badge variant="secondary">{idx + 1}</Badge>
                             </td>
                             <td className="p-2 font-medium">{topic.title}</td>
                             <td className="p-2 text-neutral-9 truncate max-w-xs">
@@ -487,7 +487,7 @@ export default function CourseTopicsEditor({ courseId, initialTopics = [], onCha
           </DialogBody>
           <DialogFooter>
             <Button
-              variant="outline"
+              variant="secondary"
               onClick={() => {
                 setShowImportDialog(false);
                 setImportFile(null);

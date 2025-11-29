@@ -148,14 +148,14 @@ export function UserBranchRolesDialog({
               </div>
             </div>
 
-            <Button onClick={handleAdd} variant="outline" className="w-full" disabled={!newBranch || !newRole}>
+            <Button onClick={handleAdd} variant="secondary" className="w-full" disabled={!newBranch || !newRole}>
               <Plus className="mr-2 h-4 w-4" />
               Agregar Asignación
             </Button>
           </div>
 
           <div className="flex gap-2 pt-4 border-t">
-            <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
+            <Button variant="secondary" onClick={() => onOpenChange(false)} className="flex-1">
               Cancelar
             </Button>
             <Button onClick={handleSave} className="flex-1 bg-accent-9 hover:bg-accent-10">

@@ -148,7 +148,7 @@ export function RoleFormDialog({ open, onOpenChange, role, onSave }: RoleFormDia
           </div>
 
           <div className="flex gap-3 px-8 pb-8 border-t pt-6">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
+            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} className="flex-1">
               Cancelar
             </Button>
             <Button type="submit" className="flex-1 bg-accent-9 hover:bg-accent-10">

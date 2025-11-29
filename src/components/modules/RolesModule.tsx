@@ -145,7 +145,7 @@ export function RolesModule() {
                         <div className="flex justify-end gap-2">
                           <Button
                             size="sm"
-                            variant="outline"
+                            variant="secondary"
                             onClick={() => handleEdit(role)}
                             disabled={role.isSystemRole}
                           >
@@ -153,7 +153,7 @@ export function RolesModule() {
                           </Button>
                           <Button
                             size="sm"
-                            variant="outline"
+                            variant="secondary"
                             onClick={() => handleDelete(role.id, role.isSystemRole)}
                             disabled={role.isSystemRole}
                             className="text-red-600 hover:text-red-700 disabled:opacity-50"

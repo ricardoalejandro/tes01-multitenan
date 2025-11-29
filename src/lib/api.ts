@@ -528,6 +528,21 @@ class ApiClient {
     const response = await this.client.get('/attendance/instructors');
     return response.data;
   }
+
+  // Get attendance notebook (matrix view)
+  async getAttendanceNotebook(groupId: string, params?: {
+    startDate?: string;
+    endDate?: string;
+    page?: number;
+    sessionsPerPage?: number;
+    studentFilter?: 'all' | 'critical' | 'search';
+    searchTerm?: string;
+    sortBy?: 'name' | 'attendance' | 'absences';
+    sortOrder?: 'asc' | 'desc';
+  }) {
+    const response = await this.client.get(`/attendance/notebook/${groupId}`, { params });
+    return response.data;
+  }
 }
 
 export const api = new ApiClient();

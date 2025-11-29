@@ -174,7 +174,7 @@ export function UsersModule() {
                 className="pl-10"
               />
             </div>
-            <Button onClick={handleSearch} variant="outline">
+            <Button onClick={handleSearch} variant="secondary">
               Buscar
             </Button>
           </div>
@@ -213,7 +213,7 @@ export function UsersModule() {
                           {user.userType === 'normal' && (
                             <Button
                               size="sm"
-                              variant="outline"
+                              variant="secondary"
                               onClick={() => handleManageBranchRoles(user)}
                               title="Asignar Sedes y Roles"
                             >
@@ -222,14 +222,14 @@ export function UsersModule() {
                           )}
                           <Button
                             size="sm"
-                            variant="outline"
+                            variant="secondary"
                             onClick={() => handleEdit(user)}
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
                           <Button
                             size="sm"
-                            variant="outline"
+                            variant="secondary"
                             onClick={() => handleDelete(user.id)}
                             className="text-red-600 hover:text-red-700"
                           >

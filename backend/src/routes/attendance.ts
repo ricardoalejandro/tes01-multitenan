@@ -727,4 +727,261 @@ export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
 
     return { data: result };
   });
+
+  // ============================================
+  // CUADERNO DE ASISTENCIA - Vista Matricial
+  // ============================================
+
+  // GET /api/attendance/notebook/:groupId - Matriz de asistencia completa
+  fastify.get('/notebook/:groupId', async (request, reply) => {
+    const { groupId } = request.params as { groupId: string };
+    const { 
+      startDate, 
+      endDate, 
+      page = '1', 
+      sessionsPerPage = '10',
+      studentFilter = 'all', // 'all' | 'critical' | 'search'
+      searchTerm = '',
+      sortBy = 'name', // 'name' | 'attendance' | 'absences'
+      sortOrder = 'asc'
+    } = request.query as { 
+      startDate?: string; 
+      endDate?: string;
+      page?: string;
+      sessionsPerPage?: string;
+      studentFilter?: string;
+      searchTerm?: string;
+      sortBy?: string;
+      sortOrder?: string;
+    };
+
+    // 1. Obtener información del grupo
+    const [groupInfo] = await db
+      .select({
+        id: classGroups.id,
+        name: classGroups.name,
+        startDate: classGroups.startDate,
+      })
+      .from(classGroups)
+      .where(eq(classGroups.id, groupId))
+      .limit(1);
+
+    if (!groupInfo) {
+      return reply.status(404).send({ error: 'Grupo no encontrado' });
+    }
+
+    // 2. Obtener todas las sesiones del grupo (con filtros de fecha opcionales)
+    const allSessions = await db
+      .select({
+        id: groupSessions.id,
+        sessionNumber: groupSessions.sessionNumber,
+        sessionDate: groupSessions.sessionDate,
+        status: groupSessions.status,
+      })
+      .from(groupSessions)
+      .where(eq(groupSessions.groupId, groupId))
+      .orderBy(asc(groupSessions.sessionNumber));
+
+    // Calcular totalSessions
+    const totalSessions = allSessions.length;
+
+    // Filtrar por rango de fechas si se especifica
+    let filteredSessions = allSessions;
+    if (startDate) {
+      filteredSessions = filteredSessions.filter(s => s.sessionDate >= startDate);
+    }
+    if (endDate) {
+      filteredSessions = filteredSessions.filter(s => s.sessionDate <= endDate);
+    }
+
+    // Calcular paginación de sesiones
+    const pageNum = parseInt(page);
+    const perPage = parseInt(sessionsPerPage);
+    const totalSessionsFiltered = filteredSessions.length;
+    const totalPages = Math.ceil(totalSessionsFiltered / perPage);
+    const startIndex = (pageNum - 1) * perPage;
+    const paginatedSessions = filteredSessions.slice(startIndex, startIndex + perPage);
+
+    // 3. Obtener todos los estudiantes inscritos activos
+    let studentsData = await db
+      .select({
+        enrollmentId: groupEnrollments.id,
+        studentId: students.id,
+        firstName: students.firstName,
+        paternalLastName: students.paternalLastName,
+        maternalLastName: students.maternalLastName,
+        dni: students.dni,
+      })
+      .from(groupEnrollments)
+      .innerJoin(students, eq(groupEnrollments.studentId, students.id))
+      .where(and(
+        eq(groupEnrollments.groupId, groupId),
+        eq(groupEnrollments.status, 'active')
+      ))
+      .orderBy(asc(students.paternalLastName), asc(students.firstName));
+
+    // 4. Obtener toda la asistencia para las sesiones filtradas
+    const sessionIds = filteredSessions.map(s => s.id);
+    
+    let attendanceRecords: { sessionId: string; studentId: string; status: string }[] = [];
+    if (sessionIds.length > 0) {
+      attendanceRecords = await db
+        .select({
+          sessionId: sessionAttendance.sessionId,
+          studentId: sessionAttendance.studentId,
+          status: sessionAttendance.status,
+        })
+        .from(sessionAttendance)
+        .where(sql`${sessionAttendance.sessionId} IN (${sql.join(sessionIds.map(id => sql`${id}`), sql`, `)})`);
+    }
+
+    // 5. Crear mapa de asistencia por estudiante y sesión
+    const attendanceMap = new Map<string, Map<string, string>>();
+    attendanceRecords.forEach(record => {
+      if (!attendanceMap.has(record.studentId)) {
+        attendanceMap.set(record.studentId, new Map());
+      }
+      attendanceMap.get(record.studentId)!.set(record.sessionId, record.status);
+    });
+
+    // 6. Calcular estadísticas por estudiante (sobre TODAS las sesiones, no solo las paginadas)
+    const completedSessions = allSessions.filter(s => s.status === 'dictada');
+    const totalCompleted = completedSessions.length;
+
+    const studentsWithStats = studentsData.map(student => {
+      const studentAttendance = attendanceMap.get(student.studentId) || new Map();
+      
+      // Contar asistencias sobre sesiones dictadas
+      let attended = 0;
+      let absences = 0;
+      let late = 0;
+      let justified = 0;
+
+      completedSessions.forEach(session => {
+        const status = studentAttendance.get(session.id) || 'pendiente';
+        if (status === 'asistio') attended++;
+        else if (status === 'no_asistio') absences++;
+        else if (status === 'tarde') { attended++; late++; }
+        else if (status === 'justificado') justified++;
+        else if (status === 'permiso') justified++;
+      });
+
+      const attendancePercentage = totalCompleted > 0 
+        ? Math.round((attended / totalCompleted) * 100) 
+        : 100;
+
+      // Obtener asistencia solo para las sesiones paginadas (para mostrar en la matriz)
+      const sessionData: Record<string, string> = {};
+      paginatedSessions.forEach(session => {
+        sessionData[session.id] = studentAttendance.get(session.id) || 'pendiente';
+      });
+
+      return {
+        id: student.studentId,
+        enrollmentId: student.enrollmentId,
+        fullName: `${student.paternalLastName} ${student.maternalLastName || ''}, ${student.firstName}`.trim(),
+        firstName: student.firstName,
+        paternalLastName: student.paternalLastName,
+        maternalLastName: student.maternalLastName,
+        dni: student.dni,
+        sessions: sessionData,
+        stats: {
+          attended,
+          absences,
+          late,
+          justified,
+          total: totalCompleted,
+          percentage: attendancePercentage,
+          isCritical: attendancePercentage < 70,
+        }
+      };
+    });
+
+    // 7. Filtrar estudiantes según criterio
+    let filteredStudents = studentsWithStats;
+    if (studentFilter === 'critical') {
+      filteredStudents = filteredStudents.filter(s => s.stats.isCritical);
+    } else if (studentFilter === 'search' && searchTerm) {
+      const term = searchTerm.toLowerCase();
+      filteredStudents = filteredStudents.filter(s => 
+        s.fullName.toLowerCase().includes(term) || 
+        s.dni?.toLowerCase().includes(term)
+      );
+    }
+
+    // 8. Ordenar estudiantes
+    filteredStudents.sort((a, b) => {
+      let comparison = 0;
+      if (sortBy === 'name') {
+        comparison = a.fullName.localeCompare(b.fullName);
+      } else if (sortBy === 'attendance') {
+        comparison = a.stats.percentage - b.stats.percentage;
+      } else if (sortBy === 'absences') {
+        comparison = a.stats.absences - b.stats.absences;
+      }
+      return sortOrder === 'desc' ? -comparison : comparison;
+    });
+
+    // 9. Calcular estadísticas por sesión (para las paginadas)
+    const sessionStats = paginatedSessions.map(session => {
+      let attended = 0;
+      let total = studentsData.length;
+
+      studentsData.forEach(student => {
+        const studentAttendance = attendanceMap.get(student.studentId);
+        const status = studentAttendance?.get(session.id) || 'pendiente';
+        if (status === 'asistio' || status === 'tarde') attended++;
+      });
+
+      return {
+        sessionId: session.id,
+        attended,
+        total,
+        percentage: total > 0 ? Math.round((attended / total) * 100) : 0,
+      };
+    });
+
+    // 10. Estadísticas globales
+    const globalStats = {
+      totalStudents: studentsData.length,
+      totalSessions: allSessions.length,
+      completedSessions: totalCompleted,
+      averageAttendance: studentsWithStats.length > 0
+        ? Math.round(studentsWithStats.reduce((acc, s) => acc + s.stats.percentage, 0) / studentsWithStats.length)
+        : 0,
+      criticalStudents: studentsWithStats.filter(s => s.stats.isCritical).length,
+    };
+
+    return {
+      group: {
+        ...groupInfo,
+        totalSessions,
+      },
+      sessions: paginatedSessions.map(s => ({
+        id: s.id,
+        number: s.sessionNumber,
+        date: s.sessionDate,
+        status: s.status,
+      })),
+      students: filteredStudents,
+      sessionStats,
+      globalStats,
+      pagination: {
+        currentPage: pageNum,
+        totalPages,
+        sessionsPerPage: perPage,
+        totalSessions: totalSessionsFiltered,
+        hasNext: pageNum < totalPages,
+        hasPrev: pageNum > 1,
+      },
+      filters: {
+        startDate: startDate || null,
+        endDate: endDate || null,
+        studentFilter,
+        searchTerm,
+        sortBy,
+        sortOrder,
+      }
+    };
+  });
 };
