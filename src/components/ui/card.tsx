@@ -6,7 +6,11 @@ export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {}
 const Card = React.forwardRef<HTMLDivElement, CardProps>(({ className, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn('rounded-lg border border-neutral-4 bg-neutral-1 shadow-sm', className)}
+    className={cn(
+      'rounded-xl border border-neutral-4 bg-white shadow-sm',
+      'transition-all duration-200 ease-out',
+      className
+    )}
     {...props}
   />
 ));
@@ -21,7 +25,7 @@ const CardTitle = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HT
   ({ className, ...props }, ref) => (
     <h3
       ref={ref}
-      className={cn('text-2xl font-semibold leading-none tracking-tight', className)}
+      className={cn('text-xl font-semibold leading-none tracking-tight text-neutral-11', className)}
       {...props}
     />
   )
@@ -32,7 +36,7 @@ const CardDescription = React.forwardRef<
   HTMLParagraphElement,
   React.HTMLAttributes<HTMLParagraphElement>
 >(({ className, ...props }, ref) => (
-  <p ref={ref} className={cn('text-sm text-neutral-10', className)} {...props} />
+  <p ref={ref} className={cn('text-sm text-neutral-6', className)} {...props} />
 ));
 CardDescription.displayName = 'CardDescription';
 
