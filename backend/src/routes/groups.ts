@@ -99,8 +99,36 @@ export const groupRoutes: FastifyPluginAsync = async (fastify) => {
       db.select({ count: sql<number>`count(*)::int` }).from(classGroups).where(whereCondition),
     ]);
     
+    // Obtener datos adicionales para cada grupo: inscritos y progreso de sesiones
+    const groupsWithStats = await Promise.all(groups.map(async (group) => {
+      // Contar estudiantes inscritos activos
+      const [enrolledResult] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(groupEnrollments)
+        .where(and(
+          eq(groupEnrollments.groupId, group.id),
+          eq(groupEnrollments.status, 'active')
+        ));
+      
+      // Contar sesiones totales y dictadas
+      const sessionsStats = await db
+        .select({
+          total: sql<number>`count(*)::int`,
+          dictated: sql<number>`count(*) filter (where status = 'dictada')::int`
+        })
+        .from(groupSessions)
+        .where(eq(groupSessions.groupId, group.id));
+      
+      return {
+        ...group,
+        enrolledCount: enrolledResult?.count || 0,
+        totalSessions: sessionsStats[0]?.total || 0,
+        completedSessions: sessionsStats[0]?.dictated || 0,
+      };
+    }));
+    
     return {
-      data: groups,
+      data: groupsWithStats,
       pagination: {
         page: Number(page),
         limit: Number(limit),

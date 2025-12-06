@@ -209,6 +209,9 @@ export function AttendanceSheet({
   const [instructors, setInstructors] = useState<Instructor[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  
+  // Curso seleccionado para asistencia por curso
+  const [selectedCourseId, setSelectedCourseId] = useState<string>('_all_');
 
   // Form state for execution
   const [actualInstructorId, setActualInstructorId] = useState<string>('');
@@ -216,7 +219,7 @@ export function AttendanceSheet({
   const [actualTopic, setActualTopic] = useState('');
   const [actualDate, setActualDate] = useState('');
   const [notes, setNotes] = useState('');
-
+  
   // Observation sheet state
   const [selectedStudent, setSelectedStudent] = useState<StudentAttendance | null>(null);
   const [observationOpen, setObservationOpen] = useState(false);
@@ -234,10 +237,9 @@ export function AttendanceSheet({
     try {
       setLoading(true);
 
-      // Load in parallel
-      const [detailRes, studentsRes, instructorsRes] = await Promise.all([
+      // Load session detail and instructors first
+      const [detailRes, instructorsRes] = await Promise.all([
         api.getSessionDetail(session.id),
-        api.getSessionStudents(session.id),
         api.getAttendanceInstructors(),
       ]);
 
@@ -245,7 +247,6 @@ export function AttendanceSheet({
       setTopics(detailRes.topics || []);
       setExecution(detailRes.execution);
       setAssistants(detailRes.assistants || []);
-      setStudents(studentsRes.data || []);
       setInstructors(instructorsRes.data || []);
 
       // Initialize form with execution data or defaults
@@ -273,22 +274,42 @@ export function AttendanceSheet({
       setLoading(false);
     }
   }, [session.id, session.sessionDate]);
+  
+  // Load students with attendance (by course if selected)
+  const loadStudents = useCallback(async () => {
+    try {
+      const courseIdParam = selectedCourseId !== '_all_' ? selectedCourseId : undefined;
+      const studentsRes = await api.getSessionStudents(session.id, courseIdParam);
+      setStudents(studentsRes.data || []);
+    } catch (error) {
+      console.error('Error loading students:', error);
+      toast.error('Error al cargar estudiantes');
+    }
+  }, [session.id, selectedCourseId]);
 
   useEffect(() => {
     loadSessionData();
   }, [loadSessionData]);
+  
+  // Reload students when course selection changes
+  useEffect(() => {
+    if (!loading) {
+      loadStudents();
+    }
+  }, [loadStudents, loading]);
 
   // Update attendance status
   const handleStatusChange = async (student: StudentAttendance, newStatus: AttendanceStatus) => {
     if (isReadOnly) return;
 
     try {
-      await api.updateAttendanceStatus(student.attendanceId, newStatus);
+      const courseIdParam = selectedCourseId !== '_all_' ? selectedCourseId : undefined;
+      await api.updateAttendanceBySessionStudent(session.id, student.studentId, newStatus, courseIdParam);
 
       // Update local state
       setStudents((prev) =>
         prev.map((s) =>
-          s.attendanceId === student.attendanceId
+          s.studentId === student.studentId
             ? { ...s, attendanceStatus: newStatus }
             : s
         )
@@ -697,13 +718,41 @@ export function AttendanceSheet({
       {/* Students List */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <User className="h-5 w-5" />
-            Lista de Estudiantes ({students.length})
-          </CardTitle>
-          <CardDescription>
-            Registra la asistencia de cada estudiante
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <User className="h-5 w-5" />
+                Lista de Estudiantes ({students.length})
+              </CardTitle>
+              <CardDescription>
+                Registra la asistencia de cada estudiante
+              </CardDescription>
+            </div>
+            
+            {/* Selector de curso para asistencia por curso */}
+            {topics.length > 1 && (
+              <div className="flex items-center gap-2">
+                <Label className="text-sm text-muted-foreground whitespace-nowrap">Asistencia por curso:</Label>
+                <Select
+                  value={selectedCourseId}
+                  onValueChange={setSelectedCourseId}
+                  disabled={isReadOnly}
+                >
+                  <SelectTrigger className="w-[200px]">
+                    <SelectValue placeholder="Seleccionar curso" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_all_">Todos los cursos</SelectItem>
+                    {topics.map((topic) => (
+                      <SelectItem key={topic.courseId} value={topic.courseId}>
+                        {topic.courseName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <ScrollArea className="h-[400px]">

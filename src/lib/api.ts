@@ -469,9 +469,10 @@ class ApiClient {
     return response.data;
   }
 
-  // Get students with attendance for a session
-  async getSessionStudents(sessionId: string) {
-    const response = await this.client.get(`/attendance/sessions/${sessionId}/students`);
+  // Get students with attendance for a session (optionally by course)
+  async getSessionStudents(sessionId: string, courseId?: string) {
+    const params = courseId ? `?courseId=${courseId}` : '';
+    const response = await this.client.get(`/attendance/sessions/${sessionId}/students${params}`);
     return response.data;
   }
 
@@ -481,9 +482,27 @@ class ApiClient {
     return response.data;
   }
 
-  // Update or create attendance by session and student
+  // Update or create attendance by session, student, and optionally course
+  async updateAttendanceBySessionStudent(sessionId: string, studentId: string, status: string, courseId?: string) {
+    const response = await this.client.put(`/attendance/sessions/${sessionId}/students/${studentId}`, { 
+      status,
+      courseId: courseId || null,
+    });
+    return response.data;
+  }
+
+  // Update or create attendance by session and student (legacy - without courseId)
   async upsertAttendance(sessionId: string, studentId: string, status: string) {
     const response = await this.client.put(`/attendance/sessions/${sessionId}/students/${studentId}`, { status });
+    return response.data;
+  }
+
+  // Update or create attendance by session, student and course
+  async upsertAttendanceWithCourse(sessionId: string, studentId: string, status: string, courseId?: string) {
+    const response = await this.client.put(`/attendance/sessions/${sessionId}/students/${studentId}`, { 
+      status,
+      courseId 
+    });
     return response.data;
   }
 
@@ -551,6 +570,7 @@ class ApiClient {
     searchTerm?: string;
     sortBy?: 'name' | 'attendance' | 'absences';
     sortOrder?: 'asc' | 'desc';
+    courseId?: string;
   }) {
     const response = await this.client.get(`/attendance/notebook/${groupId}`, { params });
     return response.data;

@@ -489,18 +489,20 @@ export const holidays = pgTable('holidays', {
 // SISTEMA DE ASISTENCIAS
 // ============================================
 
-// Tabla: session_attendance (Asistencia de estudiantes por sesión)
+// Tabla: session_attendance (Asistencia de estudiantes por sesión y curso)
 export const sessionAttendance = pgTable('session_attendance', {
   id: uuid('id').primaryKey().defaultRandom(),
   sessionId: uuid('session_id').notNull().references(() => groupSessions.id, { onDelete: 'cascade' }),
   studentId: uuid('student_id').notNull().references(() => students.id, { onDelete: 'cascade' }),
+  courseId: uuid('course_id').references(() => courses.id, { onDelete: 'cascade' }), // NULL para retrocompatibilidad
   status: text('status').notNull().default('pendiente'), // 'pendiente' | 'asistio' | 'no_asistio' | 'tarde' | 'justificado' | 'permiso'
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => ({
-  uniqueSessionStudent: unique('session_attendance_session_student_unique').on(table.sessionId, table.studentId),
+  uniqueSessionStudentCourse: unique('session_attendance_session_student_course_unique').on(table.sessionId, table.studentId, table.courseId),
   idxSessionAttendanceSession: index('idx_session_attendance_session').on(table.sessionId),
   idxSessionAttendanceStudent: index('idx_session_attendance_student').on(table.studentId),
+  idxSessionAttendanceCourse: index('idx_session_attendance_course').on(table.courseId),
 }));
 
 // Tabla: attendance_observations (Historial de observaciones por asistencia)

@@ -11,6 +11,7 @@ import { z } from 'zod';
 // Validation schemas
 const updateAttendanceSchema = z.object({
   status: z.enum(['pendiente', 'asistio', 'no_asistio', 'tarde', 'justificado', 'permiso']),
+  courseId: z.string().uuid().optional().nullable(),
 });
 
 const addObservationSchema = z.object({
@@ -309,12 +310,14 @@ export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // ============================================
-  // ESTUDIANTES CON ASISTENCIA
+  // ESTUDIANTES CON ASISTENCIA (POR CURSO)
   // ============================================
 
-  // GET /api/attendance/sessions/:sessionId/students - Estudiantes con su asistencia
+  // GET /api/attendance/sessions/:sessionId/students - Estudiantes con su asistencia por curso
+  // Query params: courseId (opcional) - si se proporciona, retorna asistencia para ese curso específico
   fastify.get('/sessions/:sessionId/students', async (request, reply) => {
     const { sessionId } = request.params as { sessionId: string };
+    const { courseId } = request.query as { courseId?: string };
 
     // Obtener el grupo de la sesión
     const [session] = await db
@@ -347,20 +350,29 @@ export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
       ))
       .orderBy(asc(students.paternalLastName), asc(students.firstName));
 
-    // Obtener asistencia de cada estudiante
+    // Obtener asistencia de cada estudiante (por curso si se especifica)
     const studentsWithAttendance = await Promise.all(
       enrolledStudents.map(async (student) => {
+        // Construir condiciones de búsqueda
+        const whereConditions: SQL<unknown>[] = [
+          eq(sessionAttendance.sessionId, sessionId),
+          eq(sessionAttendance.studentId, student.studentId)
+        ];
+        
+        // Si se especifica courseId, buscar por ese curso específico
+        if (courseId) {
+          whereConditions.push(eq(sessionAttendance.courseId, courseId));
+        }
+        
         // Buscar o crear registro de asistencia
         let [attendance] = await db
           .select({
             id: sessionAttendance.id,
             status: sessionAttendance.status,
+            courseId: sessionAttendance.courseId,
           })
           .from(sessionAttendance)
-          .where(and(
-            eq(sessionAttendance.sessionId, sessionId),
-            eq(sessionAttendance.studentId, student.studentId)
-          ))
+          .where(and(...whereConditions))
           .limit(1);
 
         // Si no existe, crear uno con estado pendiente
@@ -370,9 +382,10 @@ export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
             .values({
               sessionId,
               studentId: student.studentId,
+              courseId: courseId || null,
               status: 'pendiente',
             })
-            .returning({ id: sessionAttendance.id, status: sessionAttendance.status });
+            .returning({ id: sessionAttendance.id, status: sessionAttendance.status, courseId: sessionAttendance.courseId });
           attendance = newAttendance;
         }
 
@@ -408,11 +421,13 @@ export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
   // ============================================
 
   // PUT /api/attendance/sessions/:sessionId/students/:studentId - Crear o actualizar asistencia individual
+  // Body: { status, courseId? } - courseId es opcional, si se proporciona crea/actualiza para ese curso
   fastify.put('/sessions/:sessionId/students/:studentId', async (request, reply) => {
     const { sessionId, studentId } = request.params as { sessionId: string; studentId: string };
     
     try {
       const validatedData = updateAttendanceSchema.parse(request.body);
+      const courseId = validatedData.courseId || null;
 
       // Verificar que la sesión existe y no está dictada
       const [session] = await db
@@ -429,14 +444,23 @@ export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(403).send({ error: 'No se puede modificar una sesión ya dictada' });
       }
 
+      // Construir condiciones de búsqueda incluyendo courseId
+      const whereConditions: SQL<unknown>[] = [
+        eq(sessionAttendance.sessionId, sessionId),
+        eq(sessionAttendance.studentId, studentId)
+      ];
+      
+      if (courseId) {
+        whereConditions.push(eq(sessionAttendance.courseId, courseId));
+      } else {
+        whereConditions.push(sql`${sessionAttendance.courseId} IS NULL`);
+      }
+
       // Buscar si ya existe un registro de asistencia
       const [existingAttendance] = await db
         .select()
         .from(sessionAttendance)
-        .where(and(
-          eq(sessionAttendance.sessionId, sessionId),
-          eq(sessionAttendance.studentId, studentId)
-        ))
+        .where(and(...whereConditions))
         .limit(1);
 
       let result;
@@ -457,6 +481,7 @@ export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
           .values({
             sessionId,
             studentId,
+            courseId,
             status: validatedData.status,
           })
           .returning();
@@ -849,7 +874,8 @@ export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
       studentFilter = 'all', // 'all' | 'critical' | 'search'
       searchTerm = '',
       sortBy = 'name', // 'name' | 'attendance' | 'absences'
-      sortOrder = 'asc'
+      sortOrder = 'asc',
+      courseId, // Nuevo: filtrar asistencia por curso
     } = request.query as { 
       startDate?: string; 
       endDate?: string;
@@ -859,6 +885,7 @@ export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
       searchTerm?: string;
       sortBy?: string;
       sortOrder?: string;
+      courseId?: string;
     };
 
     // 1. Obtener información del grupo
@@ -936,17 +963,23 @@ export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
     // 4. Obtener toda la asistencia para las sesiones filtradas (incluyendo id para edición)
     const sessionIds = filteredSessions.map(s => s.id);
     
-    let attendanceRecords: { id: string; sessionId: string; studentId: string; status: string }[] = [];
+    let attendanceRecords: { id: string; sessionId: string; studentId: string; status: string; courseId: string | null }[] = [];
     if (sessionIds.length > 0) {
+      // Construir la condición de courseId
+      let courseCondition = courseId 
+        ? sql`AND ${sessionAttendance.courseId} = ${courseId}`
+        : sql`AND ${sessionAttendance.courseId} IS NULL`;
+      
       attendanceRecords = await db
         .select({
           id: sessionAttendance.id,
           sessionId: sessionAttendance.sessionId,
           studentId: sessionAttendance.studentId,
           status: sessionAttendance.status,
+          courseId: sessionAttendance.courseId,
         })
         .from(sessionAttendance)
-        .where(sql`${sessionAttendance.sessionId} IN (${sql.join(sessionIds.map(id => sql`${id}`), sql`, `)})`);
+        .where(sql`${sessionAttendance.sessionId} IN (${sql.join(sessionIds.map(id => sql`${id}`), sql`, `)}) ${courseCondition}`);
     }
 
     // 4.1. Obtener conteo de observaciones por attendanceId

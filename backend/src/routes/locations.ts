@@ -3,6 +3,15 @@ import { db } from '../db';
 import { departments, provinces, districts, branches } from '../db/schema';
 import { eq, sql, asc } from 'drizzle-orm';
 import { z } from 'zod';
+import * as fs from 'fs';
+import * as path from 'path';
+
+// Interface para los datos de UBIGEO
+interface UbigeoData {
+  departments: Array<{ code: string; name: string }>;
+  provinces: Array<{ code: string; name: string; departmentCode: string }>;
+  districts: Array<{ code: string; name: string; provinceCode: string }>;
+}
 
 // Validation schemas
 const departmentSchema = z.object({
@@ -343,5 +352,135 @@ export const locationRoutes: FastifyPluginAsync = async (fastify) => {
     await db.delete(districts).where(eq(districts.id, id));
     
     return { success: true };
+  });
+
+  // =====================================================
+  // CARGA MASIVA IDEMPOTENTE DE UBIGEO PERÚ
+  // =====================================================
+
+  // POST /api/locations/seed-peru - Cargar datos de UBIGEO Perú (idempotente)
+  fastify.post('/locations/seed-peru', async (request, reply) => {
+    try {
+      // Leer archivo de datos (ubicado en src/data, copiado durante build)
+      const dataPath = path.join(process.cwd(), 'src/data/ubigeo-peru.json');
+      
+      if (!fs.existsSync(dataPath)) {
+        return reply.code(500).send({ 
+          error: 'Archivo de datos no encontrado',
+          path: dataPath 
+        });
+      }
+      
+      const ubigeoData: UbigeoData = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
+      
+      let stats = {
+        departments: { inserted: 0, skipped: 0 },
+        provinces: { inserted: 0, skipped: 0 },
+        districts: { inserted: 0, skipped: 0 },
+      };
+      
+      // Mapas para guardar IDs
+      const departmentMap = new Map<string, string>();
+      const provinceMap = new Map<string, string>();
+      
+      // 1. Procesar Departamentos (idempotente por código)
+      for (const dept of ubigeoData.departments) {
+        // Verificar si ya existe
+        const existing = await db
+          .select({ id: departments.id })
+          .from(departments)
+          .where(eq(departments.code, dept.code))
+          .limit(1);
+        
+        if (existing.length > 0) {
+          departmentMap.set(dept.code, existing[0].id);
+          stats.departments.skipped++;
+        } else {
+          const [inserted] = await db
+            .insert(departments)
+            .values({ code: dept.code, name: dept.name })
+            .returning({ id: departments.id });
+          departmentMap.set(dept.code, inserted.id);
+          stats.departments.inserted++;
+        }
+      }
+      
+      // 2. Procesar Provincias (idempotente por código)
+      for (const prov of ubigeoData.provinces) {
+        const departmentId = departmentMap.get(prov.departmentCode);
+        if (!departmentId) continue;
+        
+        const existing = await db
+          .select({ id: provinces.id })
+          .from(provinces)
+          .where(eq(provinces.code, prov.code))
+          .limit(1);
+        
+        if (existing.length > 0) {
+          provinceMap.set(prov.code, existing[0].id);
+          stats.provinces.skipped++;
+        } else {
+          const [inserted] = await db
+            .insert(provinces)
+            .values({ code: prov.code, name: prov.name, departmentId })
+            .returning({ id: provinces.id });
+          provinceMap.set(prov.code, inserted.id);
+          stats.provinces.inserted++;
+        }
+      }
+      
+      // 3. Procesar Distritos (idempotente por código)
+      for (const dist of ubigeoData.districts) {
+        const provinceId = provinceMap.get(dist.provinceCode);
+        if (!provinceId) continue;
+        
+        const existing = await db
+          .select({ id: districts.id })
+          .from(districts)
+          .where(eq(districts.code, dist.code))
+          .limit(1);
+        
+        if (existing.length > 0) {
+          stats.districts.skipped++;
+        } else {
+          await db
+            .insert(districts)
+            .values({ code: dist.code, name: dist.name, provinceId });
+          stats.districts.inserted++;
+        }
+      }
+      
+      return {
+        success: true,
+        message: 'Datos de UBIGEO Perú cargados exitosamente',
+        stats,
+        totals: {
+          departments: stats.departments.inserted + stats.departments.skipped,
+          provinces: stats.provinces.inserted + stats.provinces.skipped,
+          districts: stats.districts.inserted + stats.districts.skipped,
+        }
+      };
+      
+    } catch (error: any) {
+      console.error('Error en seed-peru:', error);
+      return reply.code(500).send({ 
+        error: 'Error al cargar datos de UBIGEO',
+        details: error.message 
+      });
+    }
+  });
+
+  // GET /api/locations/stats - Obtener estadísticas de ubicaciones
+  fastify.get('/locations/stats', async (request, reply) => {
+    const [deptCount] = await db.select({ count: sql<number>`count(*)::int` }).from(departments);
+    const [provCount] = await db.select({ count: sql<number>`count(*)::int` }).from(provinces);
+    const [distCount] = await db.select({ count: sql<number>`count(*)::int` }).from(districts);
+    
+    return {
+      departments: deptCount.count,
+      provinces: provCount.count,
+      districts: distCount.count,
+      isEmpty: deptCount.count === 0 && provCount.count === 0 && distCount.count === 0,
+    };
   });
 };

@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Pencil, Trash2, MapPin, Search } from 'lucide-react';
+import { Plus, Pencil, Trash2, MapPin, Search, Download, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 
@@ -62,6 +62,40 @@ export default function LocationsModule() {
   const [deptForm, setDeptForm] = useState({ code: '', name: '' });
   const [provForm, setProvForm] = useState({ departmentId: '', code: '', name: '' });
   const [distForm, setDistForm] = useState({ provinceId: '', code: '', name: '' });
+  
+  // Seed data state
+  const [isSeedingData, setIsSeedingData] = useState(false);
+
+  // Función para cargar datos de UBIGEO Perú (idempotente)
+  const handleSeedPeruData = async () => {
+    setIsSeedingData(true);
+    try {
+      const response = await api.axiosInstance.post('/locations/seed-peru');
+      const { stats, totals } = response.data;
+      
+      // Recargar datos
+      await fetchDepartments();
+      await fetchProvinces();
+      await fetchDistricts();
+      
+      // Mostrar resumen
+      if (stats.departments.inserted === 0 && stats.provinces.inserted === 0 && stats.districts.inserted === 0) {
+        toast.info(`Los datos de UBIGEO Perú ya están cargados (${totals.departments} departamentos, ${totals.provinces} provincias, ${totals.districts} distritos)`);
+      } else {
+        toast.success(
+          `Datos de UBIGEO cargados exitosamente:\n` +
+          `• Departamentos: ${stats.departments.inserted} nuevos, ${stats.departments.skipped} existentes\n` +
+          `• Provincias: ${stats.provinces.inserted} nuevas, ${stats.provinces.skipped} existentes\n` +
+          `• Distritos: ${stats.districts.inserted} nuevos, ${stats.districts.skipped} existentes`
+        );
+      }
+    } catch (error: any) {
+      console.error('Error seeding Peru data:', error);
+      toast.error(error.response?.data?.error || 'Error al cargar datos de UBIGEO Perú');
+    } finally {
+      setIsSeedingData(false);
+    }
+  };
 
   const fetchDepartments = async () => {
     try {
@@ -248,12 +282,30 @@ export default function LocationsModule() {
             <div className="p-2 bg-cyan-500 rounded-lg">
               <MapPin className="h-6 w-6 text-white" />
             </div>
-            <div>
+            <div className="flex-1">
               <CardTitle className="text-2xl">Gestión de Ubicaciones</CardTitle>
               <p className="text-sm text-muted-foreground mt-1">
                 Configure departamentos, provincias y distritos del Perú
               </p>
             </div>
+            <Button 
+              variant="outline" 
+              onClick={handleSeedPeruData} 
+              disabled={isSeedingData}
+              className="shrink-0"
+            >
+              {isSeedingData ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Cargando...
+                </>
+              ) : (
+                <>
+                  <Download className="h-4 w-4 mr-2" />
+                  Cargar UBIGEO Perú
+                </>
+              )}
+            </Button>
           </div>
         </div>
       </CardHeader>

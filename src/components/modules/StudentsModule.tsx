@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 
-import { Plus, Search, Edit, History, RefreshCw, GraduationCap } from 'lucide-react';
+import { Plus, Search, Edit, History, RefreshCw, GraduationCap, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { StudentModuleCardsView, StudentModuleCompactView, StudentModuleListView } from './StudentModuleViews';
 import { Input } from '@/components/ui/input';
@@ -60,6 +60,12 @@ interface Student {
   createdAt?: string;
   updatedAt?: string;
 }
+
+interface GroupForFilter {
+  id: string;
+  name: string;
+}
+
 interface PaginationData {
   page: number;
   limit: number;
@@ -77,6 +83,12 @@ export default function StudentsModule({ branchId }: { branchId: string }) {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  
+  // Filtros
+  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [groupFilter, setGroupFilter] = useState<string>('');
+  const [availableGroups, setAvailableGroups] = useState<GroupForFilter[]>([]);
+  
   const [formData, setFormData] = useState({
     documentType: 'DNI',
     dni: '',
@@ -124,6 +136,8 @@ export default function StudentsModule({ branchId }: { branchId: string }) {
         page,
         limit: pageSize,
         search: debouncedSearch,
+        status: statusFilter,
+        groupId: groupFilter,
       });
 
       if (response.data) {
@@ -141,7 +155,25 @@ export default function StudentsModule({ branchId }: { branchId: string }) {
     } finally {
       setLoading(false);
     }
-  }, [branchId, page, pageSize, debouncedSearch]);
+  }, [branchId, page, pageSize, debouncedSearch, statusFilter, groupFilter]);
+
+  // Cargar grupos activos para el filtro
+  const loadGroups = useCallback(async () => {
+    try {
+      const response = await api.getGroups(branchId);
+      // Solo grupos activos
+      const activeGroups = (response.data || [])
+        .filter((g: any) => g.status === 'active')
+        .map((g: any) => ({ id: g.id, name: g.name }));
+      setAvailableGroups(activeGroups);
+    } catch (error) {
+      console.error('Error loading groups for filter:', error);
+    }
+  }, [branchId]);
+
+  useEffect(() => {
+    loadGroups();
+  }, [loadGroups]);
 
   useEffect(() => {
     loadStudents();
@@ -315,9 +347,9 @@ export default function StudentsModule({ branchId }: { branchId: string }) {
           </Button>
         </div>
 
-        {/* Search + View Selector */}
-        <div className="flex gap-3">
-          <div className="relative flex-1">
+        {/* Search + Filters + View Selector */}
+        <div className="flex flex-wrap gap-3">
+          <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
             <Input
               placeholder="Buscar alumnos..."
@@ -331,6 +363,43 @@ export default function StudentsModule({ branchId }: { branchId: string }) {
               </div>
             )}
           </div>
+
+          {/* Filtro de Estado */}
+          <Select value={statusFilter} onValueChange={(val) => { setStatusFilter(val === 'all' ? '' : val); setPage(1); }}>
+            <SelectTrigger className="w-[130px] bg-white border-gray-200">
+              <SelectValue placeholder="Estado" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="Alta">Alta</SelectItem>
+              <SelectItem value="Baja">Baja</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Filtro de Grupo */}
+          <Select value={groupFilter} onValueChange={(val) => { setGroupFilter(val === 'all' ? '' : val); setPage(1); }}>
+            <SelectTrigger className="w-[180px] bg-white border-gray-200">
+              <SelectValue placeholder="Grupo activo" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los grupos</SelectItem>
+              {availableGroups.map((g) => (
+                <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Limpiar filtros */}
+          {(statusFilter || groupFilter) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => { setStatusFilter(''); setGroupFilter(''); setPage(1); }}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              Limpiar filtros
+            </Button>
+          )}
 
           {/* VIEW MODE SELECTOR */}
           <div className="flex border border-gray-200 rounded-lg overflow-hidden bg-white">

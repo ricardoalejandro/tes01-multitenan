@@ -30,6 +30,10 @@ interface Group {
   recurrenceFrequency: string;
   recurrenceInterval: number;
   maxOccurrences: number | null;
+  // Estadísticas
+  enrolledCount?: number;
+  totalSessions?: number;
+  completedSessions?: number;
 }
 
 interface PaginationData {
@@ -46,7 +50,7 @@ export default function GroupsModule({ branchId }: { branchId: string }) {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [viewMode, setViewMode] = useState<ViewMode>('cards');
 
   // Diálogos
   const [isFormOpen, setIsFormOpen] = useState(false);

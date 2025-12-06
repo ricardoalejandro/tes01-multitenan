@@ -232,6 +232,7 @@ export function AttendanceNotebook({ groupId, groupName, onBack }: AttendanceNot
   const [data, setData] = useState<NotebookData | null>(null);
   const [loading, setLoading] = useState(true);
   const [instructors, setInstructors] = useState<Instructor[]>([]);
+  const [courses, setCourses] = useState<{ id: string; name: string }[]>([]);
   
   // Filters state
   const [page, setPage] = useState(1);
@@ -242,6 +243,7 @@ export function AttendanceNotebook({ groupId, groupName, onBack }: AttendanceNot
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
+  const [selectedCourseId, setSelectedCourseId] = useState<string>('_all_');
 
   // Session finalization modal
   const [sessionModalOpen, setSessionModalOpen] = useState(false);
@@ -279,6 +281,7 @@ export function AttendanceNotebook({ groupId, groupName, onBack }: AttendanceNot
         sortOrder,
         startDate: startDate || undefined,
         endDate: endDate || undefined,
+        courseId: selectedCourseId !== '_all_' ? selectedCourseId : undefined,
       });
       setData(response);
     } catch (error) {
@@ -287,17 +290,30 @@ export function AttendanceNotebook({ groupId, groupName, onBack }: AttendanceNot
     } finally {
       setLoading(false);
     }
-  }, [groupId, page, sessionsPerPage, studentFilter, searchTerm, sortBy, sortOrder, startDate, endDate]);
+  }, [groupId, page, sessionsPerPage, studentFilter, searchTerm, sortBy, sortOrder, startDate, endDate, selectedCourseId]);
 
-  // Load instructors
+  // Load instructors and group courses
   const loadInstructors = useCallback(async () => {
     try {
-      const response = await api.getAttendanceInstructors();
-      setInstructors(response.data || []);
+      const [instructorsRes, groupCoursesRes] = await Promise.all([
+        api.getAttendanceInstructors(),
+        api.axiosInstance.get(`/groups/${groupId}/courses`),
+      ]);
+      setInstructors(instructorsRes.data || []);
+      
+      // Extract unique courses from group courses
+      const groupCourses = groupCoursesRes.data?.data || [];
+      const uniqueCourses = groupCourses.reduce((acc: { id: string; name: string }[], gc: any) => {
+        if (!acc.find(c => c.id === gc.courseId)) {
+          acc.push({ id: gc.courseId, name: gc.courseName });
+        }
+        return acc;
+      }, []);
+      setCourses(uniqueCourses);
     } catch (error) {
       console.error('Error loading instructors:', error);
     }
-  }, []);
+  }, [groupId]);
 
   useEffect(() => {
     loadData();
@@ -347,8 +363,8 @@ export function AttendanceNotebook({ groupId, groupName, onBack }: AttendanceNot
         // Update existing attendance record
         await api.updateAttendanceStatus(attendanceId, newStatus);
       } else {
-        // Create new attendance record using upsert endpoint
-        await api.upsertAttendance(sessionId, studentId, newStatus);
+        // Create new attendance record using upsert endpoint with courseId
+        await api.upsertAttendanceWithCourse(sessionId, studentId, newStatus, selectedCourseId || undefined);
       }
       toast.success('Asistencia actualizada');
       loadData();
@@ -664,6 +680,26 @@ export function AttendanceNotebook({ groupId, groupName, onBack }: AttendanceNot
                 </Select>
               </div>
 
+              {/* Course filter */}
+              {courses.length > 1 && (
+                <div className="space-y-1">
+                  <Label className="text-xs">Asistencia por curso</Label>
+                  <Select value={selectedCourseId} onValueChange={setSelectedCourseId}>
+                    <SelectTrigger className="w-44">
+                      <SelectValue placeholder="Seleccionar curso" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_all_">Todos los cursos</SelectItem>
+                      {courses.map((course) => (
+                        <SelectItem key={course.id} value={course.id}>
+                          {course.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               {/* Search input */}
               {studentFilter === 'search' && (
                 <div className="space-y-1">
@@ -701,7 +737,7 @@ export function AttendanceNotebook({ groupId, groupName, onBack }: AttendanceNot
               </div>
 
               {/* Clear filters */}
-              {(startDate || endDate || studentFilter !== 'all') && (
+              {(startDate || endDate || studentFilter !== 'all' || selectedCourseId !== '_all_') && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -710,6 +746,7 @@ export function AttendanceNotebook({ groupId, groupName, onBack }: AttendanceNot
                     setEndDate('');
                     setStudentFilter('all');
                     setSearchTerm('');
+                    setSelectedCourseId('_all_');
                   }}
                 >
                   Limpiar filtros

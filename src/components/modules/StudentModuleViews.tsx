@@ -1,6 +1,6 @@
 'use client';
 
-import { Edit, History, RefreshCw, GraduationCap } from 'lucide-react';
+import { Edit, History, RefreshCw, GraduationCap, Cake } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
@@ -34,11 +34,35 @@ interface Props {
   onCounseling?: (student: Student) => void;
 }
 
+// Helper para calcular edad
+function calculateAge(birthDate: string | null): number | null {
+  if (!birthDate) return null;
+  
+  const today = new Date();
+  const birth = new Date(birthDate);
+  
+  // Validar fecha
+  if (isNaN(birth.getTime())) return null;
+  
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  
+  // Si aún no cumple años este año, restar 1
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age--;
+  }
+  
+  return age >= 0 ? age : null;
+}
+
 // ============= CARDS VIEW =============
 export function StudentModuleCardsView({ students, onEdit, onChangeStatus, onViewTransactions, onCounseling }: Props) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
-      {students.map((student) => (
+      {students.map((student) => {
+        const age = calculateAge(student.birthDate);
+        
+        return (
         <div
           key={student.id}
           className="bg-white border border-neutral-4 rounded-lg p-4 hover:shadow-md transition-shadow"
@@ -62,6 +86,13 @@ export function StudentModuleCardsView({ students, onEdit, onChangeStatus, onVie
               <span className="text-neutral-10">Género:</span>
               <span className="text-neutral-12">{student.gender}</span>
             </div>
+            {age !== null && (
+              <div className="flex items-center gap-2 text-sm">
+                <Cake className="h-3.5 w-3.5 text-neutral-10" />
+                <span className="text-neutral-10">Edad:</span>
+                <span className="text-neutral-12 font-medium">{age} años</span>
+              </div>
+            )}
             {student.email && (
               <div className="flex items-center gap-2 text-sm">
                 <span className="text-neutral-10">Email:</span>
@@ -151,7 +182,8 @@ export function StudentModuleCardsView({ students, onEdit, onChangeStatus, onVie
             </TooltipProvider>
           </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -160,7 +192,10 @@ export function StudentModuleCardsView({ students, onEdit, onChangeStatus, onVie
 export function StudentModuleCompactView({ students, onEdit, onChangeStatus, onViewTransactions, onCounseling }: Props) {
   return (
     <div className="divide-y divide-neutral-4">
-      {students.map((student) => (
+      {students.map((student) => {
+        const age = calculateAge(student.birthDate);
+        
+        return (
         <div
           key={student.id}
           className="flex items-center gap-4 p-4 hover:bg-neutral-2 transition-colors"
@@ -178,6 +213,7 @@ export function StudentModuleCompactView({ students, onEdit, onChangeStatus, onV
             <div className="flex items-center gap-4 text-sm text-neutral-10">
               <span>DNI: {student.dni}</span>
               <span>{student.gender}</span>
+              {age !== null && <span className="font-medium">{age} años</span>}
               {student.email && <span className="truncate">{student.email}</span>}
             </div>
           </div>
@@ -233,7 +269,8 @@ export function StudentModuleCompactView({ students, onEdit, onChangeStatus, onV
             </TooltipProvider>
           </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -246,6 +283,7 @@ export function StudentModuleListView({ students, onEdit, onChangeStatus, onView
         <TableRow>
           <TableHead>DNI</TableHead>
           <TableHead>Nombre Completo</TableHead>
+          <TableHead>Edad</TableHead>
           <TableHead>Género</TableHead>
           <TableHead>Contacto</TableHead>
           <TableHead>Estado</TableHead>
@@ -254,11 +292,17 @@ export function StudentModuleListView({ students, onEdit, onChangeStatus, onView
         </TableRow>
       </TableHeader>
       <TableBody>
-        {students.map((student) => (
+        {students.map((student) => {
+          const age = calculateAge(student.birthDate);
+          
+          return (
           <TableRow key={student.id}>
             <TableCell className="font-medium">{student.dni}</TableCell>
             <TableCell>
               {student.firstName} {student.paternalLastName} {student.maternalLastName || ''}
+            </TableCell>
+            <TableCell>
+              {age !== null ? <span className="font-medium">{age} años</span> : <span className="text-neutral-10">-</span>}
             </TableCell>
             <TableCell>{student.gender}</TableCell>
             <TableCell>
@@ -327,7 +371,8 @@ export function StudentModuleListView({ students, onEdit, onChangeStatus, onView
               </div>
             </TableCell>
           </TableRow>
-        ))}
+          );
+        })}
       </TableBody>
     </Table>
   );

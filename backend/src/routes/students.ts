@@ -1,7 +1,7 @@
 import { FastifyPluginAsync } from 'fastify';
 import { db } from '../db';
-import { students, studentBranches, studentTransactions, branches, users } from '../db/schema';
-import { eq, and, sql, desc } from 'drizzle-orm';
+import { students, studentBranches, studentTransactions, branches, users, groupEnrollments, classGroups } from '../db/schema';
+import { eq, and, sql, desc, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 
 // Base validation schema (sin branchId ni status, solo datos globales del probacionista)
@@ -53,7 +53,7 @@ const studentStatusChangeSchema = z.object({
 export const studentRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /api/students - Listar estudiantes de una filial
   fastify.get('/', async (request, reply) => {
-    const { branchId, page = 1, limit = 10, search = '' } = request.query as any;
+    const { branchId, page = 1, limit = 10, search = '', status = '', groupId = '' } = request.query as any;
     
     const offset = (Number(page) - 1) * Number(limit);
     
@@ -72,6 +72,39 @@ export const studentRoutes: FastifyPluginAsync = async (fastify) => {
           CONCAT(${students.firstName}, ' ', ${students.paternalLastName}, ' ', COALESCE(${students.maternalLastName}, '')) ILIKE ${`%${search}%`}
         )`
       );
+    }
+
+    // Filtro por status (Alta/Baja)
+    if (status && (status === 'Alta' || status === 'Baja')) {
+      queryConditions.push(eq(studentBranches.status, status));
+    }
+
+    // Filtro por grupo activo
+    if (groupId) {
+      // Obtener IDs de estudiantes inscritos en ese grupo
+      const enrolledStudents = await db
+        .select({ studentId: groupEnrollments.studentId })
+        .from(groupEnrollments)
+        .where(and(
+          eq(groupEnrollments.groupId, groupId),
+          eq(groupEnrollments.status, 'active')
+        ));
+      
+      if (enrolledStudents.length > 0) {
+        const studentIds = enrolledStudents.map(e => e.studentId);
+        queryConditions.push(inArray(students.id, studentIds));
+      } else {
+        // No hay estudiantes en ese grupo
+        return {
+          data: [],
+          pagination: {
+            page: Number(page),
+            limit: Number(limit),
+            total: 0,
+            totalPages: 0,
+          },
+        };
+      }
     }
     
     const [studentList, countResult] = await Promise.all([
@@ -107,7 +140,7 @@ export const studentRoutes: FastifyPluginAsync = async (fastify) => {
         .select({ count: sql<number>`count(*)::int` })
         .from(students)
         .innerJoin(studentBranches, eq(students.id, studentBranches.studentId))
-        .where(eq(studentBranches.branchId, branchId)),
+        .where(and(...queryConditions)),
     ]);
     
     const count = countResult[0]?.count || 0;

@@ -1,6 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Users, Calendar, Edit, UserPlus, GitMerge, History, Trash2, Clock } from 'lucide-react';
+import { Users, Calendar, Edit, UserPlus, GitMerge, History, Trash2, Clock, Eye } from 'lucide-react';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 
 interface Group {
@@ -17,6 +17,10 @@ interface Group {
   recurrenceFrequency: string;
   recurrenceInterval: number;
   maxOccurrences: number | null;
+  // Estadísticas
+  enrolledCount?: number;
+  totalSessions?: number;
+  completedSessions?: number;
 }
 
 interface ViewProps {
@@ -40,78 +44,96 @@ const getStatusBadge = (status: string) => {
   return <Badge variant={config.variant}>{config.label}</Badge>;
 };
 
-// Vista de Tarjetas
+// Vista de Tarjetas (Compacta)
 export function GroupCardsView({ groups, onEdit, onViewStudents, onEnroll, onChangeStatus, onViewTransactions, onDelete }: ViewProps) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
-      {groups.map((group) => (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 p-3">
+      {groups.map((group) => {
+        const progress = group.totalSessions && group.totalSessions > 0 
+          ? Math.round((group.completedSessions || 0) / group.totalSessions * 100) 
+          : 0;
+        
+        return (
         <div
           key={group.id}
-          className="bg-white border border-neutral-4 rounded-lg p-4 hover:shadow-md transition-shadow"
+          className="bg-white border border-gray-200 rounded-lg p-3 hover:border-gray-300 hover:shadow-sm transition-all"
         >
-          <div className="flex items-start justify-between mb-3">
-            <div className="flex items-start gap-3 flex-1 min-w-0">
-              <div className="p-2 bg-accent-3 rounded-lg shrink-0">
-                <Users className="h-5 w-5 text-accent-9" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-neutral-12 truncate">{group.name}</h3>
-                {getStatusBadge(group.status)}
-              </div>
-            </div>
+          {/* Header con nombre y estado */}
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <h3 className="font-semibold text-gray-900 text-sm truncate flex-1" title={group.name}>{group.name}</h3>
+            {getStatusBadge(group.status)}
           </div>
           
-          <p className="text-sm text-neutral-11 line-clamp-2 mb-3">{group.description || '-'}</p>
-          
-          <div className="space-y-2 text-xs text-neutral-10 mb-3">
-            {group.startDate && (
-              <div className="flex items-center gap-2">
-                <Calendar className="h-3 w-3" />
-                <span>Inicio: {new Date(group.startDate).toLocaleDateString('es-PE')}</span>
-              </div>
-            )}
-            {(group.startTime || group.endTime) && (
-              <div className="flex items-center gap-2">
+          {/* Stats en línea */}
+          <div className="flex items-center gap-3 text-xs text-gray-600 mb-2">
+            <span className="flex items-center gap-1" title="Inscritos">
+              <Users className="h-3 w-3" />
+              {group.enrolledCount || 0}
+            </span>
+            <span className="flex items-center gap-1" title="Sesiones dictadas/total">
+              <Calendar className="h-3 w-3" />
+              {group.completedSessions || 0}/{group.totalSessions || 0}
+            </span>
+            {(group.startTime) && (
+              <span className="flex items-center gap-1" title="Horario">
                 <Clock className="h-3 w-3" />
-                <span>{group.startTime || '--:--'} - {group.endTime || '--:--'}</span>
-              </div>
-            )}
-            {group.frequency && (
-              <div className="flex items-center gap-2 capitalize">
-                <span>Frecuencia: {group.frequency}</span>
-              </div>
+                {group.startTime?.slice(0,5)}
+              </span>
             )}
           </div>
 
-          {/* Botones de Acción */}
-          <div className="grid grid-cols-3 gap-1 pt-3 border-t border-neutral-4">
-            <Button variant="ghost" size="sm" onClick={() => onEdit(group)} title="Editar">
-              <Edit className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => onViewStudents(group)} title="Ver estudiantes">
-              <Users className="h-4 w-4" />
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => onEnroll(group)} 
-              title={group.status === 'active' ? "Inscribir estudiantes" : "Solo disponible para grupos activos"}
-              disabled={group.status !== 'active'}
-            >
-              <UserPlus className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => onChangeStatus(group)} title="Cambiar estado">
-              <GitMerge className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => onViewTransactions(group)} title="Ver historial">
-              <History className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => onDelete(group.id)} className="text-red-600 hover:text-red-700 hover:bg-red-50" title="Eliminar">
-              <Trash2 className="h-4 w-4" />
-            </Button>
+          {/* Barra de progreso compacta */}
+          {(group.totalSessions || 0) > 0 && (
+            <div className="mb-2">
+              <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                <div 
+                  className={`h-full rounded-full transition-all ${
+                    progress >= 100 ? 'bg-green-500' : 
+                    progress >= 75 ? 'bg-blue-500' : 
+                    progress >= 50 ? 'bg-yellow-500' : 'bg-gray-400'
+                  }`}
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              <div className="text-[10px] text-gray-400 text-right mt-0.5">{progress}%</div>
+            </div>
+          )}
+
+          {/* Botones de Acción - más compactos */}
+          <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+            <div className="flex items-center gap-0.5">
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(group)} title="Editar">
+                <Edit className="h-3.5 w-3.5" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onViewStudents(group)} title="Ver estudiantes">
+                <Eye className="h-3.5 w-3.5" />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => onEnroll(group)} 
+                title={group.status === 'active' ? "Inscribir" : "Solo grupos activos"}
+                disabled={group.status !== 'active'}
+              >
+                <UserPlus className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+            <div className="flex items-center gap-0.5">
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onChangeStatus(group)} title="Cambiar estado">
+                <GitMerge className="h-3.5 w-3.5" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onViewTransactions(group)} title="Historial">
+                <History className="h-3.5 w-3.5" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-7 w-7 text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => onDelete(group.id)} title="Eliminar">
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -147,7 +169,7 @@ export function GroupCompactView({ groups, onEdit, onViewStudents, onEnroll, onC
               <Edit className="h-4 w-4" />
             </Button>
             <Button variant="ghost" size="sm" onClick={() => onViewStudents(group)} title="Ver estudiantes">
-              <Users className="h-4 w-4" />
+              <Eye className="h-4 w-4" />
             </Button>
             <Button 
               variant="ghost" 
@@ -206,7 +228,7 @@ export function GroupListView({ groups, onEdit, onViewStudents, onEnroll, onChan
                   <Edit className="h-4 w-4" />
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => onViewStudents(group)} title="Ver estudiantes">
-                  <Users className="h-4 w-4" />
+                  <Eye className="h-4 w-4" />
                 </Button>
                 <Button 
                   variant="ghost" 

@@ -68,136 +68,119 @@ export default function AdminPage() {
   const modules = [
     {
       id: 'branches',
-      title: '📍 Gestión de Filiales',
+      title: 'Gestión de Filiales',
       description: 'Crear, editar y administrar sucursales',
       icon: Building2,
       path: '/admin/branches',
-      color: 'from-blue-50 to-blue-100 border-blue-200',
-      iconBg: 'bg-blue-500',
     },
     {
       id: 'users',
-      title: '👥 Gestión de Usuarios',
+      title: 'Gestión de Usuarios',
       description: 'Administrar usuarios, roles y permisos',
       icon: Users,
       path: '/admin/users',
-      color: 'from-green-50 to-green-100 border-green-200',
-      iconBg: 'bg-green-500',
     },
     {
       id: 'roles',
-      title: '🎭 Gestión de Roles',
+      title: 'Gestión de Roles',
       description: 'Configurar roles y permisos por módulo',
       icon: Shield,
       path: '/admin/roles',
-      color: 'from-purple-50 to-purple-100 border-purple-200',
-      iconBg: 'bg-purple-500',
     },
     {
       id: 'smtp',
-      title: '📧 Configuración SMTP',
+      title: 'Configuración SMTP',
       description: 'Configurar servidor de correo electrónico',
       icon: Mail,
       path: '/admin/smtp',
-      color: 'from-orange-50 to-orange-100 border-orange-200',
-      iconBg: 'bg-orange-500',
     },
     {
       id: 'templates',
-      title: '📚 Plantillas de Cursos',
+      title: 'Plantillas de Cursos',
       description: 'Crear y gestionar plantillas de cursos reutilizables',
       icon: FileStack,
       path: '/admin/templates',
-      color: 'from-teal-50 to-teal-100 border-teal-200',
-      iconBg: 'bg-teal-500',
     },
     {
       id: 'holidays',
-      title: '📅 Feriados',
+      title: 'Feriados',
       description: 'Configurar feriados nacionales y provinciales',
       icon: Calendar,
       path: '/admin/holidays',
-      color: 'from-red-50 to-red-100 border-red-200',
-      iconBg: 'bg-red-500',
     },
     {
       id: 'levels',
-      title: '🏢 Niveles',
+      title: 'Niveles',
       description: 'Gestionar niveles organizacionales',
       icon: Layers,
       path: '/admin/levels',
-      color: 'from-indigo-50 to-indigo-100 border-indigo-200',
-      iconBg: 'bg-indigo-500',
     },
     {
       id: 'locations',
-      title: '🗺️ Ubicaciones',
+      title: 'Ubicaciones',
       description: 'Gestionar departamentos, provincias y distritos',
       icon: MapPin,
       path: '/admin/locations',
-      color: 'from-cyan-50 to-cyan-100 border-cyan-200',
-      iconBg: 'bg-cyan-500',
     },
     {
       id: 'test-data',
-      title: '🧪 Datos de Prueba',
+      title: 'Datos de Prueba',
       description: 'Generar y gestionar datos de prueba realistas',
       icon: Wand2,
       path: '/admin/test-data',
-      color: 'from-pink-50 to-purple-100 border-purple-200',
-      iconBg: 'bg-gradient-to-br from-purple-500 to-pink-500',
     },
   ];
 
   return (
-    <div className="min-h-screen bg-neutral-2">
+    <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto p-4 md:p-8">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8 bg-white p-6 rounded-xl shadow-sm border border-neutral-4">
+        <div className="flex items-center justify-between mb-8 bg-white p-6 rounded-lg border border-gray-200">
           <div>
-            <h1 className="text-3xl font-bold text-neutral-11">Panel de Administrador</h1>
-            <p className="text-neutral-9 mt-1">
+            <h1 className="text-2xl font-semibold text-gray-900">Panel de Administrador</h1>
+            <p className="text-gray-500 mt-1">
               Gestión de filiales, usuarios y configuración del sistema
             </p>
           </div>
-          <Button variant="outline" onClick={handleBack}>
+          <Button variant="outline" onClick={handleBack} className="border-gray-200">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Volver
           </Button>
         </div>
 
         {/* Modules Grid */}
-        <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4">
           {modules.map((module) => {
             const IconComponent = module.icon;
             return (
               <Card
                 key={module.id}
-                className={`bg-gradient-to-br ${module.color} border-2 hover:shadow-lg transition-all cursor-pointer hover:scale-[1.02]`}
+                className="bg-white border border-gray-200 hover:border-gray-300 transition-colors cursor-pointer group"
                 onClick={() => router.push(module.path)}
               >
-                <CardHeader>
-                  <div className="flex items-start gap-4">
-                    <div className={`rounded-xl ${module.iconBg} p-4 shadow-md`}>
-                      <IconComponent className="h-8 w-8 text-white" />
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="rounded-lg bg-gray-100 p-3 group-hover:bg-accent-2 transition-colors">
+                        <IconComponent className="h-5 w-5 text-gray-600 group-hover:text-accent-9" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-gray-900 group-hover:text-accent-9 transition-colors">
+                          {module.title}
+                        </h3>
+                        <p className="text-sm text-gray-500">
+                          {module.description}
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <CardTitle className="text-xl mb-2 text-neutral-12">
-                        {module.title}
-                      </CardTitle>
-                      <CardDescription className="text-neutral-10 text-base">
-                        {module.description}
-                      </CardDescription>
-                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      className="group-hover:bg-accent-9 group-hover:text-white group-hover:border-accent-9 transition-colors"
+                    >
+                      Entrar →
+                    </Button>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <Button 
-                    variant="secondary" 
-                    className="w-full shadow-sm"
-                  >
-                    Entrar →
-                  </Button>
                 </CardContent>
               </Card>
             );
@@ -206,15 +189,19 @@ export default function AdminPage() {
 
         {/* Info adicional */}
         <div className="max-w-5xl mx-auto mt-8">
-          <Card className="bg-accent-2 border border-accent-6">
+          <Card className="bg-white border border-gray-200">
             <CardContent className="p-6">
               <div className="flex items-start gap-3">
-                <div className="text-2xl">💡</div>
+                <div className="rounded-lg bg-gray-100 p-2">
+                  <svg className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
                 <div>
-                  <h3 className="font-semibold text-neutral-12 mb-2">
+                  <h3 className="font-semibold text-gray-900 mb-1">
                     Panel de Administración del Sistema
                   </h3>
-                  <p className="text-sm text-neutral-10">
+                  <p className="text-sm text-gray-500">
                     Desde aquí puedes gestionar todos los aspectos críticos del sistema: crear y configurar
                     filiales, administrar usuarios y sus permisos, definir roles personalizados, y configurar
                     el servidor SMTP para el envío de correos electrónicos.

@@ -66,7 +66,7 @@ export function ResponsiveDialog({
       <div
         className={cn(
           'fixed z-[101] bg-white shadow-2xl overflow-hidden flex flex-col',
-          'animate-in fade-in-0 zoom-in-95 duration-300',
+          'animate-in fade-in-0 duration-[650ms] ease-out',
           isMaximized
             ? 'inset-4 rounded-none'
             : 'left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-4xl max-h-[90vh] rounded-xl'

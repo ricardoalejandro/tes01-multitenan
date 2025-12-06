@@ -80,10 +80,14 @@ export default function CourseSelectorWithInstructors({ value, onChange, availab
     onChange(newCourses);
   };
 
+  // Validación: todos los cursos deben tener curso e instructor seleccionados
+  const hasIncompleteRows = value.some(c => !c.courseId || !c.instructorId);
+  const hasMissingInstructor = value.some(c => c.courseId && !c.instructorId);
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <label className="text-base font-semibold">Cursos del Grupo</label>
+        <label className="text-base font-semibold">Cursos del Grupo *</label>
         <Button type="button" size="sm" onClick={addCourse}>
           <Plus className="h-4 w-4 mr-1" />
           Añadir Curso
@@ -93,6 +97,18 @@ export default function CourseSelectorWithInstructors({ value, onChange, availab
       {value.length === 0 && (
         <div className="text-center py-8 text-neutral-9 border border-dashed border-neutral-4 rounded-lg">
           No hay cursos añadidos. Haz clic en &quot;Añadir Curso&quot; para comenzar.
+        </div>
+      )}
+
+      {/* Mensaje de validación */}
+      {value.length > 0 && hasIncompleteRows && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-sm">
+          <span>⚠️</span>
+          <span>
+            {hasMissingInstructor 
+              ? 'Cada curso debe tener un instructor asignado para continuar.'
+              : 'Selecciona un curso en cada fila antes de continuar.'}
+          </span>
         </div>
       )}
 

@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
-import { Building2, LogOut, Settings, GraduationCap, Grid3x3, List, Table, User as UserIcon, ChevronDown } from 'lucide-react';
+import { Building2, LogOut, Settings, GraduationCap, Grid3x3, List, Table, User as UserIcon, ChevronDown, Search } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,7 +44,9 @@ export default function DashboardPage() {
   const [branches, setBranches] = useState<BranchRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [showInactive, setShowInactive] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
 
   useEffect(() => {
     const loadData = async () => {
@@ -61,6 +64,14 @@ export default function DashboardPage() {
 
     loadData();
   }, [router]);
+
+  // Debounce de búsqueda
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -91,10 +102,21 @@ export default function DashboardPage() {
     toast.info('Función disponible próximamente');
   };
 
-  // Filtrar branches según toggle
-  const filteredBranches = showInactive
-    ? branches
-    : branches.filter(b => b.active !== false);
+  // Filtrar branches según toggle y búsqueda
+  const filteredBranches = branches.filter(b => {
+    // Filtro de activas
+    if (!showInactive && b.active === false) return false;
+    // Filtro de búsqueda
+    if (debouncedSearch.trim()) {
+      const search = debouncedSearch.toLowerCase();
+      return (
+        b.name.toLowerCase().includes(search) ||
+        b.code.toLowerCase().includes(search) ||
+        (b.description && b.description.toLowerCase().includes(search))
+      );
+    }
+    return true;
+  });
 
   if (loading) {
     return (
@@ -162,79 +184,90 @@ export default function DashboardPage() {
         <div className="max-w-7xl mx-auto">
           {/* Panel de Administrador - PRIMERA FILA (solo para admins) */}
           {user?.userType === 'admin' && (
-            <Card className="mb-6 bg-white border border-gray-200 hover:border-gray-300 transition-colors">
-              <CardHeader>
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="rounded-lg bg-accent-9 p-3">
-                      <Settings className="h-5 w-5 text-white" />
+            <Card 
+              className="mb-6 bg-white border border-gray-200 hover:border-gray-300 transition-colors cursor-pointer group"
+              onClick={handleAdminPanel}
+            >
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="rounded-lg bg-gray-100 p-3 group-hover:bg-accent-2 transition-colors">
+                      <Settings className="h-5 w-5 text-gray-600 group-hover:text-accent-9" />
                     </div>
                     <div>
-                      <CardTitle className="text-lg text-gray-900">Panel de Administrador</CardTitle>
-                      <CardDescription className="text-gray-500">
-                        Gestionar filiales, usuarios y roles
-                      </CardDescription>
+                      <h3 className="font-semibold text-gray-900 group-hover:text-accent-9 transition-colors">Panel de Administrador</h3>
+                      <p className="text-sm text-gray-500">Gestionar filiales, usuarios y roles</p>
                     </div>
                   </div>
-                  <Button
-                    onClick={handleAdminPanel}
-                    className="bg-accent-9 hover:bg-accent-10 text-white"
-                  >
-                    Entrar
+                  <Button variant="outline" className="group-hover:bg-accent-9 group-hover:text-white group-hover:border-accent-9 transition-colors">
+                    Entrar →
                   </Button>
                 </div>
-              </CardHeader>
+              </CardContent>
             </Card>
           )}
 
-          {/* Controles: Toggle + Vista */}
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-1">Mis Filiales</h2>
-              <p className="text-sm text-gray-500">
-                Selecciona una filial para comenzar
-              </p>
+          {/* Controles: Búsqueda + Toggle + Vista */}
+          <div className="flex flex-col gap-4 mb-6">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900 mb-1">Mis Filiales</h2>
+                <p className="text-sm text-gray-500">
+                  Selecciona una filial para comenzar
+                </p>
+              </div>
+
+              <div className="flex items-center gap-4">
+                {/* Toggle mostrar inactivas */}
+                <label className="flex items-center gap-2 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={showInactive}
+                    onChange={(e) => setShowInactive(e.target.checked)}
+                    className="w-4 h-4 rounded border-gray-300 text-accent-9 focus:ring-accent-9 focus:ring-offset-2"
+                  />
+                  <span className="text-sm text-gray-600 group-hover:text-gray-900">Mostrar inactivas</span>
+                </label>
+
+                {/* Selector de vista */}
+                <div className="flex gap-1 bg-white p-1 rounded-lg border border-gray-200">
+                  <Button
+                    variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setViewMode('grid')}
+                    className="px-3 rounded-md"
+                  >
+                    <Grid3x3 className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant={viewMode === 'list' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setViewMode('list')}
+                    className="px-3 rounded-md"
+                  >
+                    <List className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant={viewMode === 'table' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setViewMode('table')}
+                    className="px-3 rounded-md"
+                  >
+                    <Table className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
             </div>
 
-            <div className="flex items-center gap-4">
-              {/* Toggle mostrar inactivas */}
-              <label className="flex items-center gap-2 cursor-pointer group">
-                <input
-                  type="checkbox"
-                  checked={showInactive}
-                  onChange={(e) => setShowInactive(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 text-accent-9 focus:ring-accent-9 focus:ring-offset-2"
-                />
-                <span className="text-sm text-gray-600 group-hover:text-gray-900">Mostrar filiales inactivas</span>
-              </label>
-
-              {/* Selector de vista */}
-              <div className="flex gap-1 bg-white p-1 rounded-lg border border-gray-200">
-                <Button
-                  variant={viewMode === 'grid' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setViewMode('grid')}
-                  className="px-3 rounded-md"
-                >
-                  <Grid3x3 className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant={viewMode === 'list' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setViewMode('list')}
-                  className="px-3 rounded-md"
-                >
-                  <List className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant={viewMode === 'table' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setViewMode('table')}
-                  className="px-3 rounded-md"
-                >
-                  <Table className="h-4 w-4" />
-                </Button>
-              </div>
+            {/* Barra de búsqueda */}
+            <div className="relative max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Buscar filial por nombre o código..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 bg-white border-gray-200"
+              />
             </div>
           </div>
 

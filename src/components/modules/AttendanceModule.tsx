@@ -424,7 +424,7 @@ export default function AttendanceModule({ branchId }: { branchId: string }) {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
           {groups.map((group) => (
             <GroupCard
               key={group.id}
@@ -455,54 +455,39 @@ function GroupCard({
 
   return (
     <Card
-      className="cursor-pointer transition-all hover:shadow-md hover:border-primary/50"
+      className="cursor-pointer transition-all hover:shadow-md hover:border-primary/50 p-3"
       onClick={onSelect}
     >
-      <CardHeader className="pb-2">
-        <div className="flex items-start justify-between">
-          <CardTitle className="text-lg">{group.name}</CardTitle>
+      <div className="space-y-2">
+        {/* Header compacto */}
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="font-semibold text-sm truncate">{group.name}</h3>
           {group.pendientes > 0 && (
-            <Badge variant="secondary" className="bg-amber-100 text-amber-700 border-amber-300">
-              {group.pendientes} pendientes
+            <Badge variant="secondary" className="bg-amber-100 text-amber-700 border-amber-300 text-xs px-1.5 py-0">
+              {group.pendientes}
             </Badge>
           )}
         </div>
-        {group.description && (
-          <CardDescription className="line-clamp-2">{group.description}</CardDescription>
-        )}
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Stats */}
-        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-          <div className="flex items-center gap-1">
-            <Users className="h-4 w-4" />
-            {group.enrolledStudents} estudiantes
-          </div>
-          <div className="flex items-center gap-1">
-            <Calendar className="h-4 w-4" />
-            {group.totalSessions} sesiones
-          </div>
-        </div>
 
-        {/* Progress */}
-        <div className="space-y-1">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Progreso</span>
-            <span className="font-medium">
-              {group.dictadas}/{group.totalSessions}
-            </span>
-          </div>
-          <Progress value={progress} className="h-2" />
-        </div>
-
-        {/* Schedule info */}
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Clock className="h-4 w-4" />
-          <span>
-            {group.startTime?.slice(0, 5)} - {group.endTime?.slice(0, 5)} • {group.frequency || 'No definido'}
+        {/* Stats compactos en una línea */}
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1">
+            <Users className="h-3 w-3" />
+            {group.enrolledStudents}
+          </span>
+          <span className="flex items-center gap-1">
+            <Calendar className="h-3 w-3" />
+            {group.dictadas}/{group.totalSessions}
+          </span>
+          <span className="flex items-center gap-1">
+            <Clock className="h-3 w-3" />
+            {group.startTime?.slice(0, 5)}
           </span>
         </div>
-      </CardContent>
+
+        {/* Progress bar compacto */}
+        <Progress value={progress} className="h-1.5" />
+      </div>
     </Card>
   );
 }

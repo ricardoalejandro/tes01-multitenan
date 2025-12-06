@@ -390,16 +390,30 @@ export function GroupFormDialog({ open, onClose, branchId, group, onSaved }: Pro
 
   const canGenerateCalendar = () => {
     if (selectedCourses.length === 0) return false;
+    if (!selectedCourses.every(c => c.courseId && c.instructorId)) return false;
     if (!recurrence.startDate) return false;
     if (recurrence.frequency === 'weekly' && (!recurrence.days || recurrence.days.length === 0)) return false;
-    // Si tiene endDate, asegurarse que no esté vacío
-    if (recurrence.endDate && !recurrence.endDate.trim()) return false;
+    
+    // OBLIGATORIO: Debe tener fecha de fin O número máximo de sesiones
+    const hasEndDate = recurrence.endDate && recurrence.endDate.trim().length > 0;
+    const hasMaxOccurrences = recurrence.maxOccurrences && recurrence.maxOccurrences > 0;
+    if (!hasEndDate && !hasMaxOccurrences) return false;
+    
+    // Validar que fecha de fin sea posterior a fecha de inicio
+    if (hasEndDate && recurrence.endDate && recurrence.endDate <= recurrence.startDate) return false;
+    
     return true;
   };
 
   const canGoNext = () => {
-    if (step === 1) return name.trim().length > 0;
-    if (step === 2) return selectedCourses.length > 0;
+    if (step === 1) {
+      // Nombre y horarios obligatorios
+      return name.trim().length > 0 && startTime.trim().length > 0 && endTime.trim().length > 0;
+    }
+    if (step === 2) {
+      // Al menos un curso con instructor válido
+      return selectedCourses.length > 0 && selectedCourses.every(c => c.courseId && c.instructorId);
+    }
     if (step === 3) return canGenerateCalendar();
     return false;
   };
@@ -480,13 +494,16 @@ export function GroupFormDialog({ open, onClose, branchId, group, onSaved }: Pro
               
               {/* Horarios */}
               <div className="pt-4 border-t">
-                <Label className="text-base font-medium mb-3 block">Horario de Clases</Label>
+                <Label className="text-base font-medium mb-3 block">Horario de Clases *</Label>
                 <TimeRangePicker
                   startTime={startTime}
                   endTime={endTime}
                   onStartTimeChange={setStartTime}
                   onEndTimeChange={setEndTime}
                 />
+                {(!startTime || !endTime) && (
+                  <p className="text-sm text-amber-600 mt-2">⚠️ El horario de inicio y fin es obligatorio</p>
+                )}
               </div>
 
               {/* Asistentes */}

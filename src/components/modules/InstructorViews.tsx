@@ -1,4 +1,5 @@
 import { Badge } from '@/components/ui/badge';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { User, Mail, Phone, Calendar } from 'lucide-react';
 
 interface Instructor {
@@ -123,55 +124,47 @@ export function InstructorCompactView({ instructors, onEdit, onDelete }: ViewPro
   );
 }
 
-// Vista de Lista (Tabla)
+// Vista de Lista (Tabla) - Usando componente Table de Shadcn para consistencia con Probacionistas
 export function InstructorListView({ instructors, onEdit, onDelete }: ViewProps) {
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full">
-        <thead className="bg-neutral-2 sticky top-0 z-10">
-          <tr>
-            <th className="px-4 py-3 text-left text-sm font-semibold text-neutral-12">DNI</th>
-            <th className="px-4 py-3 text-left text-sm font-semibold text-neutral-12">Nombre Completo</th>
-            <th className="px-4 py-3 text-left text-sm font-semibold text-neutral-12">Contacto</th>
-            <th className="px-4 py-3 text-left text-sm font-semibold text-neutral-12">Especialidades</th>
-            <th className="px-4 py-3 text-left text-sm font-semibold text-neutral-12">Estado</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-neutral-4">
-          {instructors.map((instructor) => (
-            <tr
-              key={instructor.id}
-              className="hover:bg-neutral-1 cursor-pointer"
-              onClick={() => onEdit?.(instructor)}
-            >
-              <td className="px-4 py-3">
-                <div className="text-sm text-neutral-12">{instructor.dni}</div>
-              </td>
-              <td className="px-4 py-3">
-                <div className="font-medium text-neutral-12">
-                  {instructor.firstName} {instructor.paternalLastName} {instructor.maternalLastName}
-                </div>
-              </td>
-              <td className="px-4 py-3">
-                <div className="text-sm text-neutral-11 space-y-1">
-                  {instructor.email && <div className="flex items-center gap-1"><Mail className="h-3 w-3" />{instructor.email}</div>}
-                  {instructor.phone && <div className="flex items-center gap-1"><Phone className="h-3 w-3" />{instructor.phone}</div>}
-                </div>
-              </td>
-              <td className="px-4 py-3">
-                <div className="text-sm text-neutral-11">
-                  {instructor.specialties?.length || 0} especialidad{(instructor.specialties?.length || 0) !== 1 ? 'es' : ''}
-                </div>
-              </td>
-              <td className="px-4 py-3">
-                <Badge variant={instructor.status === 'Activo' ? 'default' : 'secondary'}>
-                  {instructor.status}
-                </Badge>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>DNI</TableHead>
+          <TableHead>Nombre Completo</TableHead>
+          <TableHead>Contacto</TableHead>
+          <TableHead>Especialidades</TableHead>
+          <TableHead>Estado</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {instructors.map((instructor) => (
+          <TableRow
+            key={instructor.id}
+            className="cursor-pointer"
+            onClick={() => onEdit?.(instructor)}
+          >
+            <TableCell className="font-medium">{instructor.dni}</TableCell>
+            <TableCell>
+              {instructor.firstName} {instructor.paternalLastName} {instructor.maternalLastName}
+            </TableCell>
+            <TableCell>
+              <div className="text-sm space-y-1">
+                {instructor.email && <div className="flex items-center gap-1"><Mail className="h-3 w-3" />{instructor.email}</div>}
+                {instructor.phone && <div className="flex items-center gap-1"><Phone className="h-3 w-3" />{instructor.phone}</div>}
+              </div>
+            </TableCell>
+            <TableCell>
+              {instructor.specialties?.length || 0} especialidad{(instructor.specialties?.length || 0) !== 1 ? 'es' : ''}
+            </TableCell>
+            <TableCell>
+              <Badge variant={instructor.status === 'Activo' ? 'default' : 'secondary'}>
+                {instructor.status}
+              </Badge>
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
   );
 }
