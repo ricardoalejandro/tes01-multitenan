@@ -1,8 +1,8 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, Page } from '@playwright/test';
 
 test.describe('Módulo de Usuarios y Roles', () => {
   
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page }: { page: Page }) => {
     // Login antes de cada test
     await page.goto('http://localhost:5000/login');
     await page.fill('input[name="username"]', 'admin');
@@ -12,10 +12,10 @@ test.describe('Módulo de Usuarios y Roles', () => {
     await page.waitForLoadState('networkidle');
   });
 
-  test('debe navegar al módulo de usuarios', async ({ page }) => {
+  test('debe navegar al módulo de usuarios', async ({ page }: { page: Page }) => {
     // Capturar errores de consola
     const consoleErrors: string[] = [];
-    page.on('console', msg => {
+    page.on('console', (msg: any) => {
       if (msg.type() === 'error') consoleErrors.push(msg.text());
     });
 
@@ -33,7 +33,7 @@ test.describe('Módulo de Usuarios y Roles', () => {
     expect(criticalErrors).toHaveLength(0);
   });
 
-  test('debe abrir el diálogo de nuevo usuario', async ({ page }) => {
+  test('debe abrir el diálogo de nuevo usuario', async ({ page }: { page: Page }) => {
     // Navegar a Usuarios
     await page.locator('button:has-text("Administración")').click();
     await page.waitForTimeout(500);
@@ -58,7 +58,7 @@ test.describe('Módulo de Usuarios y Roles', () => {
     await expect(page.locator('button:has-text("Crear Usuario")')).toBeVisible();
   });
 
-  test('debe poder seleccionar tipo de usuario', async ({ page }) => {
+  test('debe poder seleccionar tipo de usuario', async ({ page }: { page: Page }) => {
     // Navegar a Usuarios
     await page.locator('button:has-text("Administración")').click();
     await page.waitForTimeout(500);
@@ -84,10 +84,10 @@ test.describe('Módulo de Usuarios y Roles', () => {
     await expect(page.locator('button[role="combobox"]:has-text("Administrador")')).toBeVisible();
   });
 
-  test('debe navegar al módulo de roles', async ({ page }) => {
+  test('debe navegar al módulo de roles', async ({ page }: { page: Page }) => {
     // Capturar errores de consola
     const consoleErrors: string[] = [];
-    page.on('console', msg => {
+    page.on('console', (msg: any) => {
       if (msg.type() === 'error') consoleErrors.push(msg.text());
     });
 
@@ -105,7 +105,7 @@ test.describe('Módulo de Usuarios y Roles', () => {
     expect(criticalErrors).toHaveLength(0);
   });
 
-  test('debe abrir el diálogo de nuevo rol con matriz de permisos', async ({ page }) => {
+  test('debe abrir el diálogo de nuevo rol con matriz de permisos', async ({ page }: { page: Page }) => {
     // Navegar a Roles
     await page.locator('button:has-text("Administración")').click();
     await page.waitForTimeout(500);
@@ -121,21 +121,23 @@ test.describe('Módulo de Usuarios y Roles', () => {
     await expect(page.locator('input[id="name"]')).toBeVisible();
     await expect(page.locator('input[id="description"]')).toBeVisible();
     
-    // Verificar matriz de permisos
+    // Verificar matriz de permisos (ahora solo Ver y Editar)
     await expect(page.locator('text=Permisos por Modulo')).toBeVisible();
     await expect(page.locator('text=Estudiantes')).toBeVisible();
     await expect(page.locator('text=Cursos')).toBeVisible();
     await expect(page.locator('text=Ver')).toBeVisible();
-    await expect(page.locator('text=Crear')).toBeVisible();
     await expect(page.locator('text=Editar')).toBeVisible();
-    await expect(page.locator('text=Eliminar')).toBeVisible();
+    
+    // Verificar checkboxes de "Todos" en headers
+    const verTodosCheckbox = page.locator('thead th:has-text("Ver") input[type="checkbox"]');
+    await expect(verTodosCheckbox).toBeVisible();
     
     // Verificar botones
     await expect(page.locator('button:has-text("Cancelar")')).toBeVisible();
     await expect(page.locator('button:has-text("Crear Rol")')).toBeVisible();
   });
 
-  test('debe poder editar un usuario existente', async ({ page }) => {
+  test('debe poder editar un usuario existente', async ({ page }: { page: Page }) => {
     // Navegar a Usuarios
     await page.locator('button:has-text("Administración")').click();
     await page.waitForTimeout(500);
@@ -164,7 +166,7 @@ test.describe('Módulo de Usuarios y Roles', () => {
     }
   });
 
-  test('debe poder maximizar el diálogo', async ({ page }) => {
+  test('debe poder maximizar el diálogo', async ({ page }: { page: Page }) => {
     // Navegar a Usuarios
     await page.locator('button:has-text("Administración")').click();
     await page.waitForTimeout(500);
@@ -189,5 +191,20 @@ test.describe('Módulo de Usuarios y Roles', () => {
       await expect(page.locator('input[id="username"]')).toBeVisible();
       await expect(page.locator('input[id="fullName"]')).toBeVisible();
     }
+  });
+
+  test('debe responder a la tecla Escape en páginas admin', async ({ page }: { page: Page }) => {
+    // Navegar a Usuarios
+    await page.locator('button:has-text("Administración")').click();
+    await page.waitForTimeout(500);
+    await page.locator('button:has-text("Usuarios")').click();
+    await page.waitForLoadState('networkidle');
+
+    // Presionar Escape
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(500);
+    
+    // Debería volver a /admin
+    expect(page.url()).toContain('/admin');
   });
 });
