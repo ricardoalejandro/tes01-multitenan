@@ -11,7 +11,8 @@ import { z } from 'zod';
 // Validation schemas
 const updateAttendanceSchema = z.object({
   status: z.enum(['pendiente', 'asistio', 'no_asistio', 'tarde', 'justificado', 'permiso']),
-  courseId: z.string().uuid().optional().nullable(),
+  courseId: z.string().optional().nullable(), // UUID or '_all_'
+  courseIds: z.array(z.string().uuid()).optional(), // Array of course IDs when applying to all courses
 });
 
 const addObservationSchema = z.object({
@@ -421,17 +422,18 @@ export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
   // ============================================
 
   // PUT /api/attendance/sessions/:sessionId/students/:studentId - Crear o actualizar asistencia individual
-  // Body: { status, courseId? } - courseId es opcional, si se proporciona crea/actualiza para ese curso
+  // Body: { status, courseId?, courseIds? } 
+  // - courseId: UUID para un curso específico, '_all_' para todos los cursos
+  // - courseIds: Array de UUIDs cuando se aplica a múltiples cursos
   fastify.put('/sessions/:sessionId/students/:studentId', async (request, reply) => {
     const { sessionId, studentId } = request.params as { sessionId: string; studentId: string };
     
     try {
       const validatedData = updateAttendanceSchema.parse(request.body);
-      const courseId = validatedData.courseId || null;
 
       // Verificar que la sesión existe y no está dictada
       const [session] = await db
-        .select({ status: groupSessions.status })
+        .select({ status: groupSessions.status, groupId: groupSessions.groupId })
         .from(groupSessions)
         .where(eq(groupSessions.id, sessionId))
         .limit(1);
@@ -444,50 +446,64 @@ export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(403).send({ error: 'No se puede modificar una sesión ya dictada' });
       }
 
-      // Construir condiciones de búsqueda incluyendo courseId
-      const whereConditions: SQL<unknown>[] = [
-        eq(sessionAttendance.sessionId, sessionId),
-        eq(sessionAttendance.studentId, studentId)
-      ];
+      // Determinar los cursos a actualizar
+      let courseIdsToUpdate: string[] = [];
       
-      if (courseId) {
-        whereConditions.push(eq(sessionAttendance.courseId, courseId));
+      if (validatedData.courseIds && validatedData.courseIds.length > 0) {
+        // Se proporcionó un array de courseIds (modo "todos los cursos")
+        courseIdsToUpdate = validatedData.courseIds;
+      } else if (validatedData.courseId && validatedData.courseId !== '_all_') {
+        // Se proporcionó un courseId específico
+        courseIdsToUpdate = [validatedData.courseId];
       } else {
-        whereConditions.push(sql`${sessionAttendance.courseId} IS NULL`);
+        // Si no hay courseId o es '_all_', necesitamos obtener los cursos del grupo
+        // Este caso no debería pasar si el frontend envía courseIds correctamente
+        return reply.status(400).send({ 
+          error: 'Debe especificar courseId o courseIds. La asistencia debe estar asociada a un curso.' 
+        });
       }
 
-      // Buscar si ya existe un registro de asistencia
-      const [existingAttendance] = await db
-        .select()
-        .from(sessionAttendance)
-        .where(and(...whereConditions))
-        .limit(1);
+      const results = [];
+      
+      for (const courseId of courseIdsToUpdate) {
+        // Buscar si ya existe un registro de asistencia para este curso
+        const [existingAttendance] = await db
+          .select()
+          .from(sessionAttendance)
+          .where(and(
+            eq(sessionAttendance.sessionId, sessionId),
+            eq(sessionAttendance.studentId, studentId),
+            eq(sessionAttendance.courseId, courseId)
+          ))
+          .limit(1);
 
-      let result;
-      if (existingAttendance) {
-        // Actualizar registro existente
-        [result] = await db
-          .update(sessionAttendance)
-          .set({ 
-            status: validatedData.status,
-            updatedAt: new Date(),
-          })
-          .where(eq(sessionAttendance.id, existingAttendance.id))
-          .returning();
-      } else {
-        // Crear nuevo registro
-        [result] = await db
-          .insert(sessionAttendance)
-          .values({
-            sessionId,
-            studentId,
-            courseId,
-            status: validatedData.status,
-          })
-          .returning();
+        let result;
+        if (existingAttendance) {
+          // Actualizar registro existente
+          [result] = await db
+            .update(sessionAttendance)
+            .set({ 
+              status: validatedData.status,
+              updatedAt: new Date(),
+            })
+            .where(eq(sessionAttendance.id, existingAttendance.id))
+            .returning();
+        } else {
+          // Crear nuevo registro
+          [result] = await db
+            .insert(sessionAttendance)
+            .values({
+              sessionId,
+              studentId,
+              courseId,
+              status: validatedData.status,
+            })
+            .returning();
+        }
+        results.push(result);
       }
 
-      return { success: true, data: result };
+      return { success: true, data: results.length === 1 ? results[0] : results };
     } catch (error) {
       if (error instanceof z.ZodError) {
         return reply.status(400).send({ error: 'Datos inválidos', details: error.errors });
@@ -965,21 +981,31 @@ export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
     
     let attendanceRecords: { id: string; sessionId: string; studentId: string; status: string; courseId: string | null }[] = [];
     if (sessionIds.length > 0) {
-      // Construir la condición de courseId
-      let courseCondition = courseId 
-        ? sql`AND ${sessionAttendance.courseId} = ${courseId}`
-        : sql`AND ${sessionAttendance.courseId} IS NULL`;
-      
-      attendanceRecords = await db
-        .select({
-          id: sessionAttendance.id,
-          sessionId: sessionAttendance.sessionId,
-          studentId: sessionAttendance.studentId,
-          status: sessionAttendance.status,
-          courseId: sessionAttendance.courseId,
-        })
-        .from(sessionAttendance)
-        .where(sql`${sessionAttendance.sessionId} IN (${sql.join(sessionIds.map(id => sql`${id}`), sql`, `)}) ${courseCondition}`);
+      if (courseId) {
+        // Filtrar por un curso específico
+        attendanceRecords = await db
+          .select({
+            id: sessionAttendance.id,
+            sessionId: sessionAttendance.sessionId,
+            studentId: sessionAttendance.studentId,
+            status: sessionAttendance.status,
+            courseId: sessionAttendance.courseId,
+          })
+          .from(sessionAttendance)
+          .where(sql`${sessionAttendance.sessionId} IN (${sql.join(sessionIds.map(id => sql`${id}`), sql`, `)}) AND ${sessionAttendance.courseId} = ${courseId}`);
+      } else {
+        // "Todos los cursos" - obtener TODOS los registros y aplicar prioridad
+        attendanceRecords = await db
+          .select({
+            id: sessionAttendance.id,
+            sessionId: sessionAttendance.sessionId,
+            studentId: sessionAttendance.studentId,
+            status: sessionAttendance.status,
+            courseId: sessionAttendance.courseId,
+          })
+          .from(sessionAttendance)
+          .where(sql`${sessionAttendance.sessionId} IN (${sql.join(sessionIds.map(id => sql`${id}`), sql`, `)}) AND ${sessionAttendance.courseId} IS NOT NULL`);
+      }
     }
 
     // 4.1. Obtener conteo de observaciones por attendanceId
@@ -1000,17 +1026,56 @@ export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
       });
     }
 
-    // 5. Crear mapa de asistencia por estudiante y sesión (ahora incluye id y conteo de observaciones)
+    // Función para determinar la prioridad del estado de asistencia
+    // Prioridad: asistio > tarde > justificado > permiso > no_asistio > pendiente
+    const getStatusPriority = (status: string): number => {
+      const priorities: Record<string, number> = {
+        'asistio': 6,
+        'tarde': 5,
+        'justificado': 4,
+        'permiso': 3,
+        'no_asistio': 2,
+        'pendiente': 1,
+      };
+      return priorities[status] || 0;
+    };
+
+    // 5. Crear mapa de asistencia por estudiante y sesión
+    // Cuando hay múltiples cursos (modo "todos los cursos"), aplicar lógica de prioridad
     const attendanceMap = new Map<string, Map<string, { id: string; status: string; observationCount: number }>>();
+    
     attendanceRecords.forEach(record => {
       if (!attendanceMap.has(record.studentId)) {
         attendanceMap.set(record.studentId, new Map());
       }
-      attendanceMap.get(record.studentId)!.set(record.sessionId, {
-        id: record.id,
-        status: record.status,
-        observationCount: observationCounts[record.id] || 0,
-      });
+      
+      const studentMap = attendanceMap.get(record.studentId)!;
+      const existingData = studentMap.get(record.sessionId);
+      
+      if (!existingData) {
+        // No hay registro previo, agregar este
+        studentMap.set(record.sessionId, {
+          id: record.id,
+          status: record.status,
+          observationCount: observationCounts[record.id] || 0,
+        });
+      } else {
+        // Ya existe un registro, aplicar prioridad
+        const existingPriority = getStatusPriority(existingData.status);
+        const newPriority = getStatusPriority(record.status);
+        
+        if (newPriority > existingPriority) {
+          // El nuevo registro tiene mayor prioridad, reemplazar
+          studentMap.set(record.sessionId, {
+            id: record.id,
+            status: record.status,
+            observationCount: (existingData.observationCount || 0) + (observationCounts[record.id] || 0),
+          });
+        } else {
+          // Mantener el existente pero sumar observaciones
+          existingData.observationCount += (observationCounts[record.id] || 0);
+        }
+      }
     });
 
     // 6. Calcular estadísticas por estudiante (sobre TODAS las sesiones, no solo las paginadas)

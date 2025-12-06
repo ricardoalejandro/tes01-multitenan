@@ -10,13 +10,11 @@ import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
 
 const MODULES = [
-  { key: 'students', label: 'Estudiantes' },
+  { key: 'students', label: 'Probacionistas' },
   { key: 'courses', label: 'Cursos' },
   { key: 'instructors', label: 'Instructores' },
   { key: 'groups', label: 'Grupos' },
-  { key: 'attendance', label: 'Asistencia' },
-  { key: 'counseling', label: 'Asesorías' },
-  { key: 'enrollments', label: 'Inscripciones' },
+  { key: 'attendance', label: 'Asistencias' },
 ];
 
 const PERMISSIONS = [
@@ -69,10 +67,10 @@ export function RoleFormDialog({ open, onOpenChange, role, onSave }: RoleFormDia
       setLoading(true);
       const response = await api.getRolePermissions(roleId);
       const permsData = response.data || [];
-      
+
       // Convertir array de permisos a objeto
       const permsObj: Record<string, Record<string, boolean>> = initEmptyPermissions();
-      
+
       permsData.forEach((perm: any) => {
         if (permsObj[perm.module]) {
           permsObj[perm.module] = {
@@ -81,7 +79,7 @@ export function RoleFormDialog({ open, onOpenChange, role, onSave }: RoleFormDia
           };
         }
       });
-      
+
       setPermissions(permsObj);
     } catch (error) {
       console.error('Error loading role permissions:', error);
@@ -159,21 +157,21 @@ export function RoleFormDialog({ open, onOpenChange, role, onSave }: RoleFormDia
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="name">Nombre del Rol *</Label>
-            <Input 
-              id="name" 
-              value={name} 
-              onChange={(e) => setName(e.target.value)} 
-              required 
-              placeholder="Ej: Coordinador" 
+            <Input
+              id="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              placeholder="Ej: Coordinador"
             />
           </div>
           <div className="space-y-2">
             <Label htmlFor="description">Descripción</Label>
-            <Input 
-              id="description" 
-              value={description} 
-              onChange={(e) => setDescription(e.target.value)} 
-              placeholder="Descripción opcional" 
+            <Input
+              id="description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Descripción opcional"
             />
           </div>
         </div>
@@ -183,7 +181,7 @@ export function RoleFormDialog({ open, onOpenChange, role, onSave }: RoleFormDia
           <p className="text-sm text-neutral-10">
             Selecciona qué acciones puede realizar este rol en cada módulo.
           </p>
-          
+
           {loading ? (
             <div className="flex items-center justify-center p-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent-9"></div>
@@ -217,10 +215,10 @@ export function RoleFormDialog({ open, onOpenChange, role, onSave }: RoleFormDia
                   </thead>
                   <tbody className="bg-white">
                     {MODULES.map((module, idx) => (
-                      <tr 
-                        key={module.key} 
+                      <tr
+                        key={module.key}
                         className={cn(
-                          "border-t hover:bg-neutral-1 transition-colors", 
+                          "border-t hover:bg-neutral-1 transition-colors",
                           idx % 2 === 0 && "bg-neutral-1/30"
                         )}
                       >
@@ -228,9 +226,9 @@ export function RoleFormDialog({ open, onOpenChange, role, onSave }: RoleFormDia
                         {PERMISSIONS.map(perm => (
                           <td key={perm.key} className="text-center p-4">
                             <div className="flex justify-center">
-                              <Checkbox 
-                                checked={permissions[module.key]?.[perm.key] || false} 
-                                onCheckedChange={(checked) => handlePermissionChange(module.key, perm.key, checked as boolean)} 
+                              <Checkbox
+                                checked={permissions[module.key]?.[perm.key] || false}
+                                onCheckedChange={(checked) => handlePermissionChange(module.key, perm.key, checked as boolean)}
                               />
                             </div>
                           </td>

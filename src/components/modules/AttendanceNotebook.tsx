@@ -175,7 +175,7 @@ const STATUS_OPTIONS = [
 const StatusIcon = ({ status, size = 'md' }: { status: string; size?: 'sm' | 'md' }) => {
   const sizeClass = size === 'sm' ? 'w-6 h-6' : 'w-8 h-8';
   const iconSize = size === 'sm' ? 'h-3 w-3' : 'h-4 w-4';
-  
+
   switch (status) {
     case 'asistio':
       return (
@@ -234,10 +234,10 @@ export function AttendanceNotebook({ groupId, groupName, onBack }: AttendanceNot
   const [loading, setLoading] = useState(true);
   const [instructors, setInstructors] = useState<Instructor[]>([]);
   const [courses, setCourses] = useState<{ id: string; name: string }[]>([]);
-  
+
   // Tecla Escape = botón Volver
   useEscapeKey(onBack);
-  
+
   // Filters state
   const [page, setPage] = useState(1);
   const [sessionsPerPage, setSessionsPerPage] = useState(5);
@@ -296,33 +296,42 @@ export function AttendanceNotebook({ groupId, groupName, onBack }: AttendanceNot
     }
   }, [groupId, page, sessionsPerPage, studentFilter, searchTerm, sortBy, sortOrder, startDate, endDate, selectedCourseId]);
 
-  // Load instructors and group courses
+  // Load instructors (separate from courses to avoid cascade failure)
   const loadInstructors = useCallback(async () => {
     try {
-      const [instructorsRes, groupCoursesRes] = await Promise.all([
-        api.getAttendanceInstructors(),
-        api.axiosInstance.get(`/groups/${groupId}/courses`),
-      ]);
+      const instructorsRes = await api.getAttendanceInstructors();
       setInstructors(instructorsRes.data || []);
-      
-      // Extract unique courses from group courses
-      const groupCourses = groupCoursesRes.data?.data || [];
+    } catch (error) {
+      console.error('Error loading instructors:', error);
+    }
+  }, []);
+
+  // Load group courses (separate call to avoid breaking instructors if this fails)
+  const loadGroupCourses = useCallback(async () => {
+    try {
+      // Use the existing group detail endpoint which includes courses
+      const groupRes = await api.getGroupDetails(groupId);
+      console.log('Group details response:', groupRes);
+      console.log('Group courses:', groupRes?.courses);
+      const groupCourses = groupRes?.courses || [];
       const uniqueCourses = groupCourses.reduce((acc: { id: string; name: string }[], gc: any) => {
         if (!acc.find(c => c.id === gc.courseId)) {
           acc.push({ id: gc.courseId, name: gc.courseName });
         }
         return acc;
       }, []);
+      console.log('Unique courses for selector:', uniqueCourses);
       setCourses(uniqueCourses);
     } catch (error) {
-      console.error('Error loading instructors:', error);
+      console.error('Error loading group courses:', error);
     }
   }, [groupId]);
 
   useEffect(() => {
     loadData();
     loadInstructors();
-  }, [loadData, loadInstructors]);
+    loadGroupCourses();
+  }, [loadData, loadInstructors, loadGroupCourses]);
 
   // Reset page when filters change
   useEffect(() => {
@@ -363,13 +372,20 @@ export function AttendanceNotebook({ groupId, groupName, onBack }: AttendanceNot
     }
 
     try {
-      if (attendanceId) {
-        // Update existing attendance record
+      if (selectedCourseId === '_all_') {
+        // Cuando es "todos los cursos", enviar array con todos los IDs de cursos del grupo
+        const courseIds = courses.map(c => c.id);
+        if (courseIds.length === 0) {
+          toast.error('No hay cursos configurados para este grupo');
+          return;
+        }
+        await api.upsertAttendanceWithCourses(sessionId, studentId, newStatus, courseIds);
+      } else if (attendanceId) {
+        // Update existing attendance record (curso específico)
         await api.updateAttendanceStatus(attendanceId, newStatus);
       } else {
-        // Create new attendance record using upsert endpoint with courseId
-        const courseIdToUse = selectedCourseId !== '_all_' ? selectedCourseId : undefined;
-        await api.upsertAttendanceWithCourse(sessionId, studentId, newStatus, courseIdToUse);
+        // Create new attendance record for specific course
+        await api.upsertAttendanceWithCourse(sessionId, studentId, newStatus, selectedCourseId);
       }
       toast.success('Asistencia actualizada');
       loadData();
@@ -420,7 +436,7 @@ export function AttendanceNotebook({ groupId, groupName, onBack }: AttendanceNot
 
     try {
       setSavingSession(true);
-      
+
       // Update execution data
       await api.updateSessionExecution(selectedSession.id, {
         actualDate: sessionFormData.actualDate,
@@ -495,11 +511,11 @@ export function AttendanceNotebook({ groupId, groupName, onBack }: AttendanceNot
       await api.addAttendanceObservation(attendanceId, newObservation.trim());
       toast.success('Observación agregada');
       setNewObservation('');
-      
+
       // Reload observations
       const result = await api.getAttendanceObservations(attendanceId);
       setLoadedObservations(result.data || []);
-      
+
       // Refresh main data to update the observation count
       loadData();
     } catch (error) {
@@ -685,25 +701,23 @@ export function AttendanceNotebook({ groupId, groupName, onBack }: AttendanceNot
                 </Select>
               </div>
 
-              {/* Course filter */}
-              {courses.length > 1 && (
-                <div className="space-y-1">
-                  <Label className="text-xs">Asistencia por curso</Label>
-                  <Select value={selectedCourseId} onValueChange={setSelectedCourseId}>
-                    <SelectTrigger className="w-44">
-                      <SelectValue placeholder="Seleccionar curso" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="_all_">Todos los cursos</SelectItem>
-                      {courses.map((course) => (
-                        <SelectItem key={course.id} value={course.id}>
-                          {course.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+              {/* Course filter - always show */}
+              <div className="space-y-1">
+                <Label className="text-xs">Asistencia por curso</Label>
+                <Select value={selectedCourseId} onValueChange={setSelectedCourseId}>
+                  <SelectTrigger className="w-44">
+                    <SelectValue placeholder={courses.length === 0 ? "Sin cursos" : "Seleccionar curso"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_all_">Todos los cursos</SelectItem>
+                    {courses.map((course) => (
+                      <SelectItem key={course.id} value={course.id}>
+                        {course.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
               {/* Search input */}
               {studentFilter === 'search' && (
@@ -807,7 +821,7 @@ export function AttendanceNotebook({ groupId, groupName, onBack }: AttendanceNot
                       {data.sessions.map((session) => {
                         const isReady = isSessionReadyToFinalize(session.id);
                         const isPending = session.status === 'pendiente';
-                        
+
                         return (
                           <th
                             key={session.id}
@@ -904,7 +918,7 @@ export function AttendanceNotebook({ groupId, groupName, onBack }: AttendanceNot
                           {data.sessions.map((session) => {
                             const sessionData = student.sessions[session.id] || { status: 'pendiente', attendanceId: null, observationCount: 0 };
                             const hasObservations = sessionData.observationCount > 0;
-                            
+
                             return (
                               <td
                                 key={session.id}
@@ -952,8 +966,8 @@ export function AttendanceNotebook({ groupId, groupName, onBack }: AttendanceNot
                                       </button>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                      {hasObservations 
-                                        ? `${sessionData.observationCount} observación(es)` 
+                                      {hasObservations
+                                        ? `${sessionData.observationCount} observación(es)`
                                         : 'Agregar observación'}
                                     </TooltipContent>
                                   </Tooltip>
@@ -1097,8 +1111,8 @@ export function AttendanceNotebook({ groupId, groupName, onBack }: AttendanceNot
               {selectedSession?.status === 'pendiente' && (
                 <div className={cn(
                   'p-3 rounded-lg',
-                  isSessionReadyToFinalize(selectedSession?.id || '') 
-                    ? 'bg-green-50 border border-green-200' 
+                  isSessionReadyToFinalize(selectedSession?.id || '')
+                    ? 'bg-green-50 border border-green-200'
                     : 'bg-amber-50 border border-amber-200'
                 )}>
                   {isSessionReadyToFinalize(selectedSession?.id || '') ? (

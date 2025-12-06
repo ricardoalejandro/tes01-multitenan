@@ -219,18 +219,18 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
 
     try {
       console.log('🧪 [TEST EMAIL] Iniciando prueba de envío a:', to);
-      
+
       // Intentar enviar email de prueba
       await sendPasswordResetEmail(
-        to, 
+        to,
         'Usuario de Prueba',
         'test-token-12345',
         process.env.FRONTEND_URL || 'http://localhost:5000'
       );
 
       console.log('✅ [TEST EMAIL] Email enviado exitosamente');
-      
-      return { 
+
+      return {
         success: true,
         message: 'Email de prueba enviado exitosamente',
         to,
@@ -239,8 +239,8 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
 
     } catch (error: any) {
       console.error('❌ [TEST EMAIL] Error:', error);
-      
-      return reply.code(500).send({ 
+
+      return reply.code(500).send({
         success: false,
         error: 'Error al enviar email de prueba',
         details: error.message,
@@ -270,8 +270,8 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
 
       // Por seguridad, siempre responder con éxito (no revelar si el email existe)
       if (!user) {
-        return { 
-          message: 'Si el email existe, recibirás instrucciones para restablecer tu contraseña' 
+        return {
+          message: 'Si el email existe, recibirás instrucciones para restablecer tu contraseña'
         };
       }
 
@@ -290,22 +290,22 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5000';
       await sendPasswordResetEmail(user.email, user.username, token, frontendUrl);
 
-      return { 
-        message: 'Se ha enviado un email con instrucciones para restablecer tu contraseña' 
+      return {
+        message: 'Se ha enviado un email con instrucciones para restablecer tu contraseña'
       };
 
     } catch (error: any) {
       console.error('Error en forgot-password:', error);
-      
+
       // Dar un mensaje más específico según el error
       if (error.message && error.message.includes('configuración de email')) {
-        return reply.code(500).send({ 
+        return reply.code(500).send({
           error: 'El servidor de correo no está configurado',
           message: 'Por favor contacta al administrador para configurar el servicio de email'
         });
       }
-      
-      return reply.code(500).send({ 
+
+      return reply.code(500).send({
         error: 'Error al procesar la solicitud',
         message: 'No se pudo enviar el email. Por favor intenta más tarde o contacta al administrador.'
       });
@@ -328,9 +328,9 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       .limit(1);
 
     if (!tokenRecord || tokenRecord.usedAt) {
-      return reply.code(400).send({ 
+      return reply.code(400).send({
         error: 'Token inválido o expirado',
-        valid: false 
+        valid: false
       });
     }
 
@@ -343,8 +343,8 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     const { newPassword } = request.body as { newPassword: string };
 
     if (!newPassword || newPassword.length < 6) {
-      return reply.code(400).send({ 
-        error: 'La contraseña debe tener al menos 6 caracteres' 
+      return reply.code(400).send({
+        error: 'La contraseña debe tener al menos 6 caracteres'
       });
     }
 
@@ -362,8 +362,8 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
         .limit(1);
 
       if (!tokenRecord || tokenRecord.usedAt) {
-        return reply.code(400).send({ 
-          error: 'Token inválido, expirado o ya utilizado' 
+        return reply.code(400).send({
+          error: 'Token inválido, expirado o ya utilizado'
         });
       }
 
@@ -373,9 +373,9 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       // Actualizar contraseña del usuario
       await db
         .update(users)
-        .set({ 
+        .set({
           passwordHash,
-          updatedAt: new Date() 
+          updatedAt: new Date()
         })
         .where(eq(users.id, tokenRecord.userId));
 
@@ -425,20 +425,72 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5000';
       await sendPasswordResetEmail(user.email, user.username, token, frontendUrl);
 
-      return { 
-        message: 'Se ha enviado un email con instrucciones para cambiar tu contraseña' 
+      return {
+        message: 'Se ha enviado un email con instrucciones para cambiar tu contraseña'
       };
 
     } catch (error: any) {
       console.error('Error al solicitar cambio de contraseña:', error);
-      
+
       if (error.message && error.message.includes('SMTP')) {
-        return reply.code(500).send({ 
-          error: 'Error al enviar el email. El servidor de correo no está configurado correctamente.' 
+        return reply.code(500).send({
+          error: 'Error al enviar el email. El servidor de correo no está configurado correctamente.'
         });
       }
-      
+
       return reply.code(500).send({ error: 'Error al procesar la solicitud' });
+    }
+  });
+
+  // POST /api/auth/change-password - Cambiar contraseña (usuario logueado)
+  fastify.post('/change-password', {
+    onRequest: [fastify.authenticate],
+  }, async (request, reply) => {
+    const userId = (request.user as any).userId;
+    const { currentPassword, newPassword } = request.body as {
+      currentPassword: string;
+      newPassword: string;
+    };
+
+    // Validar campos
+    if (!currentPassword || !newPassword) {
+      return reply.code(400).send({ error: 'Todos los campos son requeridos' });
+    }
+
+    if (newPassword.length < 8) {
+      return reply.code(400).send({ error: 'La nueva contraseña debe tener al menos 8 caracteres' });
+    }
+
+    try {
+      // Obtener usuario
+      const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+
+      if (!user) {
+        return reply.code(404).send({ error: 'Usuario no encontrado' });
+      }
+
+      // Verificar contraseña actual
+      const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
+      if (!isValid) {
+        return reply.code(401).send({ error: 'La contraseña actual es incorrecta' });
+      }
+
+      // Hash nueva contraseña
+      const passwordHash = await bcrypt.hash(newPassword, 10);
+
+      // Actualizar contraseña del usuario
+      await db
+        .update(users)
+        .set({
+          passwordHash,
+          updatedAt: new Date()
+        })
+        .where(eq(users.id, userId));
+
+      return { message: 'Contraseña actualizada correctamente' };
+    } catch (error) {
+      console.error('Error changing password:', error);
+      return reply.code(500).send({ error: 'Error al cambiar la contraseña' });
     }
   });
 };

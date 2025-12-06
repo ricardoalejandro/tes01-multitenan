@@ -16,6 +16,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { ChangePasswordDialog } from '@/components/modules/ChangePasswordDialog';
 
 type ViewMode = 'grid' | 'list' | 'table';
 
@@ -47,6 +48,7 @@ export default function DashboardPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -98,8 +100,7 @@ export default function DashboardPage() {
   };
 
   const handleChangePassword = () => {
-    // TODO: Implementar en fase 7
-    toast.info('Función disponible próximamente');
+    setChangePasswordOpen(true);
   };
 
   // Filtrar branches según toggle y búsqueda
@@ -184,7 +185,7 @@ export default function DashboardPage() {
         <div className="max-w-7xl mx-auto">
           {/* Panel de Administrador - PRIMERA FILA (solo para admins) */}
           {user?.userType === 'admin' && (
-            <Card 
+            <Card
               className="mb-6 bg-white border border-gray-200 hover:border-gray-300 transition-colors cursor-pointer group"
               onClick={handleAdminPanel}
             >
@@ -435,6 +436,12 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+
+      {/* Change Password Dialog */}
+      <ChangePasswordDialog
+        open={changePasswordOpen}
+        onOpenChange={setChangePasswordOpen}
+      />
     </div>
   );
 }

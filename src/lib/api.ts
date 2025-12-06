@@ -88,6 +88,14 @@ class ApiClient {
     return response.data;
   }
 
+  async changePassword(currentPassword: string, newPassword: string) {
+    const response = await this.client.post('/auth/change-password', {
+      currentPassword,
+      newPassword,
+    });
+    return response.data;
+  }
+
   // Branches
   async getBranches() {
     const response = await this.client.get('/branches');
@@ -489,7 +497,7 @@ class ApiClient {
 
   // Update or create attendance by session, student, and optionally course
   async updateAttendanceBySessionStudent(sessionId: string, studentId: string, status: string, courseId?: string) {
-    const response = await this.client.put(`/attendance/sessions/${sessionId}/students/${studentId}`, { 
+    const response = await this.client.put(`/attendance/sessions/${sessionId}/students/${studentId}`, {
       status,
       courseId: courseId || null,
     });
@@ -504,9 +512,18 @@ class ApiClient {
 
   // Update or create attendance by session, student and course
   async upsertAttendanceWithCourse(sessionId: string, studentId: string, status: string, courseId?: string) {
-    const response = await this.client.put(`/attendance/sessions/${sessionId}/students/${studentId}`, { 
+    const response = await this.client.put(`/attendance/sessions/${sessionId}/students/${studentId}`, {
       status,
-      courseId 
+      courseId
+    });
+    return response.data;
+  }
+
+  // Update or create attendance for multiple courses (used when "all courses" is selected)
+  async upsertAttendanceWithCourses(sessionId: string, studentId: string, status: string, courseIds: string[]) {
+    const response = await this.client.put(`/attendance/sessions/${sessionId}/students/${studentId}`, {
+      status,
+      courseIds
     });
     return response.data;
   }
