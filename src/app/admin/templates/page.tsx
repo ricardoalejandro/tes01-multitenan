@@ -4,12 +4,16 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 import CourseTemplatesModule from '@/components/modules/CourseTemplatesModule';
 
 export default function TemplatesPage() {
   const router = useRouter();
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  
+  const handleBack = () => router.push('/admin');
+  useEscapeKey(handleBack);
 
   useEffect(() => {
     const checkAuth = () => {
@@ -69,7 +73,7 @@ export default function TemplatesPage() {
               Crea y gestiona plantillas de cursos que pueden ser reutilizadas en todas las filiales
             </p>
           </div>
-          <Button variant="outline" onClick={() => router.push('/admin')}>
+          <Button variant="outline" onClick={handleBack}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Volver
           </Button>

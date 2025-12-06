@@ -4,10 +4,16 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Users } from 'lucide-react';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 import { UsersModule } from '@/components/modules/UsersModule';
 
 export default function UsersManagementPage() {
   const router = useRouter();
+  
+  const handleBack = () => router.push('/admin');
+  
+  // Tecla Escape = botón Volver
+  useEscapeKey(handleBack);
 
   useEffect(() => {
     const user = localStorage.getItem('user');
@@ -34,7 +40,7 @@ export default function UsersManagementPage() {
               <p className="text-sm text-neutral-9">Administrar usuarios y sus asignaciones</p>
             </div>
           </div>
-          <Button variant="outline" onClick={() => router.push('/admin')}>
+          <Button variant="outline" onClick={handleBack}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Volver
           </Button>

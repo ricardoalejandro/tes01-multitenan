@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { Building2, Plus, ArrowLeft, Trash2, Pencil, Power, PowerOff, MapPin, User, Layers } from 'lucide-react';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 
 interface Branch {
   id: string;
@@ -67,6 +68,10 @@ export default function BranchesManagementPage() {
   const [levels, setLevels] = useState<Level[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  
+  const handleBack = () => router.push('/admin');
+  useEscapeKey(handleBack, !showForm); // Solo cuando no hay form abierto
+  
   const [formData, setFormData] = useState<{
     name: string;
     code: string;
@@ -270,10 +275,6 @@ export default function BranchesManagementPage() {
   const handleToggleActive = async (branch: Branch) => {
     // TODO: Implementar endpoint /api/branches/:id/toggle-active
     toast.info('Función de activar/desactivar disponible próximamente');
-  };
-
-  const handleBack = () => {
-    router.push('/admin');
   };
 
   if (loading) {

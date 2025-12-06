@@ -120,7 +120,16 @@ export function UsersModule() {
   const handleSaveUser = async (data: any) => {
     try {
       if (selectedUser) {
-        await api.updateUser(selectedUser.id, data);
+        // Si hay password en data, es un reset de contraseña
+        if (data.password) {
+          await api.adminResetPassword(selectedUser.id, data.password);
+          toast.success('Contraseña restablecida');
+          // Remover password de data para actualizar el resto
+          const { password, ...userData } = data;
+          await api.updateUser(selectedUser.id, userData);
+        } else {
+          await api.updateUser(selectedUser.id, data);
+        }
         toast.success('Usuario actualizado');
       } else {
         await api.createUser(data);

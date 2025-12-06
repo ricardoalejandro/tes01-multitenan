@@ -4,9 +4,13 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, User } from 'lucide-react';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 
 export default function ProfilePage() {
   const router = useRouter();
+  
+  const handleBack = () => router.push('/dashboard');
+  useEscapeKey(handleBack);
 
   return (
     <div className="min-h-screen bg-neutral-2">
@@ -21,7 +25,7 @@ export default function ProfilePage() {
               <p className="text-sm text-neutral-9">Administra tu información personal</p>
             </div>
           </div>
-          <Button variant="outline" onClick={() => router.push('/dashboard')}>
+          <Button variant="outline" onClick={handleBack}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Volver
           </Button>

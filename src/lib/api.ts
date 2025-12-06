@@ -320,6 +320,11 @@ class ApiClient {
     return response.data;
   }
 
+  async adminResetPassword(userId: string, newPassword: string) {
+    const response = await this.client.put(`/users/${userId}/reset-password`, { newPassword });
+    return response.data;
+  }
+
   async deleteUser(id: string) {
     const response = await this.client.delete(`/users/${id}`);
     return response.data;

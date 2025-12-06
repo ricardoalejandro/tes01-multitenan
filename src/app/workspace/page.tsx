@@ -17,6 +17,7 @@ import {
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 import StudentsModule from '@/components/modules/StudentsModule';
 import CoursesModule from '@/components/modules/CoursesModule';
 import InstructorsModule from '@/components/modules/InstructorsModule';
@@ -84,6 +85,9 @@ function WorkspaceContent() {
   const handleBack = () => {
     router.push('/dashboard');
   };
+
+  // Tecla Escape = botón Volver (solo si estamos en módulo home)
+  useEscapeKey(handleBack, activeModule === 'home');
 
   const handleLogout = () => {
     localStorage.removeItem('auth_token');

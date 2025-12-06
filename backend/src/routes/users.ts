@@ -328,6 +328,52 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
     return { message: 'Usuario eliminado correctamente' };
   });
 
+  // PUT /api/users/:id/reset-password - Restablecer contraseña (solo admin)
+  fastify.put('/:id/reset-password', {
+    onRequest: [fastify.authenticate],
+  }, async (request, reply) => {
+    const currentUser = (request.user as any);
+    const { id } = request.params as any;
+    const { newPassword } = request.body as { newPassword: string };
+
+    // Solo administradores pueden restablecer contraseñas
+    if (currentUser.userType !== 'admin') {
+      return reply.code(403).send({ error: 'No tienes permiso para restablecer contraseñas' });
+    }
+
+    if (!newPassword || newPassword.length < 6) {
+      return reply.code(400).send({ error: 'La contraseña debe tener al menos 6 caracteres' });
+    }
+
+    try {
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, id))
+        .limit(1);
+
+      if (!user) {
+        return reply.code(404).send({ error: 'Usuario no encontrado' });
+      }
+
+      // Hash nueva contraseña
+      const passwordHash = await bcrypt.hash(newPassword, 10);
+
+      await db
+        .update(users)
+        .set({ 
+          passwordHash, 
+          updatedAt: new Date() 
+        })
+        .where(eq(users.id, id));
+
+      return { message: 'Contraseña restablecida correctamente' };
+    } catch (error) {
+      console.error('Error al restablecer contraseña:', error);
+      return reply.code(500).send({ error: 'Error al restablecer contraseña' });
+    }
+  });
+
   // GET /api/users/:id/branches - Obtener filiales asignadas
   fastify.get('/:id/branches', {
     onRequest: [fastify.authenticate],

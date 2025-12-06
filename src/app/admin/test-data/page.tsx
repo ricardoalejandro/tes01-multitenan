@@ -13,6 +13,7 @@ import { Slider } from '@/components/ui/slider';
 import { ArrowLeft, Wand2, Trash2, Users, BookOpen, GraduationCap, AlertTriangle, Loader2, RefreshCw, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 
 interface Branch {
   id: string;
@@ -34,6 +35,9 @@ export default function TestDataPage() {
   const [selectedBranch, setSelectedBranch] = useState<string>('');
   const [stats, setStats] = useState<TestDataStats>({ students: 0, courses: 0, instructors: 0 });
   const [globalStats, setGlobalStats] = useState<TestDataStats>({ students: 0, courses: 0, instructors: 0 });
+  
+  const handleBack = () => router.push('/admin');
+  useEscapeKey(handleBack);
   
   // Form state
   const [studentsCount, setStudentsCount] = useState(10);

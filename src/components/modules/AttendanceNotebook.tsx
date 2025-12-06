@@ -58,6 +58,7 @@ import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
@@ -234,6 +235,9 @@ export function AttendanceNotebook({ groupId, groupName, onBack }: AttendanceNot
   const [instructors, setInstructors] = useState<Instructor[]>([]);
   const [courses, setCourses] = useState<{ id: string; name: string }[]>([]);
   
+  // Tecla Escape = botón Volver
+  useEscapeKey(onBack);
+  
   // Filters state
   const [page, setPage] = useState(1);
   const [sessionsPerPage, setSessionsPerPage] = useState(5);
@@ -364,7 +368,8 @@ export function AttendanceNotebook({ groupId, groupName, onBack }: AttendanceNot
         await api.updateAttendanceStatus(attendanceId, newStatus);
       } else {
         // Create new attendance record using upsert endpoint with courseId
-        await api.upsertAttendanceWithCourse(sessionId, studentId, newStatus, selectedCourseId || undefined);
+        const courseIdToUse = selectedCourseId !== '_all_' ? selectedCourseId : undefined;
+        await api.upsertAttendanceWithCourse(sessionId, studentId, newStatus, courseIdToUse);
       }
       toast.success('Asistencia actualizada');
       loadData();

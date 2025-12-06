@@ -5,11 +5,15 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Building2, Users, Shield, Mail, FileStack, Calendar, Layers, MapPin, Wand2 } from 'lucide-react';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 
 export default function AdminPage() {
   const router = useRouter();
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Tecla Escape = botón Volver
+  useEscapeKey(() => router.push('/dashboard'));
 
   useEffect(() => {
     // Verificar que el usuario es admin
