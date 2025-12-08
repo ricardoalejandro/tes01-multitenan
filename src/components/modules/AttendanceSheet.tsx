@@ -468,7 +468,7 @@ export function AttendanceSheet({
               variant={isActive ? 'default' : 'outline'}
               size="icon"
               className={cn(
-                'h-8 w-8 transition-all',
+                'h-6 w-6 md:h-8 md:w-8 transition-all',
                 isActive && config.bgColor,
                 isActive && config.color,
                 isReadOnly && 'opacity-50 cursor-not-allowed'
@@ -476,7 +476,7 @@ export function AttendanceSheet({
               disabled={isReadOnly}
               onClick={() => handleStatusChange(student, status)}
             >
-              <Icon className="h-4 w-4" />
+              <Icon className="h-3 w-3 md:h-4 md:w-4" />
             </Button>
           </TooltipTrigger>
           <TooltipContent>
@@ -731,14 +731,14 @@ export function AttendanceSheet({
 
       {/* Students List */}
       <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
+        <CardHeader className="px-3 md:px-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             <div>
-              <CardTitle className="flex items-center gap-2">
-                <User className="h-5 w-5" />
-                Lista de Estudiantes ({students.length})
+              <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                <User className="h-4 w-4 md:h-5 md:w-5" />
+                Estudiantes ({students.length})
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="hidden md:block">
                 Registra la asistencia de cada estudiante
               </CardDescription>
             </div>
@@ -746,13 +746,13 @@ export function AttendanceSheet({
             {/* Selector de curso para asistencia por curso */}
             {topics.length > 1 && (
               <div className="flex items-center gap-2">
-                <Label className="text-sm text-muted-foreground whitespace-nowrap">Asistencia por curso:</Label>
+                <Label className="text-sm text-muted-foreground whitespace-nowrap hidden md:block">Asistencia por curso:</Label>
                 <Select
                   value={selectedCourseId}
                   onValueChange={setSelectedCourseId}
                   disabled={isReadOnly}
                 >
-                  <SelectTrigger className="w-[200px]">
+                  <SelectTrigger className="w-full md:w-[200px]">
                     <SelectValue placeholder="Seleccionar curso" />
                   </SelectTrigger>
                   <SelectContent>
@@ -768,8 +768,8 @@ export function AttendanceSheet({
             )}
           </div>
         </CardHeader>
-        <CardContent>
-          <ScrollArea className="h-[400px]">
+        <CardContent className="px-3 md:px-6">
+          <ScrollArea className="h-[400px] md:h-[500px]">
             <div className="space-y-2">
               {students.map((student, index) => {
                 const statusConfig = ATTENDANCE_STATUS_CONFIG[student.attendanceStatus];
@@ -778,7 +778,7 @@ export function AttendanceSheet({
                   <div
                     key={student.attendanceId}
                     className={cn(
-                      'flex items-center justify-between p-3 rounded-lg border transition-colors',
+                      'flex flex-col md:flex-row md:items-center md:justify-between p-2 md:p-3 rounded-lg border transition-colors gap-2 md:gap-0',
                       student.attendanceStatus === 'pendiente' && 'bg-gray-50',
                       student.attendanceStatus === 'asistio' && 'bg-green-50 border-green-200',
                       student.attendanceStatus === 'no_asistio' && 'bg-red-50 border-red-200',
@@ -787,33 +787,35 @@ export function AttendanceSheet({
                       student.attendanceStatus === 'permiso' && 'bg-purple-50 border-purple-200'
                     )}
                   >
-                    <div className="flex items-center gap-3">
+                    {/* Student info row */}
+                    <div className="flex items-center gap-2 md:gap-3 min-w-0">
                       {/* Index number */}
-                      <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-sm font-medium">
+                      <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-muted flex items-center justify-center text-xs md:text-sm font-medium flex-shrink-0">
                         {index + 1}
                       </div>
 
                       {/* Student info */}
-                      <div>
-                        <p className="font-medium">{student.fullName}</p>
-                        <p className="text-sm text-muted-foreground">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-sm md:text-base truncate">{student.fullName}</p>
+                        <p className="text-xs md:text-sm text-muted-foreground truncate">
                           DNI: {student.dni}
-                          {student.phone && ` • ${student.phone}`}
+                          <span className="hidden md:inline">{student.phone && ` • ${student.phone}`}</span>
                         </p>
                       </div>
 
                       {/* Observations indicator */}
                       {student.observations.length > 0 && (
-                        <Badge variant="secondary" className="ml-2">
+                        <Badge variant="secondary" className="flex-shrink-0 text-xs">
                           <MessageSquarePlus className="h-3 w-3 mr-1" />
                           {student.observations.length}
                         </Badge>
                       )}
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    {/* Actions row */}
+                    <div className="flex items-center justify-end gap-1 md:gap-2">
                       {/* Quick status buttons */}
-                      <div className="flex items-center gap-1 border rounded-lg p-1">
+                      <div className="flex items-center gap-0.5 md:gap-1 border rounded-lg p-0.5 md:p-1">
                         <QuickStatusButton status="asistio" student={student} />
                         <QuickStatusButton status="tarde" student={student} />
                         <QuickStatusButton status="no_asistio" student={student} />
@@ -825,13 +827,13 @@ export function AttendanceSheet({
                       <Button
                         variant="secondary"
                         size="icon"
-                        className="h-8 w-8"
+                        className="h-7 w-7 md:h-8 md:w-8 flex-shrink-0"
                         onClick={() => {
                           setSelectedStudent(student);
                           setObservationOpen(true);
                         }}
                       >
-                        <MessageSquarePlus className="h-4 w-4" />
+                        <MessageSquarePlus className="h-3 w-3 md:h-4 md:w-4" />
                       </Button>
                     </div>
                   </div>
