@@ -40,6 +40,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { ResponsiveDialog } from '@/components/ui/responsive-dialog';
 import {
   Dialog,
   DialogContent,
@@ -1103,98 +1104,13 @@ export function AttendanceNotebook({ groupId, groupName, onBack }: AttendanceNot
         </Card>
 
         {/* Session Finalization Modal */}
-        <Dialog open={sessionModalOpen} onOpenChange={setSessionModalOpen}>
-          <DialogContent className="sm:max-w-lg w-[95vw] max-h-[90vh] overflow-y-auto p-6">
-            <DialogHeader className="pb-4">
-              <DialogTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
-                {selectedSession?.status === 'dictada' ? 'Detalles de Sesión' : 'Finalizar Sesión'}
-              </DialogTitle>
-              <DialogDescription>
-                Sesión #{selectedSession?.number} - {selectedSession && formatFullDate(selectedSession.date)}
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-4 py-2">
-              {/* Session status indicator */}
-              {selectedSession?.status === 'pendiente' && (
-                <div className={cn(
-                  'p-3 rounded-lg',
-                  isSessionReadyToFinalize(selectedSession?.id || '')
-                    ? 'bg-green-50 border border-green-200'
-                    : 'bg-amber-50 border border-amber-200'
-                )}>
-                  {isSessionReadyToFinalize(selectedSession?.id || '') ? (
-                    <p className="text-sm text-green-700 flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4" />
-                      Todas las asistencias están marcadas. Puede finalizar la sesión.
-                    </p>
-                  ) : (
-                    <p className="text-sm text-amber-700 flex items-center gap-2">
-                      <AlertTriangle className="h-4 w-4" />
-                      Aún hay asistencias pendientes de marcar.
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* Actual date */}
-              <div className="space-y-2">
-                <Label>Fecha real de dictado</Label>
-                <Input
-                  type="date"
-                  value={sessionFormData.actualDate}
-                  onChange={(e) => setSessionFormData(prev => ({ ...prev, actualDate: e.target.value }))}
-                  disabled={selectedSession?.status === 'dictada'}
-                />
-              </div>
-
-              {/* Instructor */}
-              <div className="space-y-2">
-                <Label>Instructor</Label>
-                <Select
-                  value={sessionFormData.actualInstructorId}
-                  onValueChange={(v: string) => setSessionFormData(prev => ({ ...prev, actualInstructorId: v }))}
-                  disabled={selectedSession?.status === 'dictada'}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar instructor..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {instructors.map((instructor) => (
-                      <SelectItem key={instructor.id} value={instructor.id}>
-                        {instructor.fullName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Topic */}
-              <div className="space-y-2">
-                <Label>Tema dictado</Label>
-                <Input
-                  placeholder="Tema de la sesión..."
-                  value={sessionFormData.actualTopic}
-                  onChange={(e) => setSessionFormData(prev => ({ ...prev, actualTopic: e.target.value }))}
-                  disabled={selectedSession?.status === 'dictada'}
-                />
-              </div>
-
-              {/* Notes */}
-              <div className="space-y-2">
-                <Label>Notas / Observaciones</Label>
-                <Textarea
-                  placeholder="Observaciones de la sesión..."
-                  value={sessionFormData.notes}
-                  onChange={(e) => setSessionFormData(prev => ({ ...prev, notes: e.target.value }))}
-                  rows={3}
-                  disabled={selectedSession?.status === 'dictada'}
-                />
-              </div>
-            </div>
-
-            <DialogFooter className="pt-4 gap-2 sm:gap-0">
+        <ResponsiveDialog
+          open={sessionModalOpen}
+          onOpenChange={setSessionModalOpen}
+          title={selectedSession?.status === 'dictada' ? 'Detalles de Sesión' : 'Finalizar Sesión'}
+          description={`Sesión #${selectedSession?.number} - ${selectedSession && formatFullDate(selectedSession.date)}`}
+          footer={
+            <>
               <Button variant="outline" onClick={() => setSessionModalOpen(false)}>
                 Cancelar
               </Button>
@@ -1227,9 +1143,88 @@ export function AttendanceNotebook({ groupId, groupName, onBack }: AttendanceNot
                   Reabrir Sesión
                 </Button>
               )}
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </>
+          }
+        >
+          <div className="space-y-4">
+            {/* Session status indicator */}
+            {selectedSession?.status === 'pendiente' && (
+              <div className={cn(
+                'p-3 rounded-lg',
+                isSessionReadyToFinalize(selectedSession?.id || '')
+                  ? 'bg-green-50 border border-green-200'
+                  : 'bg-amber-50 border border-amber-200'
+              )}>
+                {isSessionReadyToFinalize(selectedSession?.id || '') ? (
+                  <p className="text-sm text-green-700 flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4" />
+                    Todas las asistencias están marcadas. Puede finalizar la sesión.
+                  </p>
+                ) : (
+                  <p className="text-sm text-amber-700 flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4" />
+                    Aún hay asistencias pendientes de marcar.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Actual date */}
+            <div className="space-y-2">
+              <Label>Fecha real de dictado</Label>
+              <Input
+                type="date"
+                value={sessionFormData.actualDate}
+                onChange={(e) => setSessionFormData(prev => ({ ...prev, actualDate: e.target.value }))}
+                disabled={selectedSession?.status === 'dictada'}
+              />
+            </div>
+
+            {/* Instructor */}
+            <div className="space-y-2">
+              <Label>Instructor</Label>
+              <Select
+                value={sessionFormData.actualInstructorId}
+                onValueChange={(value) => setSessionFormData(prev => ({ ...prev, actualInstructorId: value }))}
+                disabled={selectedSession?.status === 'dictada'}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar instructor..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {instructors.map((instructor) => (
+                    <SelectItem key={instructor.id} value={instructor.id}>
+                      {instructor.fullName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Topic */}
+            <div className="space-y-2">
+              <Label>Tema dictado</Label>
+              <Input
+                placeholder="Tema de la sesión..."
+                value={sessionFormData.actualTopic}
+                onChange={(e) => setSessionFormData(prev => ({ ...prev, actualTopic: e.target.value }))}
+                disabled={selectedSession?.status === 'dictada'}
+              />
+            </div>
+
+            {/* Notes */}
+            <div className="space-y-2">
+              <Label>Notas / Observaciones</Label>
+              <Textarea
+                placeholder="Observaciones de la sesión..."
+                value={sessionFormData.notes}
+                onChange={(e) => setSessionFormData(prev => ({ ...prev, notes: e.target.value }))}
+                rows={3}
+                disabled={selectedSession?.status === 'dictada'}
+              />
+            </div>
+          </div>
+        </ResponsiveDialog>
 
         {/* Observations Modal */}
         <Dialog open={observationsModalOpen} onOpenChange={setObservationsModalOpen}>
@@ -1304,6 +1299,6 @@ export function AttendanceNotebook({ groupId, groupName, onBack }: AttendanceNot
           </DialogContent>
         </Dialog>
       </div>
-    </TooltipProvider>
+    </TooltipProvider >
   );
 }

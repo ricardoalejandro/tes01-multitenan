@@ -53,6 +53,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { ResponsiveDialog } from '@/components/ui/responsive-dialog';
 import {
   Tooltip,
   TooltipContent,
@@ -922,43 +923,13 @@ export function AttendanceSheet({
       </Sheet>
 
       {/* Complete Session Dialog */}
-      <Dialog open={completeDialogOpen} onOpenChange={setCompleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Finalizar Sesión</DialogTitle>
-            <DialogDescription>
-              ¿Estás seguro de que deseas marcar esta sesión como dictada? Esta
-              acción no se puede deshacer y los datos de asistencia quedarán
-              bloqueados para edición.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="py-4">
-            <div className="grid grid-cols-3 gap-4 text-center">
-              <div className="p-3 rounded-lg bg-green-50">
-                <p className="text-2xl font-bold text-green-600">
-                  {attendanceSummary.asistio}
-                </p>
-                <p className="text-xs text-green-600">Asistieron</p>
-              </div>
-              <div className="p-3 rounded-lg bg-red-50">
-                <p className="text-2xl font-bold text-red-600">
-                  {attendanceSummary.no_asistio}
-                </p>
-                <p className="text-xs text-red-600">No asistieron</p>
-              </div>
-              <div className="p-3 rounded-lg bg-amber-50">
-                <p className="text-2xl font-bold text-amber-600">
-                  {attendanceSummary.tarde +
-                    attendanceSummary.justificado +
-                    attendanceSummary.permiso}
-                </p>
-                <p className="text-xs text-amber-600">Otros</p>
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter>
+      <ResponsiveDialog
+        open={completeDialogOpen}
+        onOpenChange={setCompleteDialogOpen}
+        title="Finalizar Sesión"
+        description="¿Estás seguro de que deseas marcar esta sesión como dictada? Esta acción no se puede deshacer y los datos de asistencia quedarán bloqueados para edición."
+        footer={
+          <>
             <Button
               variant="secondary"
               onClick={() => setCompleteDialogOpen(false)}
@@ -974,9 +945,32 @@ export function AttendanceSheet({
               )}
               Finalizar Sesión
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </>
+        }
+      >
+        <div className="grid grid-cols-3 gap-4 text-center">
+          <div className="p-3 rounded-lg bg-green-50">
+            <p className="text-2xl font-bold text-green-600">
+              {attendanceSummary.asistio}
+            </p>
+            <p className="text-xs text-green-600">Asistieron</p>
+          </div>
+          <div className="p-3 rounded-lg bg-red-50">
+            <p className="text-2xl font-bold text-red-600">
+              {attendanceSummary.no_asistio}
+            </p>
+            <p className="text-xs text-red-600">No asistieron</p>
+          </div>
+          <div className="p-3 rounded-lg bg-amber-50">
+            <p className="text-2xl font-bold text-amber-600">
+              {attendanceSummary.tarde +
+                attendanceSummary.justificado +
+                attendanceSummary.permiso}
+            </p>
+            <p className="text-xs text-amber-600">Otros</p>
+          </div>
+        </div>
+      </ResponsiveDialog>
     </div>
   );
 }
