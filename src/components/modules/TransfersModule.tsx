@@ -115,6 +115,25 @@ export default function TransfersModule({ branchId }: { branchId: string }) {
     const [rejectionReason, setRejectionReason] = useState('');
     const [submitting, setSubmitting] = useState(false);
 
+    // Filter states for enhanced search
+    const [statusFilter, setStatusFilter] = useState<string>('');
+    const [groupFilter, setGroupFilter] = useState<string>('');
+    const [availableGroups, setAvailableGroups] = useState<{ id: string; name: string }[]>([]);
+
+    // Load groups for filter
+    const loadGroups = useCallback(async () => {
+        try {
+            const response = await api.getGroups(branchId);
+            setAvailableGroups((response.data || []).map((g: any) => ({ id: g.id, name: g.name })));
+        } catch (error) {
+            console.error('Error loading groups:', error);
+        }
+    }, [branchId]);
+
+    useEffect(() => {
+        loadGroups();
+    }, [loadGroups]);
+
     // Load transfers
     const loadTransfers = useCallback(async () => {
         try {
@@ -157,17 +176,34 @@ export default function TransfersModule({ branchId }: { branchId: string }) {
         return () => clearTimeout(timer);
     }, [searchDni]);
 
-    // Search students
+    // Search students with filters (for "Enviar Probacionista" modal - current branch)
     useEffect(() => {
         const searchStudents = async () => {
-            if (debouncedSearchDni.length < 3) {
-                setSearchResults([]);
-                return;
-            }
+            // Only search if "Enviar" modal is open
+            if (!showCreateModal) return;
+
             try {
                 setSearchLoading(true);
-                const response = await api.searchStudentGlobal(debouncedSearchDni, branchId);
-                setSearchResults(response.data || []);
+                const response = await api.getStudents({
+                    branchId,
+                    search: debouncedSearchDni,
+                    status: statusFilter || undefined,
+                    groupId: groupFilter || undefined,
+                    limit: 20,
+                    page: 1,
+                });
+                // Transform to StudentSearchResult format
+                const results = (response.data || []).map((s: any) => ({
+                    studentId: s.id,
+                    dni: s.dni,
+                    firstName: s.firstName,
+                    paternalLastName: s.paternalLastName,
+                    maternalLastName: s.maternalLastName,
+                    branchId: branchId,
+                    branchName: '',
+                    branchCode: '',
+                }));
+                setSearchResults(results);
             } catch (error) {
                 console.error('Error searching students:', error);
             } finally {
@@ -175,7 +211,33 @@ export default function TransfersModule({ branchId }: { branchId: string }) {
             }
         };
         searchStudents();
-    }, [debouncedSearchDni, branchId]);
+    }, [debouncedSearchDni, branchId, statusFilter, groupFilter, showCreateModal]);
+
+    // Search students globally (for "Solicitar Probacionista" modal - other branches)
+    useEffect(() => {
+        const searchStudentsGlobal = async () => {
+            // Only search if "Solicitar" modal is open and has search term
+            if (!showRequestModal || debouncedSearchDni.length < 3) {
+                if (showRequestModal && debouncedSearchDni.length < 3) {
+                    setSearchResults([]);
+                }
+                return;
+            }
+
+            try {
+                setSearchLoading(true);
+                const response = await api.searchStudentGlobal(debouncedSearchDni, branchId);
+                // Filter out students from current branch (we want to request from OTHER branches)
+                const results = (response.data || []).filter((s: any) => s.branchId !== branchId);
+                setSearchResults(results);
+            } catch (error) {
+                console.error('Error searching students globally:', error);
+            } finally {
+                setSearchLoading(false);
+            }
+        };
+        searchStudentsGlobal();
+    }, [debouncedSearchDni, branchId, showRequestModal]);
 
     // Handle create transfer (outgoing - enviar estudiante)
     const handleCreateTransfer = async () => {
@@ -492,47 +554,75 @@ export default function TransfersModule({ branchId }: { branchId: string }) {
                         Selecciona un probacionista de tu filial y la filial destino.
                     </p>
 
-                    {/* Student Search */}
-                    <div>
-                        <Label>Buscar Probacionista por DNI *</Label>
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                            <Input
-                                value={searchDni}
-                                onChange={(e) => setSearchDni(e.target.value)}
-                                placeholder="Ingresa el DNI del probacionista..."
-                                className="pl-9"
-                            />
-                            {searchLoading && (
-                                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-gray-400" />
-                            )}
+                    {/* Enhanced Student Search Bar */}
+                    <div className="space-y-3">
+                        <Label>Buscar Probacionista</Label>
+                        <div className="flex flex-wrap gap-2">
+                            {/* Search Input */}
+                            <div className="relative flex-1 min-w-[200px]">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                <Input
+                                    value={searchDni}
+                                    onChange={(e) => setSearchDni(e.target.value)}
+                                    placeholder="Buscar por nombre o DNI..."
+                                    className="pl-9"
+                                />
+                                {searchLoading && (
+                                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-gray-400" />
+                                )}
+                            </div>
+
+                            {/* Status Filter */}
+                            <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val === 'all' ? '' : val)}>
+                                <SelectTrigger className="w-[120px]">
+                                    <SelectValue placeholder="Estado" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Todos</SelectItem>
+                                    <SelectItem value="Alta">Alta</SelectItem>
+                                    <SelectItem value="Baja">Baja</SelectItem>
+                                </SelectContent>
+                            </Select>
+
+                            {/* Group Filter */}
+                            <Select value={groupFilter} onValueChange={(val) => setGroupFilter(val === 'all' ? '' : val)}>
+                                <SelectTrigger className="w-[150px]">
+                                    <SelectValue placeholder="Grupo" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Todos los grupos</SelectItem>
+                                    {availableGroups.map((g) => (
+                                        <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
                     </div>
 
-                    {/* Search Results - Only show students from current branch */}
+                    {/* Search Results */}
                     {searchResults.length > 0 && !selectedStudent && (
                         <div className="border rounded-lg divide-y max-h-48 overflow-auto">
-                            {searchResults
-                                .filter(s => s.branchId === branchId)
-                                .map((student) => (
-                                    <button
-                                        key={student.studentId}
-                                        onClick={() => setSelectedStudent(student)}
-                                        className="w-full p-3 text-left hover:bg-gray-50 transition-colors"
-                                    >
-                                        <div className="font-medium">
-                                            {student.firstName} {student.paternalLastName} {student.maternalLastName}
-                                        </div>
-                                        <div className="text-sm text-gray-500">
-                                            DNI: {student.dni}
-                                        </div>
-                                    </button>
-                                ))}
-                            {searchResults.filter(s => s.branchId === branchId).length === 0 && (
-                                <div className="p-3 text-sm text-gray-500 text-center">
-                                    No se encontró probacionista con ese DNI en tu filial
-                                </div>
-                            )}
+                            {searchResults.map((student) => (
+                                <button
+                                    key={student.studentId}
+                                    onClick={() => setSelectedStudent(student)}
+                                    className="w-full p-3 text-left hover:bg-gray-50 transition-colors"
+                                >
+                                    <div className="font-medium">
+                                        {student.firstName} {student.paternalLastName} {student.maternalLastName}
+                                    </div>
+                                    <div className="text-sm text-gray-500">
+                                        DNI: {student.dni}
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* No results message */}
+                    {searchResults.length === 0 && !selectedStudent && debouncedSearchDni && !searchLoading && (
+                        <div className="p-3 text-sm text-gray-500 text-center border rounded-lg">
+                            No se encontraron probacionistas con los criterios de búsqueda
                         </div>
                     )}
 
@@ -621,20 +711,22 @@ export default function TransfersModule({ branchId }: { branchId: string }) {
                         Busca un probacionista por DNI para solicitar su traslado a tu filial.
                     </p>
 
-                    <div>
-                        <Label>Buscar por DNI</Label>
+                    {/* Enhanced Search Bar */}
+                    <div className="space-y-2">
+                        <Label>Buscar Probacionista</Label>
                         <div className="relative">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                             <Input
                                 value={searchDni}
                                 onChange={(e) => setSearchDni(e.target.value)}
-                                placeholder="Ingresa el DNI..."
+                                placeholder="Buscar por nombre o DNI..."
                                 className="pl-9"
                             />
                             {searchLoading && (
                                 <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-gray-400" />
                             )}
                         </div>
+                        <p className="text-xs text-gray-500">Ingresa al menos 3 caracteres para buscar</p>
                     </div>
 
                     {/* Search Results */}

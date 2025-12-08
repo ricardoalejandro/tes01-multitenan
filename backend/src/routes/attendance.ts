@@ -7,6 +7,7 @@ import {
 } from '../db/schema';
 import { eq, sql, desc, and, asc, lte, gte, SQL } from 'drizzle-orm';
 import { z } from 'zod';
+import { checkPermission } from '../middleware/checkPermission';
 
 // Validation schemas
 const updateAttendanceSchema = z.object({
@@ -425,7 +426,9 @@ export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
   // Body: { status, courseId?, courseIds? } 
   // - courseId: UUID para un curso específico, '_all_' para todos los cursos
   // - courseIds: Array de UUIDs cuando se aplica a múltiples cursos
-  fastify.put('/sessions/:sessionId/students/:studentId', async (request, reply) => {
+  fastify.put('/sessions/:sessionId/students/:studentId', {
+    preHandler: [fastify.authenticate, checkPermission('attendance', 'edit')]
+  }, async (request, reply) => {
     const { sessionId, studentId } = request.params as { sessionId: string; studentId: string };
 
     try {
@@ -513,7 +516,9 @@ export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // PUT /api/attendance/students/:attendanceId - Actualizar estado de asistencia
-  fastify.put('/students/:attendanceId', async (request, reply) => {
+  fastify.put('/students/:attendanceId', {
+    preHandler: [fastify.authenticate, checkPermission('attendance', 'edit')]
+  }, async (request, reply) => {
     const { attendanceId } = request.params as { attendanceId: string };
 
     try {
@@ -563,7 +568,9 @@ export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
   // ============================================
 
   // POST /api/attendance/students/:attendanceId/observations - Agregar observación
-  fastify.post('/students/:attendanceId/observations', async (request, reply) => {
+  fastify.post('/students/:attendanceId/observations', {
+    preHandler: [fastify.authenticate, checkPermission('attendance', 'edit')]
+  }, async (request, reply) => {
     const { attendanceId } = request.params as { attendanceId: string };
 
     try {
@@ -640,7 +647,9 @@ export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
   // ============================================
 
   // PUT /api/attendance/sessions/:sessionId/execution - Actualizar ejecución real
-  fastify.put('/sessions/:sessionId/execution', async (request, reply) => {
+  fastify.put('/sessions/:sessionId/execution', {
+    preHandler: [fastify.authenticate, checkPermission('attendance', 'edit')]
+  }, async (request, reply) => {
     const { sessionId } = request.params as { sessionId: string };
 
     try {
@@ -712,7 +721,9 @@ export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
   // ============================================
 
   // PUT /api/attendance/sessions/:sessionId/complete - Marcar sesión como dictada
-  fastify.put('/sessions/:sessionId/complete', async (request, reply) => {
+  fastify.put('/sessions/:sessionId/complete', {
+    preHandler: [fastify.authenticate, checkPermission('attendance', 'edit')]
+  }, async (request, reply) => {
     const { sessionId } = request.params as { sessionId: string };
 
     try {
@@ -777,7 +788,9 @@ export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // PUT /api/attendance/sessions/:sessionId/reopen - Reabrir sesión (cambiar de dictada a pendiente)
-  fastify.put('/sessions/:sessionId/reopen', async (request, reply) => {
+  fastify.put('/sessions/:sessionId/reopen', {
+    preHandler: [fastify.authenticate, checkPermission('attendance', 'edit')]
+  }, async (request, reply) => {
     const { sessionId } = request.params as { sessionId: string };
 
     try {
@@ -819,7 +832,9 @@ export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // PUT /api/attendance/sessions/:sessionId/postpone - Suspender sesión (marcar que no hubo clase)
-  fastify.put('/sessions/:sessionId/postpone', async (request, reply) => {
+  fastify.put('/sessions/:sessionId/postpone', {
+    preHandler: [fastify.authenticate, checkPermission('attendance', 'edit')]
+  }, async (request, reply) => {
     const { sessionId } = request.params as { sessionId: string };
     const { reason } = request.body as { reason: string };
 
@@ -871,7 +886,9 @@ export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // PUT /api/attendance/sessions/:sessionId/reactivate - Reactivar sesión suspendida (volver a pendiente)
-  fastify.put('/sessions/:sessionId/reactivate', async (request, reply) => {
+  fastify.put('/sessions/:sessionId/reactivate', {
+    preHandler: [fastify.authenticate, checkPermission('attendance', 'edit')]
+  }, async (request, reply) => {
     const { sessionId } = request.params as { sessionId: string };
 
     try {

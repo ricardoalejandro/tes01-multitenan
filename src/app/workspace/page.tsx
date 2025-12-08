@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState, useCallback } from 'react';
+import { Suspense, useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
@@ -112,11 +112,14 @@ function WorkspaceContent() {
   const branchId = searchParams.get('branchId');
   const [activeModule, setActiveModule] = useState('home');
   const [branch, setBranch] = useState<any>(null);
-  const [user, setUser] = useState<{ fullName: string; email: string; userType: string } | null>(null);
+  const [user, setUser] = useState<{ username: string; fullName: string; email: string; userType: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [expandedSections, setExpandedSections] = useState<string[]>([]);
+  const [expandedSections, setExpandedSections] = useState<string[]>([
+    'gestion-academica',
+    'asistencia'
+  ]);
 
   // Load sidebar state from localStorage
   useEffect(() => {
@@ -159,6 +162,7 @@ function WorkspaceContent() {
         const data = await api.me();
         // Store user info
         setUser({
+          username: data.username,
           fullName: data.fullName,
           email: data.email,
           userType: data.userType,
@@ -185,8 +189,61 @@ function WorkspaceContent() {
     router.push('/dashboard');
   };
 
-  // Tecla Escape = botón Volver (solo si estamos en módulo home)
-  useEscapeKey(handleBack, activeModule === 'home');
+  // Tecla Escape = navegación progresiva
+  // Si estás en un módulo -> ir a home
+  // Si estás en home -> ir a dashboard
+  const handleEscape = useCallback(() => {
+    if (activeModule !== 'home') {
+      setActiveModule('home');
+    } else {
+      router.push('/dashboard');
+    }
+  }, [activeModule, router]);
+
+  useEscapeKey(handleEscape, true);
+
+  // Filter navigation based on user permissions
+  // Module IDs that map to permission modules
+  const modulePermissionMap: Record<string, string> = {
+    'students': 'students',
+    'courses': 'courses',
+    'instructors': 'instructors',
+    'groups': 'groups',
+    'attendance': 'attendance',
+    'notebook': 'attendance',
+    'attendance-reports': 'attendance',
+    'transfers': 'enrollments', // transfers uses enrollments permission for now
+    'inscriptions': 'enrollments',
+    'certificates': 'enrollments',
+  };
+
+  const filteredNavigationSections = useMemo(() => {
+    // If no branch or admin user, show everything
+    if (!branch || user?.userType === 'admin') {
+      return navigationSections;
+    }
+
+    const permissions = branch.permissions || {};
+
+    return navigationSections.map(section => {
+      const filteredItems = section.items.filter(item => {
+        // Home is always visible
+        if (item.id === 'home') return true;
+        // Disabled items are hidden for simplicity
+        if (item.disabled) return false;
+
+        const permModule = modulePermissionMap[item.id];
+        if (!permModule) return true; // No permission mapping = always show
+
+        const modulePerm = permissions[permModule];
+        if (!modulePerm) return false; // No permission defined = hide
+
+        return modulePerm.canView === true;
+      });
+
+      return { ...section, items: filteredItems };
+    }).filter(section => section.items.length > 0);
+  }, [branch, user?.userType]);
 
   const handleLogout = () => {
     localStorage.removeItem('auth_token');
@@ -249,10 +306,10 @@ function WorkspaceContent() {
             <span className="hidden md:block font-semibold text-gray-900">Sistema Académico</span>
           </div>
 
-          {/* Branch Badge */}
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-accent-2 rounded-full border border-accent-4">
-            <Building2 className="h-4 w-4 text-accent-10" />
-            <span className="text-sm font-medium text-accent-11">{branch?.name}</span>
+          {/* Branch Badge - Always visible */}
+          <div className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 bg-accent-2 rounded-full border border-accent-4">
+            <Building2 className="h-3 w-3 sm:h-4 sm:w-4 text-accent-10" />
+            <span className="text-xs sm:text-sm font-medium text-accent-11 truncate max-w-[100px] sm:max-w-none">{branch?.name}</span>
           </div>
         </div>
 
@@ -280,7 +337,7 @@ function WorkspaceContent() {
                 </Avatar>
                 <div className="hidden md:block text-left">
                   <p className="text-sm font-medium text-gray-900 leading-tight">
-                    {user?.fullName || 'Usuario'}
+                    {user?.username || user?.fullName || 'Usuario'}
                   </p>
                   <p className="text-xs text-gray-500 leading-tight">
                     {user?.userType === 'admin' ? 'Administrador' : 'Operador'}
@@ -365,7 +422,7 @@ function WorkspaceContent() {
 
           {/* Navigation */}
           <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
-            {navigationSections.map((section) => {
+            {filteredNavigationSections.map((section) => {
               const isExpanded = expandedSections.includes(section.id);
               const SectionIcon = section.icon;
               const hasActiveItem = section.items.some(item => activeModule === item.id);

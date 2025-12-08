@@ -669,6 +669,31 @@ class ApiClient {
     });
     return response.data;
   }
+
+  // Reports
+  async getStudentReport(params: { page?: number; limit?: number; search?: string; branchId?: string; status?: string }) {
+    return this.client.get('/reports/students', { params });
+  }
+
+  async getPerformanceStats(branchId?: string) {
+    return this.client.get('/reports/stats', { params: { branchId } });
+  }
+
+  // Locations (Ubigeo)
+  async getDepartments() {
+    const response = await this.client.get('/departments');
+    return response.data;
+  }
+
+  async getProvinces(departmentId?: string) {
+    const response = await this.client.get('/provinces', { params: { departmentId } });
+    return response.data;
+  }
+
+  async getDistricts(provinceId?: string) {
+    const response = await this.client.get('/districts', { params: { provinceId } });
+    return response.data;
+  }
 }
 
 export const api = new ApiClient();

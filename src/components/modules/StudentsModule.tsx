@@ -88,6 +88,7 @@ export default function StudentsModule({ branchId }: { branchId: string }) {
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [groupFilter, setGroupFilter] = useState<string>('');
   const [availableGroups, setAvailableGroups] = useState<GroupForFilter[]>([]);
+  const [showFilters, setShowFilters] = useState(false); // Mobile filter toggle
 
   const [formData, setFormData] = useState({
     documentType: 'DNI',
@@ -108,7 +109,7 @@ export default function StudentsModule({ branchId }: { branchId: string }) {
   });
 
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(5);
   const [pagination, setPagination] = useState<PaginationData>({
     page: 1,
     limit: 10,
@@ -116,6 +117,27 @@ export default function StudentsModule({ branchId }: { branchId: string }) {
     totalPages: 0,
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  // Estados para Ubigeo (Cascading Selects)
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [provinces, setProvinces] = useState<any[]>([]);
+  const [districts, setDistricts] = useState<any[]>([]);
+  const [selectedDeptId, setSelectedDeptId] = useState<string>('');
+  const [selectedProvId, setSelectedProvId] = useState<string>('');
+  const [selectedDistId, setSelectedDistId] = useState<string>('');
+
+  // Cargar departamentos al inicio
+  useEffect(() => {
+    const loadDepartments = async () => {
+      try {
+        const res = await api.getDepartments();
+        setDepartments(res.data || []);
+      } catch (error) {
+        console.error('Error loading departments', error);
+      }
+    };
+    loadDepartments();
+  }, []);
 
   // Estados para los nuevos diálogos
   const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
@@ -127,6 +149,57 @@ export default function StudentsModule({ branchId }: { branchId: string }) {
   const [existingStudentData, setExistingStudentData] = useState<any>(null);
 
 
+
+  // Pre-cargar ubicaciones al editar
+  useEffect(() => {
+    if (isDialogOpen && editingStudent && departments.length > 0) {
+      const initLocation = async () => {
+        // 1. Match Department
+        const deptName = editingStudent.department;
+        const dept = departments.find(d => d.name === deptName);
+        if (dept) {
+          setSelectedDeptId(dept.id);
+
+          // 2. Load Provinces
+          try {
+            const provRes = await api.getProvinces(dept.id);
+            const provList = provRes.data || [];
+            setProvinces(provList);
+
+            // 3. Match Province
+            const provName = editingStudent.province;
+            const prov = provList.find((p: any) => p.name === provName);
+
+            if (prov) {
+              setSelectedProvId(prov.id);
+
+              // 4. Load Districts
+              const distRes = await api.getDistricts(prov.id);
+              const distList = distRes.data || [];
+              setDistricts(distList);
+
+              // 5. Match District
+              const distName = editingStudent.district;
+              const dist = distList.find((d: any) => d.name === distName);
+              if (dist) {
+                setSelectedDistId(dist.id);
+              }
+            }
+          } catch (e) {
+            console.error('Error loading location cascade', e);
+          }
+        }
+      };
+      initLocation();
+    } else if (isDialogOpen && !editingStudent) {
+      // Reset for new student
+      setSelectedDeptId('');
+      setSelectedProvId('');
+      setSelectedDistId('');
+      setProvinces([]);
+      setDistricts([]);
+    }
+  }, [isDialogOpen, editingStudent, departments]);
 
   const loadStudents = useCallback(async () => {
     try {
@@ -257,7 +330,17 @@ export default function StudentsModule({ branchId }: { branchId: string }) {
       const errorMessage = error.response?.data?.error || error.response?.data?.message || 'Error al guardar';
       const errorType = error.response?.data?.type;
 
-      // Si es un estudiante duplicado (409), mostrar diálogo de importación
+      // If student is active in another branch, show message to use transfers
+      if (error.response?.status === 409 && errorType === 'active_in_other_branch') {
+        const activeBranchName = error.response?.data?.activeBranchName || 'otra filial';
+        toast.error(
+          `Este probacionista ya está de Alta en ${activeBranchName}. Para moverlo a tu filial, solicita un traslado desde el módulo de Traslados.`,
+          { duration: 6000 }
+        );
+        return;
+      }
+
+      // Si es un estudiante duplicado (409) pero NO activo, mostrar diálogo de importación
       if (error.response?.status === 409 && errorType === 'duplicate_student') {
         const existingData = error.response?.data?.student;
         setExistingStudentData(existingData);
@@ -321,115 +404,186 @@ export default function StudentsModule({ branchId }: { branchId: string }) {
     setFormErrors({});
   };
 
+  // Handlers para Ubicaciones
+  const handleDepartmentChange = async (value: string) => {
+    setSelectedDeptId(value);
+    const dept = departments.find(d => d.id === value);
+    setFormData(prev => ({ ...prev, department: dept?.name || '', province: '', district: '' }));
+
+    // Reset downward
+    setSelectedProvId('');
+    setSelectedDistId('');
+    setProvinces([]);
+    setDistricts([]);
+
+    try {
+      const res = await api.getProvinces(value);
+      setProvinces(res.data || []);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleProvinceChange = async (value: string) => {
+    setSelectedProvId(value);
+    const prov = provinces.find(p => p.id === value);
+    setFormData(prev => ({ ...prev, province: prov?.name || '', district: '' }));
+
+    // Reset downward
+    setSelectedDistId('');
+    setDistricts([]);
+
+    try {
+      const res = await api.getDistricts(value);
+      setDistricts(res.data || []);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleDistrictChange = (value: string) => {
+    setSelectedDistId(value);
+    const dist = districts.find(d => d.id === value);
+    setFormData(prev => ({ ...prev, district: dist?.name || '' }));
+  };
+
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col relative">
+      {/* FAB - Floating Action Button for Mobile */}
+      <button
+        onClick={() => {
+          resetForm();
+          setIsDialogOpen(true);
+        }}
+        className="fixed right-4 bottom-20 z-50 md:hidden bg-accent-9 hover:bg-accent-10 text-white rounded-full w-14 h-14 shadow-lg flex items-center justify-center active:scale-95 transition-transform"
+        aria-label="Nuevo Probacionista"
+      >
+        <Plus className="h-6 w-6" />
+      </button>
+
       {/* HEADER FIJO - Siempre visible */}
-      <div className="flex-none pb-5 space-y-4">
+      <div className="flex-none pb-4 md:pb-5 space-y-3 md:space-y-4">
         {/* Title and Actions */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
           <div>
-            <h1 className="text-xl font-semibold text-gray-900">
-              Gestión de Alumnos
+            <h1 className="text-lg md:text-xl font-semibold text-gray-900">
+              Gestión de Probacionistas
             </h1>
-            <p className="text-gray-500 text-sm mt-0.5">
-              Busca alumnos por nombre, apellido, DNI o email
+            <p className="text-gray-500 text-xs md:text-sm mt-0.5 hidden sm:block">
+              Busca probacionistas por nombre, apellido, DNI o email
             </p>
           </div>
+          {/* Desktop button - hidden on mobile (using FAB instead) */}
           <Button
             onClick={() => {
               resetForm();
               setIsDialogOpen(true);
             }}
-            className="bg-accent-9 hover:bg-accent-10 text-white"
+            className="bg-accent-9 hover:bg-accent-10 text-white hidden md:flex"
           >
             <Plus className="mr-2 h-4 w-4" />
-            Nuevo Alumno
+            Nuevo Probacionista
           </Button>
         </div>
 
-        {/* Search + Filters + View Selector */}
-        <div className="flex flex-wrap gap-3">
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <Input
-              placeholder="Buscar alumnos..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 bg-white border-gray-200"
-            />
-            {search !== debouncedSearch && (
-              <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                <div className="h-4 w-4 border-2 border-accent-9 border-t-transparent rounded-full animate-spin" />
-              </div>
-            )}
+        {/* Search + Filters Row */}
+        <div className="space-y-3">
+          {/* Search Bar - Full width on mobile */}
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                placeholder="Buscar probacionistas..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9 bg-white border-gray-200 h-10"
+              />
+              {search !== debouncedSearch && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <div className="h-4 w-4 border-2 border-accent-9 border-t-transparent rounded-full animate-spin" />
+                </div>
+              )}
+            </div>
+            {/* Filter toggle button - visible on mobile */}
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setShowFilters(!showFilters)}
+              className={`md:hidden h-10 w-10 ${showFilters ? 'bg-accent-2 border-accent-9' : ''}`}
+            >
+              <Filter className={`h-4 w-4 ${showFilters ? 'text-accent-9' : ''}`} />
+            </Button>
           </div>
 
-          {/* Filtro de Estado */}
-          <Select value={statusFilter} onValueChange={(val) => { setStatusFilter(val === 'all' ? '' : val); setPage(1); }}>
-            <SelectTrigger className="w-[130px] bg-white border-gray-200">
-              <SelectValue placeholder="Estado" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="Alta">Alta</SelectItem>
-              <SelectItem value="Baja">Baja</SelectItem>
-            </SelectContent>
-          </Select>
+          {/* Filters - Collapsible on mobile, always visible on desktop */}
+          <div className={`flex flex-wrap gap-2 md:gap-3 ${showFilters ? 'flex' : 'hidden md:flex'}`}>
+            {/* Filtro de Estado */}
+            <Select value={statusFilter} onValueChange={(val) => { setStatusFilter(val === 'all' ? '' : val); setPage(1); }}>
+              <SelectTrigger className="w-full sm:w-[130px] bg-white border-gray-200 h-10">
+                <SelectValue placeholder="Estado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="Alta">Alta</SelectItem>
+                <SelectItem value="Baja">Baja</SelectItem>
+              </SelectContent>
+            </Select>
 
-          {/* Filtro de Grupo */}
-          <Select value={groupFilter} onValueChange={(val) => { setGroupFilter(val === 'all' ? '' : val); setPage(1); }}>
-            <SelectTrigger className="w-[180px] bg-white border-gray-200">
-              <SelectValue placeholder="Grupo activo" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos los grupos</SelectItem>
-              {availableGroups.map((g) => (
-                <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            {/* Filtro de Grupo */}
+            <Select value={groupFilter} onValueChange={(val) => { setGroupFilter(val === 'all' ? '' : val); setPage(1); }}>
+              <SelectTrigger className="w-full sm:w-[180px] bg-white border-gray-200 h-10">
+                <SelectValue placeholder="Grupo activo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los grupos</SelectItem>
+                {availableGroups.map((g) => (
+                  <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-          {/* Limpiar filtros */}
-          {(statusFilter || groupFilter) && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => { setStatusFilter(''); setGroupFilter(''); setPage(1); }}
-              className="text-gray-500 hover:text-gray-700"
-            >
-              Limpiar filtros
-            </Button>
-          )}
+            {/* Limpiar filtros */}
+            {(statusFilter || groupFilter) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => { setStatusFilter(''); setGroupFilter(''); setPage(1); }}
+                className="text-gray-500 hover:text-gray-700 h-10"
+              >
+                Limpiar
+              </Button>
+            )}
 
-          {/* VIEW MODE SELECTOR */}
-          <div className="flex border border-gray-200 rounded-lg overflow-hidden bg-white">
-            <button
-              onClick={() => setViewMode('cards')}
-              className={`px-3 py-2 text-sm font-medium transition-colors ${viewMode === 'cards'
-                ? 'bg-accent-9 text-white'
-                : 'bg-white text-gray-600 hover:bg-gray-50'
-                }`}
-            >
-              Tarjetas
-            </button>
-            <button
-              onClick={() => setViewMode('compact')}
-              className={`px-3 py-2 text-sm font-medium transition-colors border-x border-gray-200 ${viewMode === 'compact'
-                ? 'bg-accent-9 text-white'
-                : 'bg-white text-gray-600 hover:bg-gray-50'
-                }`}
-            >
-              Compacta
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`px-3 py-2 text-sm font-medium transition-colors ${viewMode === 'list'
-                ? 'bg-accent-9 text-white'
-                : 'bg-white text-gray-600 hover:bg-gray-50'
-                }`}
-            >
-              Lista
-            </button>
+            {/* VIEW MODE SELECTOR - Hidden on mobile */}
+            <div className="hidden md:flex border border-gray-200 rounded-lg overflow-hidden bg-white ml-auto">
+              <button
+                onClick={() => setViewMode('cards')}
+                className={`px-3 py-2 text-sm font-medium transition-colors ${viewMode === 'cards'
+                  ? 'bg-accent-9 text-white'
+                  : 'bg-white text-gray-600 hover:bg-gray-50'
+                  }`}
+              >
+                Tarjetas
+              </button>
+              <button
+                onClick={() => setViewMode('compact')}
+                className={`px-3 py-2 text-sm font-medium transition-colors border-x border-gray-200 ${viewMode === 'compact'
+                  ? 'bg-accent-9 text-white'
+                  : 'bg-white text-gray-600 hover:bg-gray-50'
+                  }`}
+              >
+                Compacta
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`px-3 py-2 text-sm font-medium transition-colors ${viewMode === 'list'
+                  ? 'bg-accent-9 text-white'
+                  : 'bg-white text-gray-600 hover:bg-gray-50'
+                  }`}
+              >
+                Lista
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -440,11 +594,11 @@ export default function StudentsModule({ branchId }: { branchId: string }) {
           {loading ? (
             <div className="p-8 text-center">
               <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-200 border-t-accent-9 mx-auto"></div>
-              <p className="text-gray-500 text-sm mt-3">Cargando alumnos...</p>
+              <p className="text-gray-500 text-sm mt-3">Cargando probacionistas...</p>
             </div>
           ) : students.length === 0 ? (
             <div className="p-8 text-center text-gray-500">
-              No se encontraron alumnos
+              No se encontraron probacionistas
             </div>
           ) : (
             <>
@@ -523,7 +677,7 @@ export default function StudentsModule({ branchId }: { branchId: string }) {
       <ResponsiveDialog
         open={isDialogOpen}
         onOpenChange={setIsDialogOpen}
-        title={`${editingStudent ? 'Editar' : 'Nuevo'} Alumno`}
+        title={`${editingStudent ? 'Editar' : 'Nuevo'} Probacionista`}
       >
         <form
           onSubmit={handleSubmit}
@@ -536,11 +690,11 @@ export default function StudentsModule({ branchId }: { branchId: string }) {
                 {editingStudent.status}
               </Badge>
               {editingStudent.status === 'Baja' && (
-                <span className="text-xs text-gray-500">(Alumno dado de baja)</span>
+                <span className="text-xs text-gray-500">(Probacionista dado de baja)</span>
               )}
             </div>
           )}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Document Type */}
             <div>
               <Label>Tipo de Documento</Label>
@@ -742,37 +896,64 @@ export default function StudentsModule({ branchId }: { branchId: string }) {
             {/* Department */}
             <div>
               <Label>Departamento</Label>
-              <Input
-                value={formData.department}
-                onChange={(e) =>
-                  setFormData({ ...formData, department: e.target.value })
-                }
-                placeholder="Ej: Lima"
-              />
+              <Select value={selectedDeptId} onValueChange={handleDepartmentChange}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {departments.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      {d.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Province */}
             <div>
               <Label>Provincia</Label>
-              <Input
-                value={formData.province}
-                onChange={(e) =>
-                  setFormData({ ...formData, province: e.target.value })
-                }
-                placeholder="Ej: Lima"
-              />
+              <Select
+                value={selectedProvId}
+                onValueChange={handleProvinceChange}
+                disabled={!selectedDeptId}
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={!selectedDeptId ? 'Selecciona un departamento' : 'Seleccionar...'}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {provinces.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* District */}
             <div>
               <Label>Distrito</Label>
-              <Input
-                value={formData.district}
-                onChange={(e) =>
-                  setFormData({ ...formData, district: e.target.value })
-                }
-                placeholder="Ej: San Miguel"
-              />
+              <Select
+                value={selectedDistId}
+                onValueChange={handleDistrictChange}
+                disabled={!selectedProvId}
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={!selectedProvId ? 'Selecciona una provincia' : 'Seleccionar...'}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {districts.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      {d.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <div className="flex justify-end gap-3 pt-4">
@@ -808,12 +989,11 @@ export default function StudentsModule({ branchId }: { branchId: string }) {
         onSuccess={loadStudents}
       />
 
-      {/* Transactions Dialog */}
+      {/* Transactions Dialog - Shows all branches */}
       <StudentTransactionsDialog
         open={isTransactionsDialogOpen}
         onOpenChange={setIsTransactionsDialogOpen}
         student={selectedStudentForAction}
-        branchId={branchId}
       />
 
       {/* Counseling Dialog */}

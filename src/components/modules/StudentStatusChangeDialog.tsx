@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -42,6 +42,15 @@ export function StudentStatusChangeDialog({
   const [observation, setObservation] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Auto-select the opposite status when dialog opens
+  useEffect(() => {
+    if (student && open) {
+      setNewStatus(student.status === 'Alta' ? 'Baja' : 'Alta');
+      setStatusSubtype('');
+      setObservation('');
+    }
+  }, [student, open]);
+
   const handleStatusChange = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -66,8 +75,18 @@ export function StudentStatusChangeDialog({
       setObservation('');
       onSuccess();
     } catch (error: any) {
-      const errorMessage = error.response?.data?.error || 'Error al cambiar estado';
-      toast.error(errorMessage, { duration: 2500 });
+      const responseData = error.response?.data;
+
+      // Special handling for unique Alta violation
+      if (responseData?.type === 'unique_alta_violation') {
+        toast.error(
+          `El probacionista ya está de Alta en: ${responseData.activeBranchName}. ${responseData.message}`,
+          { duration: 5000 }
+        );
+      } else {
+        const errorMessage = responseData?.error || 'Error al cambiar estado';
+        toast.error(errorMessage, { duration: 2500 });
+      }
     } finally {
       setLoading(false);
     }
@@ -114,8 +133,12 @@ export function StudentStatusChangeDialog({
               <SelectValue placeholder="Seleccionar estado" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="Alta">Alta</SelectItem>
-              <SelectItem value="Baja">Baja</SelectItem>
+              <SelectItem value="Alta" disabled={student.status === 'Alta'}>
+                Alta {student.status === 'Alta' && '(estado actual)'}
+              </SelectItem>
+              <SelectItem value="Baja" disabled={student.status === 'Baja'}>
+                Baja {student.status === 'Baja' && '(estado actual)'}
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>

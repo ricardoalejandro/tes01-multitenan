@@ -70,7 +70,7 @@ export default function InstructorsModule({ branchId }: { branchId: string }) {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(5);
   const [pagination, setPagination] = useState<PaginationData>({
     page: 1,
     limit: 10,
@@ -237,33 +237,43 @@ export default function InstructorsModule({ branchId }: { branchId: string }) {
   };
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col relative">
+      {/* FAB - Floating Action Button for Mobile */}
+      <button
+        onClick={() => { resetForm(); setIsDialogOpen(true); }}
+        className="fixed right-4 bottom-20 z-50 md:hidden bg-accent-9 hover:bg-accent-10 text-white rounded-full w-14 h-14 shadow-lg flex items-center justify-center active:scale-95 transition-transform"
+        aria-label="Nuevo Instructor"
+      >
+        <Plus className="h-6 w-6" />
+      </button>
+
       {/* HEADER FIJO - Siempre visible */}
-      <div className="flex-none pb-5 space-y-4">
-        <div className="flex items-center justify-between">
+      <div className="flex-none pb-4 md:pb-5 space-y-3 md:space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
           <div>
-            <h1 className="text-xl font-semibold text-gray-900">
+            <h1 className="text-lg md:text-xl font-semibold text-gray-900">
               Gestión de Instructores
             </h1>
-            <p className="text-gray-500 text-sm mt-0.5">Administra instructores y capacitaciones</p>
+            <p className="text-gray-500 text-xs md:text-sm mt-0.5 hidden sm:block">Administra instructores y capacitaciones</p>
           </div>
+          {/* Desktop button - hidden on mobile (using FAB instead) */}
           <Button
             onClick={() => { resetForm(); setIsDialogOpen(true); }}
-            className="bg-accent-9 hover:bg-accent-10 text-white"
+            className="bg-accent-9 hover:bg-accent-10 text-white hidden md:flex"
           >
             <Plus className="mr-2 h-4 w-4" />
             Nuevo Instructor
           </Button>
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex gap-2 md:gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
             <Input
               placeholder="Buscar instructores..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 bg-white border-gray-200"
+              className="pl-9 bg-white border-gray-200 h-10"
             />
             {search !== debouncedSearch && (
               <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -272,8 +282,8 @@ export default function InstructorsModule({ branchId }: { branchId: string }) {
             )}
           </div>
 
-          {/* VIEW MODE SELECTOR */}
-          <div className="flex border border-gray-200 rounded-lg overflow-hidden bg-white">
+          {/* VIEW MODE SELECTOR - Hidden on mobile */}
+          <div className="hidden md:flex border border-gray-200 rounded-lg overflow-hidden bg-white">
             <button
               onClick={() => setViewMode('cards')}
               className={`px-3 py-2 text-sm font-medium transition-colors ${viewMode === 'cards'

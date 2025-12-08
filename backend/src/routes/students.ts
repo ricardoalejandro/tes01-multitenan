@@ -3,6 +3,7 @@ import { db } from '../db';
 import { students, studentBranches, studentTransactions, branches, users, groupEnrollments, classGroups } from '../db/schema';
 import { eq, and, sql, desc, inArray } from 'drizzle-orm';
 import { z } from 'zod';
+import { checkPermission } from '../middleware/checkPermission';
 
 // Base validation schema (sin branchId ni status, solo datos globales del probacionista)
 const studentBaseSchema = z.object({
@@ -54,12 +55,12 @@ export const studentRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /api/students - Listar estudiantes de una filial
   fastify.get('/', async (request, reply) => {
     const { branchId, page = 1, limit = 10, search = '', status = '', groupId = '' } = request.query as any;
-    
+
     const offset = (Number(page) - 1) * Number(limit);
-    
+
     // JOIN students con student_branches para obtener estudiantes de la filial
     let queryConditions = [eq(studentBranches.branchId, branchId)];
-    
+
     // Filtro de búsqueda mejorado - busca en todos los campos relevantes
     if (search) {
       queryConditions.push(
@@ -89,7 +90,7 @@ export const studentRoutes: FastifyPluginAsync = async (fastify) => {
           eq(groupEnrollments.groupId, groupId),
           eq(groupEnrollments.status, 'active')
         ));
-      
+
       if (enrolledStudents.length > 0) {
         const studentIds = enrolledStudents.map(e => e.studentId);
         queryConditions.push(inArray(students.id, studentIds));
@@ -106,7 +107,7 @@ export const studentRoutes: FastifyPluginAsync = async (fastify) => {
         };
       }
     }
-    
+
     const [studentList, countResult] = await Promise.all([
       db
         .select({
@@ -142,9 +143,9 @@ export const studentRoutes: FastifyPluginAsync = async (fastify) => {
         .innerJoin(studentBranches, eq(students.id, studentBranches.studentId))
         .where(and(...queryConditions)),
     ]);
-    
+
     const count = countResult[0]?.count || 0;
-    
+
     return {
       data: studentList,
       pagination: {
@@ -160,7 +161,7 @@ export const studentRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get('/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
     const { branchId } = request.query as any;
-    
+
     const [student] = await db
       .select({
         id: students.id,
@@ -189,20 +190,22 @@ export const studentRoutes: FastifyPluginAsync = async (fastify) => {
         eq(studentBranches.branchId, branchId)
       ))
       .limit(1);
-    
+
     if (!student) {
       return reply.code(404).send({ error: 'Student not found' });
     }
-    
+
     return student;
   });
 
   // POST /api/students - Crear nuevo estudiante
-  fastify.post('/', async (request, reply) => {
+  fastify.post('/', {
+    preHandler: [fastify.authenticate, checkPermission('students', 'create')]
+  }, async (request, reply) => {
     try {
       const validatedData = studentCreateSchema.parse(request.body);
       const { branchId, admissionDate, ...studentData } = validatedData;
-      
+
       // 1. Verificar si el DNI ya existe globalmente
       const [existing] = await db
         .select({
@@ -220,7 +223,7 @@ export const studentRoutes: FastifyPluginAsync = async (fastify) => {
           )
         )
         .limit(1);
-      
+
       if (existing) {
         // Obtener las filiales donde está registrado
         const existingBranches = await db
@@ -232,7 +235,28 @@ export const studentRoutes: FastifyPluginAsync = async (fastify) => {
           .from(studentBranches)
           .innerJoin(branches, eq(studentBranches.branchId, branches.id))
           .where(eq(studentBranches.studentId, existing.id));
-        
+
+        // Check if student is ACTIVE (Alta) in any branch
+        const activeBranch = existingBranches.find(b => b.status === 'Alta');
+        const isActiveElsewhere = !!activeBranch;
+
+        // If active somewhere, cannot import - must use transfer
+        if (isActiveElsewhere) {
+          return reply.code(409).send({
+            error: 'Este probacionista ya está de Alta en otra filial',
+            type: 'active_in_other_branch',
+            student: {
+              ...existing,
+              branches: existingBranches,
+            },
+            activeBranchName: activeBranch.branchName,
+            activeBranchId: activeBranch.branchId,
+            canImport: false,
+            message: 'Para moverlo a tu filial, debes solicitar un traslado desde el módulo de Traslados.',
+          });
+        }
+
+        // Only allow import if student is Baja in all branches (not active anywhere)
         return reply.code(409).send({
           error: 'Este probacionista ya está registrado en el sistema',
           type: 'duplicate_student',
@@ -240,16 +264,16 @@ export const studentRoutes: FastifyPluginAsync = async (fastify) => {
             ...existing,
             branches: existingBranches,
           },
-          canImport: true,
+          canImport: true, // Can import only if not active anywhere
         });
       }
-      
+
       // 2. Crear el estudiante (datos globales)
       const [newStudent] = await db
         .insert(students)
         .values(studentData as any)
         .returning();
-      
+
       // 3. Crear relación con la filial
       await db.insert(studentBranches).values({
         studentId: newStudent.id,
@@ -257,7 +281,7 @@ export const studentRoutes: FastifyPluginAsync = async (fastify) => {
         status: 'Alta',
         admissionDate: admissionDate || new Date().toISOString().split('T')[0],
       });
-      
+
       // 4. Crear transacción de Alta
       await db.insert(studentTransactions).values({
         studentId: newStudent.id,
@@ -268,7 +292,7 @@ export const studentRoutes: FastifyPluginAsync = async (fastify) => {
         userId: null, // TODO: Obtener del JWT cuando esté implementado
         transactionDate: new Date(),
       });
-      
+
       return reply.code(201).send(newStudent);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -282,23 +306,25 @@ export const studentRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // POST /api/students/:id/import - Importar estudiante existente a la filial actual
-  fastify.post('/:id/import', async (request, reply) => {
+  fastify.post('/:id/import', {
+    preHandler: [fastify.authenticate, checkPermission('students', 'create')]
+  }, async (request, reply) => {
     try {
       const { id } = request.params as { id: string };
       const validatedData = studentImportSchema.parse(request.body);
       const { branchId, admissionDate, observation } = validatedData;
-      
+
       // 1. Verificar que el estudiante existe
       const [student] = await db
         .select()
         .from(students)
         .where(eq(students.id, id))
         .limit(1);
-      
+
       if (!student) {
         return reply.code(404).send({ error: 'Student not found' });
       }
-      
+
       // 2. Verificar que no esté ya vinculado a esta filial
       const [existingRelation] = await db
         .select()
@@ -310,14 +336,14 @@ export const studentRoutes: FastifyPluginAsync = async (fastify) => {
           )
         )
         .limit(1);
-      
+
       if (existingRelation) {
         return reply.code(409).send({
           error: 'El probacionista ya está vinculado a esta filial',
           type: 'validation',
         });
       }
-      
+
       // 3. Crear vínculo con la filial
       await db.insert(studentBranches).values({
         studentId: id,
@@ -325,7 +351,7 @@ export const studentRoutes: FastifyPluginAsync = async (fastify) => {
         status: 'Alta',
         admissionDate: admissionDate || new Date().toISOString().split('T')[0],
       });
-      
+
       // 4. Crear transacción
       await db.insert(studentTransactions).values({
         studentId: id,
@@ -336,7 +362,7 @@ export const studentRoutes: FastifyPluginAsync = async (fastify) => {
         userId: null, // TODO: Obtener del JWT
         transactionDate: new Date(),
       });
-      
+
       return { success: true, message: 'Probacionista importado exitosamente' };
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -350,11 +376,13 @@ export const studentRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // PUT /api/students/:id - Actualizar datos del estudiante (cambios globales)
-  fastify.put('/:id', async (request, reply) => {
+  fastify.put('/:id', {
+    preHandler: [fastify.authenticate, checkPermission('students', 'edit')]
+  }, async (request, reply) => {
     try {
       const { id } = request.params as { id: string };
       const validatedData = studentUpdateSchema.parse(request.body);
-      
+
       // Verificar duplicados de DNI si se está cambiando
       if (validatedData.documentType || validatedData.dni) {
         const [current] = await db
@@ -362,14 +390,14 @@ export const studentRoutes: FastifyPluginAsync = async (fastify) => {
           .from(students)
           .where(eq(students.id, id))
           .limit(1);
-        
+
         if (!current) {
           return reply.code(404).send({ error: 'Student not found' });
         }
-        
+
         const docType = validatedData.documentType || current.documentType;
         const dniValue = validatedData.dni || current.dni;
-        
+
         const [existing] = await db
           .select()
           .from(students)
@@ -381,7 +409,7 @@ export const studentRoutes: FastifyPluginAsync = async (fastify) => {
             )
           )
           .limit(1);
-        
+
         if (existing) {
           return reply.code(409).send({
             error: 'Ya existe otro probacionista con este tipo y número de documento',
@@ -390,17 +418,17 @@ export const studentRoutes: FastifyPluginAsync = async (fastify) => {
           });
         }
       }
-      
+
       const [updatedStudent] = await db
         .update(students)
         .set({ ...validatedData, updatedAt: new Date() })
         .where(eq(students.id, id))
         .returning();
-      
+
       if (!updatedStudent) {
         return reply.code(404).send({ error: 'Student not found' });
       }
-      
+
       return updatedStudent;
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -414,12 +442,71 @@ export const studentRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // PUT /api/students/:id/status - Cambiar estado del estudiante en la filial actual
-  fastify.put('/:id/status', async (request, reply) => {
+  fastify.put('/:id/status', {
+    preHandler: [fastify.authenticate, checkPermission('students', 'edit')]
+  }, async (request, reply) => {
     try {
       const { id } = request.params as { id: string };
       const validatedData = studentStatusChangeSchema.parse(request.body);
       const { branchId, status, observation } = validatedData;
-      
+      const user = request.user as any;
+
+      // Verificar el estado actual del estudiante en esta filial
+      const [currentRecord] = await db
+        .select({ status: studentBranches.status })
+        .from(studentBranches)
+        .where(
+          and(
+            eq(studentBranches.studentId, id),
+            eq(studentBranches.branchId, branchId)
+          )
+        )
+        .limit(1);
+
+      if (!currentRecord) {
+        return reply.code(404).send({
+          error: 'No se encontró al probacionista en esta filial',
+        });
+      }
+
+      // Validación: No permitir cambiar al mismo estado
+      if (currentRecord.status === status) {
+        return reply.code(400).send({
+          error: `El probacionista ya se encuentra en estado ${status}`,
+          message: `No es necesario cambiar el estado porque ya está en ${status}.`,
+          type: 'same_status_error',
+        });
+      }
+
+      // VALIDACIÓN DE ALTA ÚNICA: Si se intenta dar Alta, verificar que no esté de Alta en otra filial
+      if (status === 'Alta') {
+        const activeInOtherBranch = await db
+          .select({
+            branchId: studentBranches.branchId,
+            branchName: branches.name,
+          })
+          .from(studentBranches)
+          .innerJoin(branches, eq(studentBranches.branchId, branches.id))
+          .where(
+            and(
+              eq(studentBranches.studentId, id),
+              eq(studentBranches.status, 'Alta'),
+              sql`${studentBranches.branchId} != ${branchId}`
+            )
+          )
+          .limit(1);
+
+        if (activeInOtherBranch.length > 0) {
+          return reply.code(409).send({
+            error: 'El probacionista ya está de Alta en otra filial',
+            activeBranchName: activeInOtherBranch[0].branchName,
+            activeBranchId: activeInOtherBranch[0].branchId,
+            message: 'Para moverlo a su filial, debe solicitar un traslado desde la otra filial.',
+            type: 'unique_alta_violation',
+          });
+        }
+      }
+
       // Actualizar estado en student_branches
       const [updated] = await db
         .update(studentBranches)
@@ -431,24 +518,24 @@ export const studentRoutes: FastifyPluginAsync = async (fastify) => {
           )
         )
         .returning();
-      
+
       if (!updated) {
         return reply.code(404).send({
           error: 'Relación estudiante-filial no encontrada',
         });
       }
-      
-      // Crear transacción
+
+      // Crear transacción con userId del JWT
       await db.insert(studentTransactions).values({
         studentId: id,
         branchId,
         transactionType: status,
         description: `Cambio de estado a ${status}`,
         observation,
-        userId: null, // TODO: Obtener del JWT
+        userId: user?.id || null,
         transactionDate: new Date(),
       });
-      
+
       return { success: true, message: 'Estado actualizado correctamente' };
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -465,16 +552,16 @@ export const studentRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get('/:id/transactions', async (request, reply) => {
     const { id } = request.params as { id: string };
     const { branchId, page = 1, limit = 50 } = request.query as any;
-    
+
     const offset = (Number(page) - 1) * Number(limit);
-    
+
     let whereConditions = [eq(studentTransactions.studentId, id)];
-    
+
     // Filtrar por filial si se proporciona
     if (branchId) {
       whereConditions.push(eq(studentTransactions.branchId, branchId));
     }
-    
+
     const transactions = await db
       .select({
         id: studentTransactions.id,
@@ -492,7 +579,7 @@ export const studentRoutes: FastifyPluginAsync = async (fastify) => {
       .orderBy(desc(studentTransactions.transactionDate))
       .limit(Number(limit))
       .offset(offset);
-    
+
     return { data: transactions };
   });
 

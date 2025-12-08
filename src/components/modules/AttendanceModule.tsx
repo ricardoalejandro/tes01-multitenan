@@ -100,7 +100,7 @@ export default function AttendanceModule({ branchId }: { branchId: string }) {
   const [sessions, setSessions] = useState<GroupSession[]>([]);
   const [pendingSessions, setPendingSessions] = useState<PendingSession[]>([]);
   const [selectedSession, setSelectedSession] = useState<GroupSession | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>('notebook');  // Default to notebook view
+  const [viewMode, setViewMode] = useState<ViewMode>('list');  // Default to list view (mobile-compatible)
   const [loading, setLoading] = useState(true);
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [showAttendanceSheet, setShowAttendanceSheet] = useState(false);
@@ -319,42 +319,43 @@ export default function AttendanceModule({ branchId }: { branchId: string }) {
   if (selectedGroup && !showAttendanceSheet) {
     return (
       <div className="space-y-6">
-        {/* Header con navegación */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" onClick={handleBackToGroups} className="gap-2">
+        {/* Header con navegación - Responsive */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div className="flex items-center gap-2 md:gap-4">
+            <Button variant="ghost" onClick={handleBackToGroups} className="gap-1 md:gap-2 px-2 md:px-3">
               <ChevronRight className="h-4 w-4 rotate-180" />
-              Volver a grupos
+              <span className="hidden sm:inline">Volver a grupos</span>
+              <span className="sm:hidden">Volver</span>
             </Button>
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900">{selectedGroup.name}</h2>
-              <p className="text-gray-500 text-sm">
+            <div className="min-w-0">
+              <h2 className="text-lg md:text-xl font-semibold text-gray-900 truncate">{selectedGroup.name}</h2>
+              <p className="text-gray-500 text-xs md:text-sm truncate">
                 {selectedGroup.enrolledStudents} estudiantes • {selectedGroup.totalSessions} sesiones
               </p>
             </div>
           </div>
-          {/* View mode toggle */}
+          {/* View mode toggle - Compact on mobile */}
           <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
-            <TabsList>
-              <TabsTrigger value="list" className="gap-2">
+            <TabsList className="h-9 md:h-10">
+              <TabsTrigger value="list" className="gap-1 md:gap-2 px-2 md:px-3">
                 <ListChecks className="h-4 w-4" />
-                Lista
+                <span className="hidden md:inline">Lista</span>
               </TabsTrigger>
-              <TabsTrigger value="notebook" className="gap-2">
+              <TabsTrigger value="notebook" className="gap-1 md:gap-2 px-2 md:px-3 hidden sm:flex">
                 <BookOpen className="h-4 w-4" />
-                Cuaderno
+                <span className="hidden md:inline">Cuaderno</span>
               </TabsTrigger>
-              <TabsTrigger value="calendar" className="gap-2">
+              <TabsTrigger value="calendar" className="gap-1 md:gap-2 px-2 md:px-3 hidden sm:flex">
                 <CalendarDays className="h-4 w-4" />
-                Calendario
+                <span className="hidden md:inline">Calendario</span>
               </TabsTrigger>
-              <TabsTrigger value="pending" className="gap-2">
+              <TabsTrigger value="pending" className="gap-1 md:gap-2 px-2 md:px-3">
                 <Timer className="h-4 w-4" />
-                Pendientes
+                <span className="hidden md:inline">Pendientes</span>
               </TabsTrigger>
-              <TabsTrigger value="timeline" className="gap-2">
+              <TabsTrigger value="timeline" className="gap-1 md:gap-2 px-2 md:px-3 hidden sm:flex">
                 <GitGraph className="h-4 w-4" />
-                Timeline
+                <span className="hidden md:inline">Timeline</span>
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -430,15 +431,15 @@ export default function AttendanceModule({ branchId }: { branchId: string }) {
 
   // Render group selection
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <div className="space-y-4 md:space-y-6">
+      {/* Header - Responsive */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+          <h2 className="text-lg md:text-xl font-semibold text-gray-900 flex items-center gap-2">
             <ClipboardList className="h-5 w-5" />
             Registro de Asistencias
           </h2>
-          <p className="text-gray-500 text-sm mt-0.5">
+          <p className="text-gray-500 text-xs md:text-sm mt-0.5 hidden sm:block">
             Selecciona un grupo para registrar asistencia
           </p>
         </div>

@@ -1,6 +1,6 @@
 import { FastifyPluginAsync } from 'fastify';
 import { db } from '../db';
-import { studentTransfers, students, branches, studentBranches, groupEnrollments, classGroups, users } from '../db/schema';
+import { studentTransfers, students, branches, studentBranches, groupEnrollments, classGroups, users, studentTransactions, roles, userBranchRoles } from '../db/schema';
 import { eq, and, or, sql, desc, isNull, lt, ne } from 'drizzle-orm';
 import { z } from 'zod';
 
@@ -12,6 +12,35 @@ const createTransferSchema = z.object({
     reason: z.string().optional(),
     notes: z.string().optional(),
 });
+
+// Helper function to check if user can manage transfers for a branch
+async function canUserManageTransfers(userId: string | undefined, branchId: string | undefined, userType: string | undefined): Promise<boolean> {
+    // Guard against undefined values
+    if (!userId || !branchId) {
+        console.error('canUserManageTransfers: userId or branchId is undefined', { userId, branchId, userType });
+        return false;
+    }
+
+    // Admin users have all permissions
+    if (userType === 'admin') return true;
+
+    // Check user's role in this branch
+    const userRole = await db
+        .select({
+            canManageTransfers: roles.canManageTransfers,
+        })
+        .from(userBranchRoles)
+        .innerJoin(roles, eq(userBranchRoles.roleId, roles.id))
+        .where(
+            and(
+                eq(userBranchRoles.userId, userId),
+                eq(userBranchRoles.branchId, branchId)
+            )
+        )
+        .limit(1);
+
+    return userRole[0]?.canManageTransfers || false;
+}
 
 export const transferRoutes: FastifyPluginAsync = async (fastify) => {
 
@@ -111,6 +140,20 @@ export const transferRoutes: FastifyPluginAsync = async (fastify) => {
             const data = createTransferSchema.parse(request.body);
             const user = request.user as any;
 
+            // For outgoing: check permission on source branch (determined after getting student)
+            // For incoming: check permission on target branch (data.targetBranchId)
+
+            // For incoming requests, verify permission immediately on target branch
+            if (data.transferType === 'incoming') {
+                const hasPermission = await canUserManageTransfers(user.id, data.targetBranchId, user.userType);
+                if (!hasPermission) {
+                    return reply.status(403).send({
+                        error: 'No tienes permiso para gestionar traslados en esta filial',
+                        type: 'permission_denied',
+                    });
+                }
+            }
+
             // Determinar filial origen según el tipo
             // outgoing: mi filial envía -> sourceBranch = mi filial
             // incoming: solicito de otra filial -> sourceBranch = filial del estudiante
@@ -139,6 +182,15 @@ export const transferRoutes: FastifyPluginAsync = async (fastify) => {
 
                 if (sourceBranchId === targetBranchId) {
                     return reply.status(400).send({ error: 'La filial destino debe ser diferente a la origen' });
+                }
+
+                // For outgoing, verify permission on source branch
+                const hasPermission = await canUserManageTransfers(user.id, sourceBranchId, user.userType);
+                if (!hasPermission) {
+                    return reply.status(403).send({
+                        error: 'No tienes permiso para gestionar traslados en esta filial',
+                        type: 'permission_denied',
+                    });
                 }
             } else {
                 // incoming: solicito estudiante de otra filial
@@ -231,6 +283,17 @@ export const transferRoutes: FastifyPluginAsync = async (fastify) => {
                 return reply.status(400).send({ error: 'Solo se pueden aceptar traslados pendientes' });
             }
 
+            // Permission check: User must have permission on SOURCE branch to accept
+            // (The source branch is "giving away" the student, so they must approve)
+            const hasPermission = await canUserManageTransfers(user.id, transfer.sourceBranchId, user.userType);
+            if (!hasPermission) {
+                return reply.status(403).send({
+                    error: 'No tienes permiso para aceptar traslados en la filial de origen',
+                    message: 'Debes tener el rol con permiso de gestión de traslados en la filial que envía al probacionista.',
+                    type: 'permission_denied',
+                });
+            }
+
             // Verificar que no expiró
             if (new Date() > transfer.expiresAt) {
                 await db
@@ -268,6 +331,21 @@ export const transferRoutes: FastifyPluginAsync = async (fastify) => {
                         eq(studentBranches.branchId, transfer.sourceBranchId)
                     )
                 );
+
+            // Obtener nombres de filiales para la transacción
+            const [sourceBranch] = await db.select({ name: branches.name }).from(branches).where(eq(branches.id, transfer.sourceBranchId)).limit(1);
+            const [targetBranch] = await db.select({ name: branches.name }).from(branches).where(eq(branches.id, transfer.targetBranchId)).limit(1);
+
+            // Registrar transacción de BAJA en la filial origen
+            await db.insert(studentTransactions).values({
+                studentId: transfer.studentId,
+                branchId: transfer.sourceBranchId,
+                transactionType: 'Baja',
+                description: 'Traslado a otra filial',
+                observation: `Traslado aceptado hacia: ${targetBranch?.name || 'Filial destino'}`,
+                userId: user.id,
+                transactionDate: new Date(),
+            });
 
             // Remover de grupos activos
             const removedGroupIds = activeEnrollments.map(e => e.groupId);
@@ -318,6 +396,17 @@ export const transferRoutes: FastifyPluginAsync = async (fastify) => {
                     });
             }
 
+            // Registrar transacción de ALTA en la filial destino
+            await db.insert(studentTransactions).values({
+                studentId: transfer.studentId,
+                branchId: transfer.targetBranchId,
+                transactionType: 'Alta',
+                description: 'Traslado desde otra filial',
+                observation: `Procedente de: ${sourceBranch?.name || 'Filial origen'}`,
+                userId: user.id,
+                transactionDate: new Date(),
+            });
+
             // Actualizar el traslado
             const [updatedTransfer] = await db
                 .update(studentTransfers)
@@ -362,6 +451,15 @@ export const transferRoutes: FastifyPluginAsync = async (fastify) => {
 
             if (transfer.status !== 'pending') {
                 return reply.status(400).send({ error: 'Solo se pueden rechazar traslados pendientes' });
+            }
+
+            // Permission check: User must have permission on SOURCE branch to reject
+            const hasPermission = await canUserManageTransfers(user.id, transfer.sourceBranchId, user.userType);
+            if (!hasPermission) {
+                return reply.status(403).send({
+                    error: 'No tienes permiso para rechazar traslados en la filial de origen',
+                    type: 'permission_denied',
+                });
             }
 
             const [updatedTransfer] = await db
@@ -423,14 +521,14 @@ export const transferRoutes: FastifyPluginAsync = async (fastify) => {
         }
     });
 
-    // GET /api/transfers/search-student - Buscar estudiante globalmente por DNI
+    // GET /api/transfers/search-student - Buscar estudiante globalmente por nombre o DNI
     fastify.get('/search-student', {
         onRequest: [fastify.authenticate],
         schema: {
             querystring: {
                 type: 'object',
                 properties: {
-                    dni: { type: 'string' },
+                    dni: { type: 'string' },  // Keep 'dni' for backward compatibility
                     excludeBranchId: { type: 'string' },
                 },
                 required: ['dni'],
@@ -438,11 +536,13 @@ export const transferRoutes: FastifyPluginAsync = async (fastify) => {
         },
     }, async (request, reply) => {
         try {
-            const { dni, excludeBranchId } = request.query as any;
+            const { dni: searchTerm, excludeBranchId } = request.query as any;
 
-            if (!dni || dni.length < 3) {
+            if (!searchTerm || searchTerm.length < 3) {
                 return { data: [] };
             }
+
+            const searchPattern = `%${searchTerm.toLowerCase()}%`;
 
             const results = await db
                 .select({
@@ -461,7 +561,13 @@ export const transferRoutes: FastifyPluginAsync = async (fastify) => {
                 .innerJoin(branches, eq(studentBranches.branchId, branches.id))
                 .where(
                     and(
-                        sql`${students.dni} LIKE ${dni + '%'}`,
+                        // Search by DNI OR name (firstName, paternalLastName, maternalLastName)
+                        or(
+                            sql`LOWER(${students.dni}) LIKE ${searchPattern}`,
+                            sql`LOWER(${students.firstName}) LIKE ${searchPattern}`,
+                            sql`LOWER(${students.paternalLastName}) LIKE ${searchPattern}`,
+                            sql`LOWER(${students.maternalLastName}) LIKE ${searchPattern}`
+                        ),
                         eq(studentBranches.status, 'Alta'),
                         excludeBranchId ? ne(studentBranches.branchId, excludeBranchId) : undefined
                     )

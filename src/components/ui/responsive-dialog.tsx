@@ -69,14 +69,14 @@ export function ResponsiveDialog({
           'animate-in fade-in-0 duration-[650ms] ease-out',
           isMaximized
             ? 'inset-4 rounded-none'
-            : 'left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-4xl max-h-[90vh] rounded-xl'
+            : 'inset-0 md:inset-auto md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-[90vw] md:max-w-4xl md:max-h-[90vh] md:rounded-xl'
         )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-4 flex-shrink-0">
-          <div className="flex-1">
-            <h2 className="text-2xl font-bold text-neutral-12">{title}</h2>
-            {description && <p className="text-sm text-neutral-10 mt-1">{description}</p>}
+        <div className="flex items-center justify-between px-4 md:px-6 py-3 md:py-4 border-b border-neutral-4 flex-shrink-0 bg-white">
+          <div className="flex-1 min-w-0">
+            <h2 className="text-lg md:text-2xl font-bold text-neutral-12 truncate">{title}</h2>
+            {description && <p className="text-xs md:text-sm text-neutral-10 mt-1 truncate">{description}</p>}
           </div>
           <div className="flex items-center gap-2 ml-4">
             <Button
@@ -109,13 +109,13 @@ export function ResponsiveDialog({
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto px-6 py-6">
+        <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4 md:py-6">
           {children}
         </div>
 
         {/* Footer */}
         {footer && (
-          <div className="flex justify-end gap-2 px-6 py-4 border-t border-neutral-4 flex-shrink-0 bg-neutral-1">
+          <div className="flex justify-end gap-2 px-4 md:px-6 py-3 md:py-4 border-t border-neutral-4 flex-shrink-0 bg-neutral-1">
             {footer}
           </div>
         )}
