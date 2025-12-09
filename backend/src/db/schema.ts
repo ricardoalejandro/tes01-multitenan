@@ -191,6 +191,7 @@ export const groupAssistants = pgTable('group_assistants', {
   phone: text('phone'),
   gender: text('gender'), // 'Masculino', 'Femenino', 'Otro'
   age: integer('age'),
+  status: text('status').notNull().default('active'), // 'active' | 'eliminado'
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

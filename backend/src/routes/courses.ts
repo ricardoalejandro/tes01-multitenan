@@ -117,9 +117,27 @@ export const courseRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   fastify.delete('/:id', {
-    preHandler: [fastify.authenticate, checkPermission('courses', 'delete')]
+    preHandler: [fastify.authenticate]
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
+
+    // Primero obtener el curso para conseguir el branchId
+    const [course] = await db.select().from(courses).where(eq(courses.id, id)).limit(1);
+
+    if (!course) {
+      return reply.code(404).send({ error: 'Curso no encontrado' });
+    }
+
+    // Verificar permisos manualmente con el branchId del curso
+    const user = (request.user as any);
+    if (user.userType !== 'admin') {
+      // Inyectar branchId para la verificación de permisos
+      (request.query as any).branchId = course.branchId;
+      const permissionCheck = checkPermission('courses', 'delete');
+      const result = await permissionCheck(request, reply);
+      if (result) return result; // Si hay error, retornarlo
+    }
+
     await db.update(courses)
       .set({ status: 'eliminado', updatedAt: new Date() })
       .where(eq(courses.id, id));

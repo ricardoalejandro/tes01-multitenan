@@ -216,9 +216,27 @@ export const instructorRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   fastify.delete('/:id', {
-    preHandler: [fastify.authenticate, checkPermission('instructors', 'delete')]
+    preHandler: [fastify.authenticate]
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
+
+    // Primero obtener el instructor para conseguir el branchId
+    const [instructor] = await db.select().from(instructors).where(eq(instructors.id, id)).limit(1);
+
+    if (!instructor) {
+      return reply.code(404).send({ error: 'Instructor no encontrado' });
+    }
+
+    // Verificar permisos manualmente con el branchId del instructor
+    const user = (request.user as any);
+    if (user.userType !== 'admin') {
+      // Inyectar branchId para la verificación de permisos
+      (request.query as any).branchId = instructor.branchId;
+      const permissionCheck = checkPermission('instructors', 'delete');
+      const result = await permissionCheck(request, reply);
+      if (result) return result; // Si hay error, retornarlo
+    }
+
     await db.update(instructors)
       .set({ status: 'Eliminado', updatedAt: new Date() })
       .where(eq(instructors.id, id));

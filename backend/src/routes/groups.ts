@@ -195,7 +195,7 @@ export const groupRoutes: FastifyPluginAsync = async (fastify) => {
       })
     );
 
-    // Obtener inscripciones
+    // Obtener inscripciones (excluyendo eliminados)
     const enrollmentsData = await db
       .select({
         id: groupEnrollments.id,
@@ -207,13 +207,19 @@ export const groupRoutes: FastifyPluginAsync = async (fastify) => {
       })
       .from(groupEnrollments)
       .innerJoin(students, eq(groupEnrollments.studentId, students.id))
-      .where(eq(groupEnrollments.groupId, id));
+      .where(and(
+        eq(groupEnrollments.groupId, id),
+        sql`${groupEnrollments.status} != 'eliminado'`
+      ));
 
-    // Obtener asistentes de clase
+    // Obtener asistentes de clase (excluyendo eliminados)
     const assistantsData = await db
       .select()
       .from(groupAssistants)
-      .where(eq(groupAssistants.groupId, id))
+      .where(and(
+        eq(groupAssistants.groupId, id),
+        sql`${groupAssistants.status} != 'eliminado'`
+      ))
       .orderBy(groupAssistants.createdAt);
 
     // Contar sesiones dictadas
@@ -520,11 +526,29 @@ export const groupRoutes: FastifyPluginAsync = async (fastify) => {
 
   // DELETE /api/groups/:id
   fastify.delete('/:id', {
-    preHandler: [fastify.authenticate, checkPermission('groups', 'delete')]
+    preHandler: [fastify.authenticate]
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
+
+    // Primero obtener el grupo para conseguir el branchId
+    const [group] = await db.select().from(classGroups).where(eq(classGroups.id, id)).limit(1);
+
+    if (!group) {
+      return reply.code(404).send({ error: 'Grupo no encontrado' });
+    }
+
+    // Verificar permisos manualmente con el branchId del grupo
+    const user = (request.user as any);
+    if (user.userType !== 'admin') {
+      // Inyectar branchId para la verificación de permisos
+      (request.query as any).branchId = group.branchId;
+      const permissionCheck = checkPermission('groups', 'delete');
+      const result = await permissionCheck(request, reply);
+      if (result) return result; // Si hay error, retornarlo
+    }
+
     await db.update(classGroups).set({ status: 'eliminado', updatedAt: sql`NOW()` }).where(eq(classGroups.id, id));
-    return { success: true };
+    return { success: true, message: 'Grupo marcado como eliminado' };
   });
 
   // POST /api/groups/:id/enroll - Inscribir probacionistas
@@ -651,13 +675,33 @@ export const groupRoutes: FastifyPluginAsync = async (fastify) => {
     return { data: availableStudents };
   });
 
-  // DELETE /api/groups/:id/enroll/:studentId
+  // DELETE /api/groups/:id/enroll/:studentId - Soft delete
   fastify.delete('/:id/enroll/:studentId', {
-    preHandler: [fastify.authenticate, checkPermission('groups', 'edit')]
+    preHandler: [fastify.authenticate]
   }, async (request, reply) => {
     const { id, studentId } = request.params as { id: string; studentId: string };
-    await db.delete(groupEnrollments).where(and(eq(groupEnrollments.groupId, id), eq(groupEnrollments.studentId, studentId)));
-    return { success: true };
+
+    // Obtener el grupo para conseguir el branchId
+    const [group] = await db.select().from(classGroups).where(eq(classGroups.id, id)).limit(1);
+
+    if (!group) {
+      return reply.code(404).send({ error: 'Grupo no encontrado' });
+    }
+
+    // Verificar permisos manualmente con el branchId del grupo
+    const user = (request.user as any);
+    if (user.userType !== 'admin') {
+      (request.query as any).branchId = group.branchId;
+      const permissionCheck = checkPermission('groups', 'edit');
+      const result = await permissionCheck(request, reply);
+      if (result) return result;
+    }
+
+    // Soft delete: cambiar status a 'eliminado'
+    await db.update(groupEnrollments)
+      .set({ status: 'eliminado', updatedAt: sql`NOW()` })
+      .where(and(eq(groupEnrollments.groupId, id), eq(groupEnrollments.studentId, studentId)));
+    return { success: true, message: 'Inscripción marcada como eliminada' };
   });
 
   // PUT /api/groups/:id/status - Cambiar estado
@@ -725,13 +769,16 @@ export const groupRoutes: FastifyPluginAsync = async (fastify) => {
   // ENDPOINTS DE ASISTENTES DE CLASE
   // ============================================
 
-  // GET /api/groups/:id/assistants - Listar asistentes
+  // GET /api/groups/:id/assistants - Listar asistentes (excluyendo eliminados)
   fastify.get('/:id/assistants', async (request, reply) => {
     const { id } = request.params as { id: string };
     const assistants = await db
       .select()
       .from(groupAssistants)
-      .where(eq(groupAssistants.groupId, id))
+      .where(and(
+        eq(groupAssistants.groupId, id),
+        sql`${groupAssistants.status} != 'eliminado'`
+      ))
       .orderBy(groupAssistants.createdAt);
     return { data: assistants };
   });
@@ -784,10 +831,14 @@ export const groupRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
-  // DELETE /api/groups/:id/assistants/:assistantId - Eliminar asistente
+  // DELETE /api/groups/:id/assistants/:assistantId - Soft delete
   fastify.delete('/:id/assistants/:assistantId', async (request, reply) => {
     const { id, assistantId } = request.params as { id: string; assistantId: string };
-    await db.delete(groupAssistants).where(and(eq(groupAssistants.id, assistantId), eq(groupAssistants.groupId, id)));
-    return { success: true };
+
+    // Soft delete: cambiar status a 'eliminado'
+    await db.update(groupAssistants)
+      .set({ status: 'eliminado', updatedAt: sql`NOW()` })
+      .where(and(eq(groupAssistants.id, assistantId), eq(groupAssistants.groupId, id)));
+    return { success: true, message: 'Asistente marcado como eliminado' };
   });
 };
