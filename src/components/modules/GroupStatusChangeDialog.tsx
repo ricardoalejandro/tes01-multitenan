@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { ResponsiveDialog } from '@/components/ui/responsive-dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
@@ -128,21 +128,30 @@ export function GroupStatusChangeDialog({ open, onClose, group, branchId, onStat
   const isMerging = newStatus === 'merged';
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogTitle>Cambiar Estado del Grupo</DialogTitle>
-        <DialogDescription>
-          Grupo: <strong>{group.name}</strong> (Estado actual: {group.status})
-        </DialogDescription>
-
-        <div className="space-y-4 pt-4">
+    <ResponsiveDialog 
+      open={open} 
+      onOpenChange={onClose}
+      title="Cambiar Estado del Grupo"
+      description={`Grupo: ${group.name} (Estado actual: ${group.status})`}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={loading} className="h-11">
+            Cancelar
+          </Button>
+          <Button onClick={handleSubmit} disabled={loading} className="h-11">
+            {loading ? 'Guardando...' : 'Cambiar Estado'}
+          </Button>
+        </>
+      }
+    >
+        <div className="space-y-4">
           <div>
-            <Label htmlFor="newStatus">Nuevo Estado</Label>
+            <Label htmlFor="newStatus" className="text-xs">Nuevo Estado</Label>
             <Select
               value={newStatus}
               onValueChange={(value) => setNewStatus(value)}
             >
-              <SelectTrigger id="newStatus" className="w-full mt-1">
+              <SelectTrigger id="newStatus" className="w-full mt-1 h-11">
                 <SelectValue placeholder="Seleccionar estado" />
               </SelectTrigger>
               <SelectContent>
@@ -158,12 +167,12 @@ export function GroupStatusChangeDialog({ open, onClose, group, branchId, onStat
           {isMerging && (
             <>
               <div>
-                <Label htmlFor="targetGroup">Grupo Destino</Label>
+                <Label htmlFor="targetGroup" className="text-xs">Grupo Destino</Label>
                 <Select
                   value={targetGroupId}
                   onValueChange={(value) => setTargetGroupId(value)}
                 >
-                  <SelectTrigger id="targetGroup" className="w-full mt-1">
+                  <SelectTrigger id="targetGroup" className="w-full mt-1 h-11">
                     <SelectValue placeholder="Selecciona el grupo destino..." />
                   </SelectTrigger>
                   <SelectContent>
@@ -177,58 +186,48 @@ export function GroupStatusChangeDialog({ open, onClose, group, branchId, onStat
               </div>
 
               <div>
-                <Label>Estudiantes a Transferir</Label>
-                <div className="border border-neutral-4 rounded-lg p-3 mt-1 max-h-60 overflow-y-auto space-y-2">
+                <Label className="text-xs">Estudiantes a Transferir</Label>
+                <div className="border border-neutral-4 rounded-lg p-2 md:p-3 mt-1 max-h-48 md:max-h-60 overflow-y-auto space-y-1">
                   {enrolledStudents.length === 0 ? (
-                    <div className="text-sm text-neutral-10">No hay estudiantes inscritos</div>
+                    <div className="text-sm text-neutral-10 py-4 text-center">No hay estudiantes inscritos</div>
                   ) : (
                     enrolledStudents.map((student) => (
                       <label
                         key={student.id}
-                        className="flex items-center gap-2 cursor-pointer hover:bg-neutral-2 p-2 rounded"
+                        className="flex items-center gap-2 cursor-pointer hover:bg-neutral-2 p-2 rounded min-h-[44px]"
                       >
                         <input
                           type="checkbox"
                           checked={selectedStudents.includes(student.studentId)}
                           onChange={() => toggleStudent(student.studentId)}
-                          className="w-4 h-4"
+                          className="w-5 h-5"
                         />
                         <span className="text-sm">
-                          {student.firstName} {student.paternalLastName} {student.maternalLastName || ''} - DNI: {student.dni}
+                          {student.firstName} {student.paternalLastName} - {student.dni}
                         </span>
                       </label>
                     ))
                   )}
                 </div>
                 <p className="text-xs text-neutral-10 mt-1">
-                  Los estudiantes no seleccionados quedarán libres para inscribirse en otros grupos
+                  Los no seleccionados quedarán libres para otros grupos
                 </p>
               </div>
             </>
           )}
 
           <div>
-            <Label htmlFor="observation">Observación (mínimo 5 caracteres)</Label>
+            <Label htmlFor="observation" className="text-xs">Observación (mínimo 5 caracteres)</Label>
             <Textarea
               id="observation"
               value={observation}
               onChange={(e) => setObservation(e.target.value)}
-              placeholder="Motivo del cambio de estado... (mínimo 5 caracteres)"
-              rows={3}
+              placeholder="Motivo del cambio de estado..."
+              rows={2}
               className="mt-1"
             />
           </div>
         </div>
-
-        <div className="flex justify-end gap-2 pt-4 border-t border-neutral-4">
-          <Button variant="secondary" onClick={onClose} disabled={loading}>
-            Cancelar
-          </Button>
-          <Button onClick={handleSubmit} disabled={loading}>
-            {loading ? 'Guardando...' : 'Cambiar Estado'}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+    </ResponsiveDialog>
   );
 }

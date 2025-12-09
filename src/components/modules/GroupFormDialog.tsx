@@ -472,29 +472,43 @@ export function GroupFormDialog({ open, onClose, branchId, group, onSaved }: Pro
       <div className="space-y-6">
           {/* STEP 1: Información básica */}
           {step === 1 && (
-            <div className="space-y-6 max-w-2xl mx-auto">
-              <div>
-                <Label>Nombre del Grupo *</Label>
+            <div className="space-y-5 max-w-2xl mx-auto">
+              {/* Sección 1: Nombre */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-full bg-accent-9 text-white text-xs flex items-center justify-center">1</span>
+                  Nombre del Grupo
+                </h3>
                 <Input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Ej: Grupo A - Matemáticas Avanzadas"
                   autoFocus
+                  className="h-11"
                 />
               </div>
-              <div>
-                <Label>Descripción</Label>
+              
+              {/* Sección 2: Descripción */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-full bg-accent-9 text-white text-xs flex items-center justify-center">2</span>
+                  Descripción (Opcional)
+                </h3>
                 <Textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Descripción opcional del grupo..."
-                  rows={3}
+                  rows={2}
+                  className="resize-none"
                 />
               </div>
               
-              {/* Horarios */}
-              <div className="pt-4 border-t">
-                <Label className="text-base font-medium mb-3 block">Horario de Clases *</Label>
+              {/* Sección 3: Horarios */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-full bg-accent-9 text-white text-xs flex items-center justify-center">3</span>
+                  Horario de Clases *
+                </h3>
                 <TimeRangePicker
                   startTime={startTime}
                   endTime={endTime}
@@ -502,12 +516,16 @@ export function GroupFormDialog({ open, onClose, branchId, group, onSaved }: Pro
                   onEndTimeChange={setEndTime}
                 />
                 {(!startTime || !endTime) && (
-                  <p className="text-sm text-amber-600 mt-2">⚠️ El horario de inicio y fin es obligatorio</p>
+                  <p className="text-sm text-amber-600">⚠️ El horario de inicio y fin es obligatorio</p>
                 )}
               </div>
 
-              {/* Asistentes */}
-              <div className="pt-4 border-t">
+              {/* Sección 4: Asistentes */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-full bg-accent-9 text-white text-xs flex items-center justify-center">4</span>
+                  Asistentes (Opcional)
+                </h3>
                 <AssistantForm
                   assistants={assistants}
                   onChange={setAssistants}

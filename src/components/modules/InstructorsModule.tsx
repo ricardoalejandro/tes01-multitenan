@@ -50,7 +50,8 @@ export default function InstructorsModule({ branchId }: { branchId: string }) {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [viewMode, setViewMode] = useState<ViewMode>('cards'); // Default to cards for mobile
+  const [isMobile, setIsMobile] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingInstructor, setEditingInstructor] = useState<Instructor | null>(null);
   const [formData, setFormData] = useState({
@@ -68,6 +69,21 @@ export default function InstructorsModule({ branchId }: { branchId: string }) {
     specialties: ['']
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  // Detect mobile screen
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      // Force cards view on mobile
+      if (mobile && viewMode === 'list') {
+        setViewMode('cards');
+      }
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, [viewMode]);
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
@@ -282,7 +298,29 @@ export default function InstructorsModule({ branchId }: { branchId: string }) {
             )}
           </div>
 
-          {/* VIEW MODE SELECTOR - Hidden on mobile */}
+          {/* VIEW MODE SELECTOR - Mobile version (only Cards and Compact) */}
+          <div className="flex md:hidden border border-gray-200 rounded-lg overflow-hidden bg-white">
+            <button
+              onClick={() => setViewMode('cards')}
+              className={`px-3 py-2 text-sm font-medium transition-colors ${viewMode === 'cards'
+                ? 'bg-accent-9 text-white'
+                : 'bg-white text-gray-600 hover:bg-gray-50'
+                }`}
+            >
+              Tarjetas
+            </button>
+            <button
+              onClick={() => setViewMode('compact')}
+              className={`px-3 py-2 text-sm font-medium transition-colors border-l border-gray-200 ${viewMode === 'compact'
+                ? 'bg-accent-9 text-white'
+                : 'bg-white text-gray-600 hover:bg-gray-50'
+                }`}
+            >
+              Compacta
+            </button>
+          </div>
+
+          {/* VIEW MODE SELECTOR - Desktop version (all 3 views) */}
           <div className="hidden md:flex border border-gray-200 rounded-lg overflow-hidden bg-white">
             <button
               onClick={() => setViewMode('cards')}
@@ -371,94 +409,148 @@ export default function InstructorsModule({ branchId }: { branchId: string }) {
         onOpenChange={setIsDialogOpen}
         title={`${editingInstructor ? 'Editar' : 'Nuevo'} Instructor`}
       >
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Tipo de Documento *</Label>
-              <Select
-                value={formData.documentType}
-                onValueChange={(value) => setFormData({ ...formData, documentType: value })}
-                required
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="DNI">DNI</SelectItem>
-                  <SelectItem value="CNE">CNE</SelectItem>
-                  <SelectItem value="Pasaporte">Pasaporte</SelectItem>
-                </SelectContent>
-              </Select>
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {/* SECCIÓN 1: Identificación */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-accent-9 text-white text-xs flex items-center justify-center">1</span>
+              Identificación
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <Label className="text-xs">Tipo de Documento *</Label>
+                <Select
+                  value={formData.documentType}
+                  onValueChange={(value) => setFormData({ ...formData, documentType: value })}
+                  required
+                >
+                  <SelectTrigger className="h-11">
+                    <SelectValue placeholder="Seleccionar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="DNI">DNI</SelectItem>
+                    <SelectItem value="CNE">CNE</SelectItem>
+                    <SelectItem value="Pasaporte">Pasaporte</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Número de Documento *</Label>
+                <Input
+                  value={formData.dni}
+                  onChange={(e) => setFormData({ ...formData, dni: e.target.value })}
+                  required
+                  className={`h-11 ${formErrors.dni ? 'border-red-500' : ''}`}
+                  placeholder="Ej: 12345678"
+                />
+                {formErrors.dni && <p className="text-xs text-red-500 mt-1">{formErrors.dni}</p>}
+              </div>
+              <div>
+                <Label className="text-xs">Género *</Label>
+                <Select
+                  value={formData.gender}
+                  onValueChange={(value) => {
+                    setFormData({ ...formData, gender: value });
+                    if (formErrors.gender) setFormErrors({ ...formErrors, gender: '' });
+                  }}
+                  required
+                >
+                  <SelectTrigger className={`h-11 ${formErrors.gender ? 'border-red-500' : ''}`}>
+                    <SelectValue placeholder="Seleccionar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Masculino">Masculino</SelectItem>
+                    <SelectItem value="Femenino">Femenino</SelectItem>
+                    <SelectItem value="Otro">Otro</SelectItem>
+                  </SelectContent>
+                </Select>
+                {formErrors.gender && <p className="text-xs text-red-500 mt-1">{formErrors.gender}</p>}
+              </div>
             </div>
-            <div>
-              <Label>Número de Documento *</Label>
-              <Input
-                value={formData.dni}
-                onChange={(e) => setFormData({ ...formData, dni: e.target.value })}
-                required
-                className={formErrors.dni ? 'border-red-500' : ''}
-              />
-              {formErrors.dni && <p className="text-xs text-red-500 mt-1">{formErrors.dni}</p>}
+          </div>
+
+          {/* SECCIÓN 2: Datos Personales */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-accent-9 text-white text-xs flex items-center justify-center">2</span>
+              Datos Personales
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <Label className="text-xs">Nombres *</Label>
+                <Input
+                  value={formData.firstName}
+                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                  required
+                  className={`h-11 ${formErrors.firstName ? 'border-red-500' : ''}`}
+                  placeholder="Nombres completos"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Apellido Paterno *</Label>
+                <Input
+                  value={formData.paternalLastName}
+                  onChange={(e) => setFormData({ ...formData, paternalLastName: e.target.value })}
+                  required
+                  className={`h-11 ${formErrors.paternalLastName ? 'border-red-500' : ''}`}
+                  placeholder="Apellido paterno"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Apellido Materno</Label>
+                <Input 
+                  value={formData.maternalLastName} 
+                  onChange={(e) => setFormData({ ...formData, maternalLastName: e.target.value })} 
+                  className="h-11"
+                  placeholder="Apellido materno"
+                />
+              </div>
             </div>
-            <div>
-              <Label>Género *</Label>
-              <Select
-                value={formData.gender}
-                onValueChange={(value) => {
-                  setFormData({ ...formData, gender: value });
-                  if (formErrors.gender) setFormErrors({ ...formErrors, gender: '' });
-                }}
-                required
-              >
-                <SelectTrigger className={formErrors.gender ? 'border-red-500' : ''}>
-                  <SelectValue placeholder="Seleccionar género" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Masculino">Masculino</SelectItem>
-                  <SelectItem value="Femenino">Femenino</SelectItem>
-                  <SelectItem value="Otro">Otro</SelectItem>
-                </SelectContent>
-              </Select>
-              {formErrors.gender && <p className="text-xs text-red-500 mt-1">{formErrors.gender}</p>}
+          </div>
+
+          {/* SECCIÓN 3: Contacto */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-accent-9 text-white text-xs flex items-center justify-center">3</span>
+              Contacto
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Email</Label>
+                <Input 
+                  type="email" 
+                  value={formData.email} 
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })} 
+                  className="h-11"
+                  placeholder="correo@ejemplo.com"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Teléfono</Label>
+                <Input 
+                  value={formData.phone} 
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })} 
+                  className="h-11"
+                  placeholder="999 999 999"
+                />
+              </div>
             </div>
+          </div>
+
+          {/* SECCIÓN 4: Estado y Capacitaciones */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-accent-9 text-white text-xs flex items-center justify-center">4</span>
+              Estado y Capacitaciones
+            </h3>
             <div>
-              <Label>Nombres *</Label>
-              <Input
-                value={formData.firstName}
-                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                required
-                className={formErrors.firstName ? 'border-red-500' : ''}
-              />
-            </div>
-            <div>
-              <Label>Apellido Paterno *</Label>
-              <Input
-                value={formData.paternalLastName}
-                onChange={(e) => setFormData({ ...formData, paternalLastName: e.target.value })}
-                required
-                className={formErrors.paternalLastName ? 'border-red-500' : ''}
-              />
-            </div>
-            <div>
-              <Label>Apellido Materno</Label>
-              <Input value={formData.maternalLastName} onChange={(e) => setFormData({ ...formData, maternalLastName: e.target.value })} required />
-            </div>
-            <div>
-              <Label>Email</Label>
-              <Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
-            </div>
-            <div>
-              <Label>Teléfono</Label>
-              <Input value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
-            </div>
-            <div>
-              <Label>Estado</Label>
+              <Label className="text-xs">Estado</Label>
               <Select
                 value={formData.status}
                 onValueChange={(value) => setFormData({ ...formData, status: value })}
                 required
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-11">
                   <SelectValue placeholder="Seleccionar estado" />
                 </SelectTrigger>
                 <SelectContent>
@@ -468,23 +560,24 @@ export default function InstructorsModule({ branchId }: { branchId: string }) {
                 </SelectContent>
               </Select>
             </div>
-            <div className="col-span-2">
+            <div>
               <div className="flex items-center justify-between mb-2">
-                <Label>Capacitado en</Label>
-                <Button type="button" size="sm" variant="secondary" onClick={addSpecialty}>
+                <Label className="text-xs">Capacitado en</Label>
+                <Button type="button" size="sm" variant="secondary" onClick={addSpecialty} className="h-8">
                   <Plus className="h-4 w-4 mr-1" /> Agregar
                 </Button>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 max-h-32 overflow-y-auto">
                 {formData.specialties.map((specialty, index) => (
                   <div key={index} className="flex gap-2">
                     <Input
                       value={specialty}
                       onChange={(e) => updateSpecialty(index, e.target.value)}
                       placeholder={`Capacitación ${index + 1}`}
+                      className="h-10"
                     />
                     {formData.specialties.length > 1 && (
-                      <Button type="button" variant="ghost" size="sm" onClick={() => removeSpecialty(index)}>
+                      <Button type="button" variant="ghost" size="icon" onClick={() => removeSpecialty(index)} className="h-10 w-10 shrink-0">
                         <X className="h-4 w-4" />
                       </Button>
                     )}
@@ -493,10 +586,19 @@ export default function InstructorsModule({ branchId }: { branchId: string }) {
               </div>
             </div>
           </div>
-          <div className="flex justify-end gap-3 pt-4">
-            <Button type="button" variant="secondary" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
-            <Button type="submit" className="bg-accent-9 hover:bg-accent-10 text-white">
-              {editingInstructor ? 'Actualizar' : 'Crear'}
+
+          {/* Botones de acción - Sticky en móvil */}
+          <div className="flex gap-3 pt-4 border-t sticky bottom-0 bg-white py-4 -mx-4 px-4 md:relative md:mx-0 md:px-0 md:py-0 md:border-t-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsDialogOpen(false)}
+              className="flex-1 h-11"
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" className="flex-1 h-11 bg-accent-9 hover:bg-accent-10 text-white">
+              {editingInstructor ? 'Actualizar' : 'Crear'} Instructor
             </Button>
           </div>
         </form>

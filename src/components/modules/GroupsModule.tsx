@@ -51,6 +51,7 @@ export default function GroupsModule({ branchId }: { branchId: string }) {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('cards');
+  const [isMobile, setIsMobile] = useState(false);
 
   // Diálogos
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -60,6 +61,21 @@ export default function GroupsModule({ branchId }: { branchId: string }) {
   const [isTransactionsOpen, setIsTransactionsOpen] = useState(false);
 
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
+
+  // Detect mobile screen
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      // Force cards view on mobile
+      if (mobile && viewMode === 'list') {
+        setViewMode('cards');
+      }
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, [viewMode]);
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
@@ -195,7 +211,29 @@ export default function GroupsModule({ branchId }: { branchId: string }) {
             )}
           </div>
 
-          {/* VIEW MODE SELECTOR - Hidden on mobile */}
+          {/* VIEW MODE SELECTOR - Mobile version (only Cards and Compact) */}
+          <div className="flex md:hidden border border-gray-200 rounded-lg overflow-hidden bg-white">
+            <button
+              onClick={() => setViewMode('cards')}
+              className={`px-3 py-2 text-sm font-medium transition-colors ${viewMode === 'cards'
+                ? 'bg-accent-9 text-white'
+                : 'bg-white text-gray-600 hover:bg-gray-50'
+                }`}
+            >
+              Tarjetas
+            </button>
+            <button
+              onClick={() => setViewMode('compact')}
+              className={`px-3 py-2 text-sm font-medium transition-colors border-l border-gray-200 ${viewMode === 'compact'
+                ? 'bg-accent-9 text-white'
+                : 'bg-white text-gray-600 hover:bg-gray-50'
+                }`}
+            >
+              Compacta
+            </button>
+          </div>
+
+          {/* VIEW MODE SELECTOR - Desktop version (all 3 views) */}
           <div className="hidden md:flex border border-gray-200 rounded-lg overflow-hidden bg-white">
             <button
               onClick={() => setViewMode('cards')}
