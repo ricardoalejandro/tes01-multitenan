@@ -25,12 +25,17 @@ export function checkPermission(module: SystemModule, action: PermissionAction) 
     try {
       const user = (request.user as any);
       
+      // Debug log
+      console.log('🔐 [checkPermission] User:', JSON.stringify(user));
+      console.log('🔐 [checkPermission] Module:', module, 'Action:', action);
+      
       if (!user || !user.userId) {
         return reply.code(401).send({ error: 'No autenticado' });
       }
 
       // Los administradores tienen acceso total
       if (user.userType === 'admin') {
+        console.log('✅ [checkPermission] Admin user - access granted');
         return; // Continuar con la ejecución
       }
 

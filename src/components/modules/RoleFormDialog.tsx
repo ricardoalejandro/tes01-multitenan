@@ -19,7 +19,9 @@ const MODULES = [
 
 const PERMISSIONS = [
   { key: 'canView', label: 'Ver' },
+  { key: 'canCreate', label: 'Crear' },
   { key: 'canEdit', label: 'Editar' },
+  { key: 'canDelete', label: 'Eliminar' },
 ];
 
 interface RoleFormDialogProps {
@@ -78,7 +80,9 @@ export function RoleFormDialog({ open, onOpenChange, role, onSave }: RoleFormDia
         if (permsObj[perm.module]) {
           permsObj[perm.module] = {
             canView: perm.canView || false,
+            canCreate: perm.canCreate || false,
             canEdit: perm.canEdit || false,
+            canDelete: perm.canDelete || false,
           };
         }
       });
@@ -132,9 +136,9 @@ export function RoleFormDialog({ open, onOpenChange, role, onSave }: RoleFormDia
     const permissionsArray = Object.entries(permissions).map(([module, perms]: any) => ({
       module,
       canView: perms.canView || false,
-      canCreate: false, // No se usa
+      canCreate: perms.canCreate || false,
       canEdit: perms.canEdit || false,
-      canDelete: false, // No se usa
+      canDelete: perms.canDelete || false,
     }));
     onSave({ name, description, canManageTransfers, permissions: permissionsArray });
   };
