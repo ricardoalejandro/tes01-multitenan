@@ -34,6 +34,28 @@ const completeSessionSchema = z.object({
   executedBy: z.string().uuid().optional(),
 });
 
+// Helper: Obtener branchId de una sesión
+async function getBranchIdFromSession(sessionId: string): Promise<string | null> {
+  const [result] = await db
+    .select({ branchId: classGroups.branchId })
+    .from(groupSessions)
+    .innerJoin(classGroups, eq(groupSessions.groupId, classGroups.id))
+    .where(eq(groupSessions.id, sessionId))
+    .limit(1);
+  return result?.branchId || null;
+}
+
+// Helper: Obtener branchId de un attendanceId
+async function getBranchIdFromAttendance(attendanceId: string): Promise<string | null> {
+  const [attendance] = await db
+    .select({ sessionId: sessionAttendance.sessionId })
+    .from(sessionAttendance)
+    .where(eq(sessionAttendance.id, attendanceId))
+    .limit(1);
+  if (!attendance) return null;
+  return getBranchIdFromSession(attendance.sessionId);
+}
+
 export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
 
   // ============================================
@@ -427,9 +449,24 @@ export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
   // - courseId: UUID para un curso específico, '_all_' para todos los cursos
   // - courseIds: Array de UUIDs cuando se aplica a múltiples cursos
   fastify.put('/sessions/:sessionId/students/:studentId', {
-    preHandler: [fastify.authenticate, checkPermission('attendance', 'edit')]
+    preHandler: [fastify.authenticate]
   }, async (request, reply) => {
     const { sessionId, studentId } = request.params as { sessionId: string; studentId: string };
+
+    // Obtener branchId de la sesión para verificar permisos
+    const branchId = await getBranchIdFromSession(sessionId);
+    if (!branchId) {
+      return reply.status(404).send({ error: 'Sesión no encontrada' });
+    }
+
+    // Verificar permisos manualmente
+    const user = (request.user as any);
+    if (user.userType !== 'admin') {
+      (request.query as any).branchId = branchId;
+      const permissionCheck = checkPermission('attendance', 'edit');
+      const result = await permissionCheck(request, reply);
+      if (result) return result;
+    }
 
     try {
       const validatedData = updateAttendanceSchema.parse(request.body);
@@ -517,9 +554,24 @@ export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
 
   // PUT /api/attendance/students/:attendanceId - Actualizar estado de asistencia
   fastify.put('/students/:attendanceId', {
-    preHandler: [fastify.authenticate, checkPermission('attendance', 'edit')]
+    preHandler: [fastify.authenticate]
   }, async (request, reply) => {
     const { attendanceId } = request.params as { attendanceId: string };
+
+    // Obtener branchId del attendance para verificar permisos
+    const branchId = await getBranchIdFromAttendance(attendanceId);
+    if (!branchId) {
+      return reply.status(404).send({ error: 'Registro de asistencia no encontrado' });
+    }
+
+    // Verificar permisos manualmente
+    const user = (request.user as any);
+    if (user.userType !== 'admin') {
+      (request.query as any).branchId = branchId;
+      const permissionCheck = checkPermission('attendance', 'edit');
+      const result = await permissionCheck(request, reply);
+      if (result) return result;
+    }
 
     try {
       const validatedData = updateAttendanceSchema.parse(request.body);
@@ -569,9 +621,24 @@ export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
 
   // POST /api/attendance/students/:attendanceId/observations - Agregar observación
   fastify.post('/students/:attendanceId/observations', {
-    preHandler: [fastify.authenticate, checkPermission('attendance', 'edit')]
+    preHandler: [fastify.authenticate]
   }, async (request, reply) => {
     const { attendanceId } = request.params as { attendanceId: string };
+
+    // Obtener branchId del attendance para verificar permisos
+    const branchId = await getBranchIdFromAttendance(attendanceId);
+    if (!branchId) {
+      return reply.status(404).send({ error: 'Registro de asistencia no encontrado' });
+    }
+
+    // Verificar permisos manualmente
+    const user = (request.user as any);
+    if (user.userType !== 'admin') {
+      (request.query as any).branchId = branchId;
+      const permissionCheck = checkPermission('attendance', 'edit');
+      const result = await permissionCheck(request, reply);
+      if (result) return result;
+    }
 
     try {
       const validatedData = addObservationSchema.parse(request.body);
@@ -648,9 +715,24 @@ export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
 
   // PUT /api/attendance/sessions/:sessionId/execution - Actualizar ejecución real
   fastify.put('/sessions/:sessionId/execution', {
-    preHandler: [fastify.authenticate, checkPermission('attendance', 'edit')]
+    preHandler: [fastify.authenticate]
   }, async (request, reply) => {
     const { sessionId } = request.params as { sessionId: string };
+
+    // Obtener branchId de la sesión para verificar permisos
+    const branchId = await getBranchIdFromSession(sessionId);
+    if (!branchId) {
+      return reply.status(404).send({ error: 'Sesión no encontrada' });
+    }
+
+    // Verificar permisos manualmente
+    const user = (request.user as any);
+    if (user.userType !== 'admin') {
+      (request.query as any).branchId = branchId;
+      const permissionCheck = checkPermission('attendance', 'edit');
+      const result = await permissionCheck(request, reply);
+      if (result) return result;
+    }
 
     try {
       const validatedData = updateExecutionSchema.parse(request.body);
@@ -722,9 +804,24 @@ export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
 
   // PUT /api/attendance/sessions/:sessionId/complete - Marcar sesión como dictada
   fastify.put('/sessions/:sessionId/complete', {
-    preHandler: [fastify.authenticate, checkPermission('attendance', 'edit')]
+    preHandler: [fastify.authenticate]
   }, async (request, reply) => {
     const { sessionId } = request.params as { sessionId: string };
+
+    // Obtener branchId de la sesión para verificar permisos
+    const branchId = await getBranchIdFromSession(sessionId);
+    if (!branchId) {
+      return reply.status(404).send({ error: 'Sesión no encontrada' });
+    }
+
+    // Verificar permisos manualmente
+    const user = (request.user as any);
+    if (user.userType !== 'admin') {
+      (request.query as any).branchId = branchId;
+      const permissionCheck = checkPermission('attendance', 'edit');
+      const result = await permissionCheck(request, reply);
+      if (result) return result;
+    }
 
     try {
       const validatedData = completeSessionSchema.parse(request.body);
@@ -789,9 +886,24 @@ export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
 
   // PUT /api/attendance/sessions/:sessionId/reopen - Reabrir sesión (cambiar de dictada a pendiente)
   fastify.put('/sessions/:sessionId/reopen', {
-    preHandler: [fastify.authenticate, checkPermission('attendance', 'edit')]
+    preHandler: [fastify.authenticate]
   }, async (request, reply) => {
     const { sessionId } = request.params as { sessionId: string };
+
+    // Obtener branchId de la sesión para verificar permisos
+    const branchId = await getBranchIdFromSession(sessionId);
+    if (!branchId) {
+      return reply.status(404).send({ error: 'Sesión no encontrada' });
+    }
+
+    // Verificar permisos manualmente
+    const user = (request.user as any);
+    if (user.userType !== 'admin') {
+      (request.query as any).branchId = branchId;
+      const permissionCheck = checkPermission('attendance', 'edit');
+      const result = await permissionCheck(request, reply);
+      if (result) return result;
+    }
 
     try {
       // Verificar que la sesión exista y esté dictada
