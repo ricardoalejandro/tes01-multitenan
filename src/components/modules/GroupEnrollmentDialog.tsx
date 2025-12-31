@@ -112,7 +112,7 @@ export function GroupEnrollmentDialog({ open, onClose, groupId, branchId, onEnro
       defaultMaximized={false}
       footer={
         <>
-          <Button variant="outline" onClick={onClose} disabled={loading}>
+          <Button variant="secondary" onClick={onClose} disabled={loading}>
             Cancelar
           </Button>
           <Button
@@ -125,14 +125,14 @@ export function GroupEnrollmentDialog({ open, onClose, groupId, branchId, onEnro
       }
     >
 
-        <div className="flex items-center justify-between gap-4 pt-4">
-          <div className="relative flex-1 max-w-md">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-4">
+          <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-10" />
             <Input
               placeholder="Buscar por nombre o DNI..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
+              className="pl-9 h-11"
             />
             {isSearching && (
               <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -141,7 +141,34 @@ export function GroupEnrollmentDialog({ open, onClose, groupId, branchId, onEnro
             )}
           </div>
 
-          <div className="flex border border-neutral-4 rounded-lg overflow-hidden">
+          {/* Mobile view selector */}
+          <div className="flex md:hidden border border-neutral-4 rounded-lg overflow-hidden shrink-0">
+            <button
+              type="button"
+              onClick={() => setViewMode('cards')}
+              className={`px-3 py-2 text-sm font-medium transition-colors ${
+                viewMode === 'cards'
+                  ? 'bg-accent-9 text-white'
+                  : 'bg-white text-neutral-11 hover:bg-neutral-2'
+              }`}
+            >
+              Tarjetas
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('compact')}
+              className={`px-3 py-2 text-sm font-medium transition-colors border-l border-neutral-4 ${
+                viewMode === 'compact'
+                  ? 'bg-accent-9 text-white'
+                  : 'bg-white text-neutral-11 hover:bg-neutral-2'
+              }`}
+            >
+              Compacta
+            </button>
+          </div>
+
+          {/* Desktop view selector */}
+          <div className="hidden md:flex border border-neutral-4 rounded-lg overflow-hidden shrink-0">
             <button
               type="button"
               onClick={() => setViewMode('cards')}
@@ -220,7 +247,7 @@ export function GroupEnrollmentDialog({ open, onClose, groupId, branchId, onEnro
             </div>
             <div className="flex gap-2">
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
@@ -233,7 +260,7 @@ export function GroupEnrollmentDialog({ open, onClose, groupId, branchId, onEnro
                 </span>
               </div>
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages}

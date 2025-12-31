@@ -1,10 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { ResponsiveDialog } from '@/components/ui/responsive-dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Select } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { api } from '@/lib/api';
 
@@ -87,13 +93,13 @@ export function GroupStatusChangeDialog({ open, onClose, group, branchId, onStat
 
   const handleSubmit = async () => {
     if (!group) return;
-    
+
     // Validar observación
     if (!observation.trim() || observation.trim().length < 5) {
       alert('La observación es requerida y debe tener al menos 5 caracteres');
       return;
     }
-    
+
     if (newStatus === 'merged' && (!targetGroupId || selectedStudents.length === 0)) {
       alert('Para fusionar debes seleccionar un grupo destino y al menos un estudiante');
       return;
@@ -122,102 +128,106 @@ export function GroupStatusChangeDialog({ open, onClose, group, branchId, onStat
   const isMerging = newStatus === 'merged';
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogTitle>Cambiar Estado del Grupo</DialogTitle>
-        <DialogDescription>
-          Grupo: <strong>{group.name}</strong> (Estado actual: {group.status})
-        </DialogDescription>
-
-        <div className="space-y-4 pt-4">
+    <ResponsiveDialog 
+      open={open} 
+      onOpenChange={onClose}
+      title="Cambiar Estado del Grupo"
+      description={`Grupo: ${group.name} (Estado actual: ${group.status})`}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={loading} className="h-11">
+            Cancelar
+          </Button>
+          <Button onClick={handleSubmit} disabled={loading} className="h-11">
+            {loading ? 'Guardando...' : 'Cambiar Estado'}
+          </Button>
+        </>
+      }
+    >
+        <div className="space-y-4">
           <div>
-            <Label htmlFor="newStatus">Nuevo Estado</Label>
-            <select
-              id="newStatus"
+            <Label htmlFor="newStatus" className="text-xs">Nuevo Estado</Label>
+            <Select
               value={newStatus}
-              onChange={(e) => setNewStatus(e.target.value)}
-              className="w-full mt-1 px-3 py-2 border border-neutral-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-9 focus:border-transparent"
+              onValueChange={(value) => setNewStatus(value)}
             >
-              <option value="active">Activo</option>
-              <option value="closed">Cerrado</option>
-              <option value="finished">Finalizado</option>
-              <option value="eliminado">Eliminado</option>
-              <option value="merged">Fusionado</option>
-            </select>
+              <SelectTrigger id="newStatus" className="w-full mt-1 h-11">
+                <SelectValue placeholder="Seleccionar estado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Activo</SelectItem>
+                <SelectItem value="closed">Cerrado</SelectItem>
+                <SelectItem value="finished">Finalizado</SelectItem>
+                <SelectItem value="eliminado">Eliminado</SelectItem>
+                <SelectItem value="merged">Fusionado</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {isMerging && (
             <>
               <div>
-                <Label htmlFor="targetGroup">Grupo Destino</Label>
-                <select
-                  id="targetGroup"
+                <Label htmlFor="targetGroup" className="text-xs">Grupo Destino</Label>
+                <Select
                   value={targetGroupId}
-                  onChange={(e) => setTargetGroupId(e.target.value)}
-                  className="w-full mt-1 px-3 py-2 border border-neutral-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-9 focus:border-transparent"
+                  onValueChange={(value) => setTargetGroupId(value)}
                 >
-                  <option value="">Selecciona el grupo destino...</option>
-                  {availableGroups.map((g) => (
-                    <option key={g.id} value={g.id}>
-                      {g.name} - {g.branch_name}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger id="targetGroup" className="w-full mt-1 h-11">
+                    <SelectValue placeholder="Selecciona el grupo destino..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableGroups.map((g) => (
+                      <SelectItem key={g.id} value={g.id}>
+                        {g.name} - {g.branch_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>
-                <Label>Estudiantes a Transferir</Label>
-                <div className="border border-neutral-4 rounded-lg p-3 mt-1 max-h-60 overflow-y-auto space-y-2">
+                <Label className="text-xs">Estudiantes a Transferir</Label>
+                <div className="border border-neutral-4 rounded-lg p-2 md:p-3 mt-1 max-h-48 md:max-h-60 overflow-y-auto space-y-1">
                   {enrolledStudents.length === 0 ? (
-                    <div className="text-sm text-neutral-10">No hay estudiantes inscritos</div>
+                    <div className="text-sm text-neutral-10 py-4 text-center">No hay estudiantes inscritos</div>
                   ) : (
                     enrolledStudents.map((student) => (
                       <label
                         key={student.id}
-                        className="flex items-center gap-2 cursor-pointer hover:bg-neutral-2 p-2 rounded"
+                        className="flex items-center gap-2 cursor-pointer hover:bg-neutral-2 p-2 rounded min-h-[44px]"
                       >
                         <input
                           type="checkbox"
                           checked={selectedStudents.includes(student.studentId)}
                           onChange={() => toggleStudent(student.studentId)}
-                          className="w-4 h-4"
+                          className="w-5 h-5"
                         />
                         <span className="text-sm">
-                          {student.firstName} {student.paternalLastName} {student.maternalLastName || ''} - DNI: {student.dni}
+                          {student.firstName} {student.paternalLastName} - {student.dni}
                         </span>
                       </label>
                     ))
                   )}
                 </div>
                 <p className="text-xs text-neutral-10 mt-1">
-                  Los estudiantes no seleccionados quedarán libres para inscribirse en otros grupos
+                  Los no seleccionados quedarán libres para otros grupos
                 </p>
               </div>
             </>
           )}
 
           <div>
-            <Label htmlFor="observation">Observación (mínimo 5 caracteres)</Label>
+            <Label htmlFor="observation" className="text-xs">Observación (mínimo 5 caracteres)</Label>
             <Textarea
               id="observation"
               value={observation}
               onChange={(e) => setObservation(e.target.value)}
-              placeholder="Motivo del cambio de estado... (mínimo 5 caracteres)"
-              rows={3}
+              placeholder="Motivo del cambio de estado..."
+              rows={2}
               className="mt-1"
             />
           </div>
         </div>
-
-        <div className="flex justify-end gap-2 pt-4 border-t border-neutral-4">
-          <Button variant="outline" onClick={onClose} disabled={loading}>
-            Cancelar
-          </Button>
-          <Button onClick={handleSubmit} disabled={loading}>
-            {loading ? 'Guardando...' : 'Cambiar Estado'}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+    </ResponsiveDialog>
   );
 }

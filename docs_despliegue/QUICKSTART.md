@@ -1,26 +1,25 @@
 # ⚡ Quick Start - Despliegue Rápido
 
-## 🎯 Tu Flujo de Trabajo Diario
+## 🎯 Despliegue en Un Solo Comando
 
 ```bash
-# 1. Conectarse al VPS
-ssh root@72.61.37.46
-
-# 2. Actualizar código y desplegar
-cd /root/proyectos/probacionismo && git pull origin develop && ./update.sh
+ssh root@72.61.37.46 'cd /root/proyectos/probacionismo && ./deploy.sh'
 ```
 
-¡Eso es todo! Tu aplicación se actualizará automáticamente.
+¡Eso es todo! El script automáticamente:
+- ✅ Actualiza el código desde git
+- ✅ Aplica configuración de producción
+- ✅ Reconstruye contenedores
+- ✅ Preserva datos de base de datos
+- ✅ Verifica que todo funcione
 
 ---
 
 ## 📋 Comandos Esenciales
 
-### Desplegar cambios
+### Desplegar cambios (recomendado)
 ```bash
-cd /root/proyectos/probacionismo
-git pull origin develop
-./update.sh
+./deploy.sh
 ```
 
 ### Ver estado
@@ -30,11 +29,15 @@ docker compose ps
 
 ### Ver logs
 ```bash
-docker compose logs -f frontend
-docker compose logs -f backend
+docker compose logs -f
 ```
 
-### Reiniciar (sin rebuild)
+### Hacer backup manual
+```bash
+./backup.sh
+```
+
+### Reiniciar servicios (sin rebuild)
 ```bash
 docker compose restart
 ```
@@ -43,35 +46,44 @@ docker compose restart
 
 ## 🌐 URLs
 
-- **Aplicación:** http://72.61.37.46/
-- **Login:** http://72.61.37.46/login
-- **Dashboard:** http://72.61.37.46/dashboard
-- **API:** http://72.61.37.46/api/
+- **Aplicación:** https://naperu.cloud
+- **Login:** https://naperu.cloud/login
+- **Dashboard:** https://naperu.cloud/dashboard
+- **API:** https://naperu.cloud/api/
+
+**Credenciales por defecto:**
+- Usuario: `admin`
+- Contraseña: `escolastica123`
 
 ---
 
 ## 🐛 Si algo falla
 
-1. **Ver logs:**
-   ```bash
-   docker compose logs --tail=50
-   ```
+### 1. Ver logs completos
+```bash
+docker compose logs --tail=100
+```
 
-2. **Reiniciar:**
-   ```bash
-   docker compose restart
-   ```
+### 2. Ver logs específicos
+```bash
+docker compose logs -f backend
+docker compose logs -f frontend
+```
 
-3. **Rebuild completo:**
-   ```bash
-   docker compose down
-   docker compose build --no-cache
-   docker compose up -d
-   ```
+### 3. Verificar configuración
+```bash
+cat .env.production
+sudo nginx -t
+```
 
-4. **Limpiar caché del navegador:**
-   - Windows/Linux: `Ctrl + Shift + R`
-   - Mac: `Cmd + Shift + R`
+### 4. Reiniciar Nginx
+```bash
+sudo systemctl restart nginx
+```
+
+### 5. Limpiar caché del navegador
+- Windows/Linux: `Ctrl + Shift + R`
+- Mac: `Cmd + Shift + R`
 
 ---
 
@@ -79,6 +91,7 @@ docker compose restart
 
 - **Guía completa:** `DEPLOYMENT_GUIDE.md`
 - **Solución de problemas:** `TROUBLESHOOTING.md`
+- **Protección de datos:** `DATA_PROTECTION.md`
 
 ---
 

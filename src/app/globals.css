@@ -85,6 +85,59 @@
   body {
     @apply bg-bg text-fg;
   }
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --radius: 0.5rem;
+  }
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+  }
 }
 
 @layer utilities {
@@ -93,29 +146,127 @@
   }
 }
 
-/* Custom animations */
+/* ============================================
+   CUSTOM ANIMATIONS & MICROINTERACTIONS
+   ============================================ */
+
+/* Base animations */
 @keyframes fade-in {
-  from {
-    opacity: 0;
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fade-in-up {
+  from { 
+    opacity: 0; 
+    transform: translateY(10px); 
   }
-  to {
-    opacity: 1;
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+@keyframes fade-in-down {
+  from { 
+    opacity: 0; 
+    transform: translateY(-10px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
   }
 }
 
 @keyframes zoom-in {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
+  from { 
+    opacity: 0; 
+    transform: scale(0.95); 
   }
-  to {
-    opacity: 1;
-    transform: scale(1);
+  to { 
+    opacity: 1; 
+    transform: scale(1); 
   }
 }
 
+@keyframes slide-in-right {
+  from { 
+    opacity: 0; 
+    transform: translateX(20px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateX(0); 
+  }
+}
+
+@keyframes slide-in-left {
+  from { 
+    opacity: 0; 
+    transform: translateX(-20px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateX(0); 
+  }
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Animation classes */
 .animate-in {
   animation: fade-in 0.2s ease-out;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out forwards;
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.4s ease-out forwards;
+}
+
+.animate-fade-in-down {
+  animation: fade-in-down 0.4s ease-out forwards;
+}
+
+.animate-zoom-in {
+  animation: zoom-in 0.2s ease-out forwards;
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.3s ease-out forwards;
+}
+
+.animate-slide-in-left {
+  animation: slide-in-left 0.3s ease-out forwards;
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 2s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, var(--color-neutral-3) 25%, var(--color-neutral-2) 50%, var(--color-neutral-3) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.animate-spin-slow {
+  animation: spin-slow 1s linear infinite;
 }
 
 .fade-in-0 {
@@ -128,4 +279,376 @@
 
 .duration-200 {
   animation-duration: 0.2s;
+}
+
+/* Staggered animations for lists */
+.stagger-1 { animation-delay: 0.05s; }
+.stagger-2 { animation-delay: 0.1s; }
+.stagger-3 { animation-delay: 0.15s; }
+.stagger-4 { animation-delay: 0.2s; }
+.stagger-5 { animation-delay: 0.25s; }
+.stagger-6 { animation-delay: 0.3s; }
+
+/* ============================================
+   SKELETON LOADING STATES
+   ============================================ */
+
+.skeleton {
+  @apply bg-neutral-3 rounded animate-pulse;
+}
+
+.skeleton-text {
+  @apply h-4 bg-neutral-3 rounded animate-pulse;
+}
+
+.skeleton-title {
+  @apply h-6 bg-neutral-3 rounded animate-pulse w-3/4;
+}
+
+.skeleton-avatar {
+  @apply h-10 w-10 bg-neutral-3 rounded-full animate-pulse;
+}
+
+.skeleton-button {
+  @apply h-10 bg-neutral-3 rounded-lg animate-pulse;
+}
+
+.skeleton-card {
+  @apply bg-neutral-2 rounded-xl p-4 border border-neutral-3;
+}
+
+/* ============================================
+   ENHANCED TRANSITIONS (Global)
+   ============================================ */
+
+/* Smooth transitions for all interactive elements */
+button, a, input, select, textarea, [role="button"] {
+  @apply transition-all duration-200 ease-out;
+}
+
+/* Card hover effects */
+.card-hover {
+  @apply transition-all duration-300 ease-out;
+}
+
+.card-hover:hover {
+  @apply shadow-lg -translate-y-1;
+  border-color: var(--color-accent-5);
+}
+
+/* Interactive card with subtle animation */
+.card-interactive {
+  @apply transition-all duration-200 ease-out cursor-pointer;
+}
+
+.card-interactive:hover {
+  @apply shadow-md bg-neutral-1;
+  transform: translateY(-2px);
+}
+
+.card-interactive:active {
+  transform: translateY(0) scale(0.99);
+}
+
+/* ============================================
+   BUTTON ENHANCEMENTS
+   ============================================ */
+
+/* Button press effect */
+button:active:not(:disabled),
+[role="button"]:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* Button with icon animation */
+.btn-icon-animate svg {
+  @apply transition-transform duration-200;
+}
+
+.btn-icon-animate:hover svg {
+  transform: scale(1.1);
+}
+
+/* Loading button state */
+.btn-loading {
+  @apply relative pointer-events-none;
+}
+
+.btn-loading::after {
+  content: '';
+  @apply absolute inset-0 bg-white/20 rounded-lg;
+}
+
+/* ============================================
+   INPUT ENHANCEMENTS
+   ============================================ */
+
+/* Input focus animation */
+input:focus, select:focus, textarea:focus {
+  @apply ring-2 border-accent-9;
+  --tw-ring-color: hsl(var(--accent-9) / 0.2);
+  box-shadow: 0 0 0 3px rgba(71, 85, 105, 0.1);
+}
+
+/* Input with floating label effect container */
+.input-group {
+  @apply relative;
+}
+
+.input-group label {
+  @apply transition-all duration-200;
+}
+
+/* Error state */
+.input-error {
+  @apply border-red-500;
+  --tw-ring-color: rgba(239, 68, 68, 0.2);
+}
+
+.input-error:focus {
+  @apply border-red-500 ring-2;
+  --tw-ring-color: rgba(239, 68, 68, 0.2);
+}
+
+/* Success state */
+.input-success {
+  @apply border-green-500;
+}
+
+.input-success:focus {
+  @apply border-green-500 ring-2;
+  --tw-ring-color: rgba(34, 197, 94, 0.2);
+}
+
+/* ============================================
+   SIDEBAR ENHANCEMENTS
+   ============================================ */
+
+/* Sidebar item hover */
+.sidebar-item {
+  @apply transition-all duration-200 ease-out rounded-lg;
+}
+
+.sidebar-item:hover {
+  @apply bg-accent-2;
+}
+
+.sidebar-item.active {
+  @apply bg-accent-3 text-accent-11 font-medium;
+  box-shadow: inset 3px 0 0 var(--color-accent-9);
+}
+
+/* Sidebar collapse animation */
+.sidebar-transition {
+  @apply transition-all duration-300 ease-in-out;
+}
+
+/* ============================================
+   TABLE ENHANCEMENTS
+   ============================================ */
+
+/* Table row hover */
+.table-row-hover {
+  @apply transition-colors duration-150;
+}
+
+.table-row-hover:hover {
+  @apply bg-neutral-2;
+}
+
+/* Sortable column header */
+.table-header-sortable {
+  @apply cursor-pointer select-none transition-colors duration-150;
+}
+
+.table-header-sortable:hover {
+  @apply bg-neutral-2;
+}
+
+/* ============================================
+   MODAL & DIALOG ENHANCEMENTS
+   ============================================ */
+
+/* Modal backdrop */
+.modal-backdrop {
+  @apply bg-black/50 backdrop-blur-sm;
+  animation: fade-in 0.2s ease-out;
+}
+
+/* Modal content */
+.modal-content {
+  animation: zoom-in 0.2s ease-out, fade-in-up 0.3s ease-out;
+}
+
+/* ============================================
+   BADGE ENHANCEMENTS
+   ============================================ */
+
+.badge-pulse {
+  @apply relative;
+}
+
+.badge-pulse::before {
+  content: '';
+  @apply absolute inset-0 rounded-full;
+  animation: pulse-soft 2s ease-in-out infinite;
+}
+
+/* ============================================
+   TOOLTIP ENHANCEMENTS
+   ============================================ */
+
+.tooltip-animate {
+  animation: fade-in-up 0.15s ease-out;
+}
+
+/* ============================================
+   SCROLLBAR STYLING
+   ============================================ */
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-neutral-2 rounded-full;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-neutral-4 rounded-full transition-colors;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-neutral-5;
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-neutral-4) var(--color-neutral-2);
+}
+
+/* ============================================
+   FOCUS VISIBLE IMPROVEMENTS
+   ============================================ */
+
+/* Better focus visible states */
+:focus-visible {
+  @apply outline-none ring-2 ring-accent-9 ring-offset-2 ring-offset-white;
+}
+
+/* Remove default focus outline */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* ============================================
+   LOADING SPINNER IMPROVEMENTS
+   ============================================ */
+
+.spinner {
+  @apply inline-block rounded-full border-2 border-neutral-3 border-t-accent-9;
+  animation: spin-slow 0.8s linear infinite;
+}
+
+.spinner-sm {
+  @apply h-4 w-4;
+}
+
+.spinner-md {
+  @apply h-6 w-6;
+}
+
+.spinner-lg {
+  @apply h-8 w-8;
+}
+
+.spinner-xl {
+  @apply h-12 w-12;
+}
+
+/* ============================================
+   PAGE TRANSITIONS
+   ============================================ */
+
+.page-enter {
+  animation: fade-in-up 0.4s ease-out forwards;
+}
+
+.page-content {
+  animation: fade-in 0.3s ease-out 0.1s forwards;
+  opacity: 0;
+}
+
+/* ============================================
+   GLASS MORPHISM EFFECTS
+   ============================================ */
+
+.glass {
+  background-color: rgba(255, 255, 255, 0.8);
+  @apply backdrop-blur-md;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.glass-dark {
+  background-color: rgba(64, 64, 64, 0.8);
+  @apply backdrop-blur-md;
+  border: 1px solid rgba(128, 128, 128, 0.2);
+}
+
+/* ============================================
+   GRADIENT BACKGROUNDS
+   ============================================ */
+
+.bg-gradient-subtle {
+  background: linear-gradient(135deg, var(--color-neutral-1) 0%, var(--color-neutral-2) 100%);
+}
+
+.bg-gradient-accent {
+  background: linear-gradient(135deg, var(--color-accent-8) 0%, var(--color-accent-10) 100%);
+}
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+
+/* Hide scrollbar but keep functionality */
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Smooth scroll */
+.smooth-scroll {
+  scroll-behavior: smooth;
+}
+
+/* Text truncate with ellipsis */
+.truncate-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.truncate-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 }

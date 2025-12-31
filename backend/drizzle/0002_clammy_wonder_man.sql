@@ -1,0 +1,1 @@
+ALTER TABLE "student_transactions" ADD COLUMN "transaction_subtype" text;

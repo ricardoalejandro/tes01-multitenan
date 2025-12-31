@@ -1,10 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Select } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { ResponsiveDialog } from '@/components/ui/responsive-dialog';
 import { Badge } from '@/components/ui/badge';
@@ -32,8 +38,18 @@ export function StudentStatusChangeDialog({
   onSuccess,
 }: StudentStatusChangeDialogProps) {
   const [newStatus, setNewStatus] = useState<'Alta' | 'Baja'>('Alta');
+  const [statusSubtype, setStatusSubtype] = useState('');
   const [observation, setObservation] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Auto-select the opposite status when dialog opens
+  useEffect(() => {
+    if (student && open) {
+      setNewStatus(student.status === 'Alta' ? 'Baja' : 'Alta');
+      setStatusSubtype('');
+      setObservation('');
+    }
+  }, [student, open]);
 
   const handleStatusChange = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,6 +66,7 @@ export function StudentStatusChangeDialog({
       await api.changeStudentStatus(student.id, {
         branchId,
         status: newStatus,
+        transactionSubtype: statusSubtype,
         observation: observation.trim(),
       });
 
@@ -58,8 +75,18 @@ export function StudentStatusChangeDialog({
       setObservation('');
       onSuccess();
     } catch (error: any) {
-      const errorMessage = error.response?.data?.error || 'Error al cambiar estado';
-      toast.error(errorMessage, { duration: 2500 });
+      const responseData = error.response?.data;
+
+      // Special handling for unique Alta violation
+      if (responseData?.type === 'unique_alta_violation') {
+        toast.error(
+          `El probacionista ya está de Alta en: ${responseData.activeBranchName}. ${responseData.message}`,
+          { duration: 5000 }
+        );
+      } else {
+        const errorMessage = responseData?.error || 'Error al cambiar estado';
+        toast.error(errorMessage, { duration: 2500 });
+      }
     } finally {
       setLoading(false);
     }
@@ -75,6 +102,7 @@ export function StudentStatusChangeDialog({
         if (!isOpen) {
           setObservation('');
           setNewStatus('Alta');
+          setStatusSubtype('');
         }
       }}
       title="Cambiar Estado del Probacionista"
@@ -97,15 +125,64 @@ export function StudentStatusChangeDialog({
         <div>
           <Label htmlFor="new-status">Nuevo Estado *</Label>
           <Select
-            id="new-status"
             value={newStatus}
-            onChange={(e) => setNewStatus(e.target.value as 'Alta' | 'Baja')}
+            onValueChange={(value) => setNewStatus(value as 'Alta' | 'Baja')}
             required
           >
-            <option value="Alta">Alta</option>
-            <option value="Baja">Baja</option>
+            <SelectTrigger id="new-status">
+              <SelectValue placeholder="Seleccionar estado" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Alta" disabled={student.status === 'Alta'}>
+                Alta {student.status === 'Alta' && '(estado actual)'}
+              </SelectItem>
+              <SelectItem value="Baja" disabled={student.status === 'Baja'}>
+                Baja {student.status === 'Baja' && '(estado actual)'}
+              </SelectItem>
+            </SelectContent>
           </Select>
         </div>
+
+        {/* Status Subtype (Conditional) */}
+        {newStatus === 'Baja' && (
+          <div>
+            <Label htmlFor="status-subtype">Motivo de Baja *</Label>
+            <Select
+              value={statusSubtype}
+              onValueChange={setStatusSubtype}
+              required
+            >
+              <SelectTrigger id="status-subtype">
+                <SelectValue placeholder="Seleccionar motivo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Académica">Baja Académica</SelectItem>
+                <SelectItem value="Disciplinaria">Baja Disciplinaria</SelectItem>
+                <SelectItem value="Voluntaria">Retiro Voluntario</SelectItem>
+                <SelectItem value="Administrativa">Administrativa</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {newStatus === 'Alta' && (
+          <div>
+            <Label htmlFor="status-subtype">Tipo de Reingreso *</Label>
+            <Select
+              value={statusSubtype}
+              onValueChange={setStatusSubtype}
+              required
+            >
+              <SelectTrigger id="status-subtype">
+                <SelectValue placeholder="Seleccionar tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Recuperado">Recuperado</SelectItem>
+                <SelectItem value="Reingreso">Reingreso Regular</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         {/* Observation (mandatory) */}
         <div>
@@ -129,7 +206,7 @@ export function StudentStatusChangeDialog({
         <div className="flex justify-end gap-3 pt-4">
           <Button
             type="button"
-            variant="outline"
+            variant="secondary"
             onClick={() => onOpenChange(false)}
             disabled={loading}
           >

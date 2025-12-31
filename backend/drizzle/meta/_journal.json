@@ -1,0 +1,41 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1762983393038,
+      "tag": "0000_yielding_black_panther",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1763049089217,
+      "tag": "0001_aberrant_millenium_guard",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1763797160717,
+      "tag": "0002_clammy_wonder_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1764262125854,
+      "tag": "0003_add_is_test_data_field",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1765296388924,
+      "tag": "0004_sour_peter_parker",
+      "breakpoints": true
+    }
+  ]
+}

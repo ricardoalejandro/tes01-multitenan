@@ -1,5 +1,16 @@
+'use client';
+
 import { Badge } from '@/components/ui/badge';
-import { User, Mail, Phone, Calendar } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { User, Mail, Phone, Edit, Trash2, Eye, MoreVertical } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface Instructor {
   id: string;
@@ -17,62 +28,97 @@ interface Instructor {
 
 interface ViewProps {
   instructors: Instructor[];
+  onView?: (instructor: Instructor) => void;
   onEdit?: (instructor: Instructor) => void;
   onDelete?: (instructorId: string) => void;
 }
 
-// Vista de Tarjetas
-export function InstructorCardsView({ instructors, onEdit, onDelete }: ViewProps) {
+// Vista de Tarjetas (Compacta - Inspirada en GroupCardsView)
+export function InstructorCardsView({ instructors, onView, onEdit, onDelete }: ViewProps) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 p-3">
       {instructors.map((instructor) => (
         <div
           key={instructor.id}
-          className="bg-white border border-neutral-4 rounded-lg p-4 hover:border-accent-9 transition-colors cursor-pointer"
-          onClick={() => onEdit?.(instructor)}
+          className="group bg-white border border-gray-200 rounded-lg p-3 hover:border-gray-300 hover:shadow-sm transition-all"
         >
-          <div className="flex items-start gap-3 mb-3">
-            <div className="p-2 bg-accent-3 rounded-full">
-              <User className="h-5 w-5 text-accent-9" />
+          {/* Header: Avatar y nombre */}
+          <div className="flex items-center gap-2 mb-2">
+            <div className="p-1.5 bg-accent-3 rounded-full shrink-0">
+              <User className="h-4 w-4 text-accent-9" />
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-neutral-12 truncate">
+              <h3 className="font-semibold text-gray-900 text-sm truncate" title={`${instructor.firstName} ${instructor.paternalLastName}`}>
                 {instructor.firstName} {instructor.paternalLastName}
               </h3>
-              <p className="text-sm text-neutral-11">{instructor.dni}</p>
+              <p className="text-xs text-gray-500">{instructor.dni}</p>
             </div>
-            <Badge variant={instructor.status === 'Activo' ? 'default' : 'secondary'}>
+            <Badge variant={instructor.status === 'Activo' ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0 shrink-0">
               {instructor.status}
             </Badge>
           </div>
-          
-          <div className="space-y-2">
+
+          {/* Contacto compacto */}
+          <div className="space-y-1 text-xs text-gray-600 mb-2">
             {instructor.email && (
-              <div className="flex items-center gap-2 text-sm text-neutral-11">
-                <Mail className="h-3 w-3" />
+              <div className="flex items-center gap-1.5 truncate">
+                <Mail className="h-3 w-3 shrink-0" />
                 <span className="truncate">{instructor.email}</span>
               </div>
             )}
             {instructor.phone && (
-              <div className="flex items-center gap-2 text-sm text-neutral-11">
-                <Phone className="h-3 w-3" />
+              <div className="flex items-center gap-1.5">
+                <Phone className="h-3 w-3 shrink-0" />
                 <span>{instructor.phone}</span>
               </div>
             )}
-            {instructor.specialties && instructor.specialties.length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-2">
+          </div>
+
+          {/* Footer: Especialidades y acciones */}
+          <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+            {instructor.specialties && instructor.specialties.length > 0 ? (
+              <div className="flex items-center gap-1 flex-1 min-w-0">
                 {instructor.specialties.slice(0, 2).map((spec) => (
-                  <Badge key={spec.id} variant="secondary" className="text-xs">
+                  <Badge key={spec.id} variant="secondary" className="text-[10px] px-1.5 py-0 truncate max-w-[80px]">
                     {spec.specialty}
                   </Badge>
                 ))}
                 {instructor.specialties.length > 2 && (
-                  <Badge variant="secondary" className="text-xs">
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                     +{instructor.specialties.length - 2}
                   </Badge>
                 )}
               </div>
+            ) : (
+              <span className="text-xs text-gray-400">Sin especialidades</span>
             )}
+
+            {/* Actions - Ver + Más */}
+            <div className="flex gap-1 shrink-0">
+              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => onView?.(instructor)}>
+                <Eye className="h-3.5 w-3.5 mr-1" />
+                Ver
+              </Button>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-7 w-7">
+                    <MoreVertical className="h-3.5 w-3.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => onEdit?.(instructor)}>
+                    <Edit className="h-4 w-4 mr-2" />
+                    Editar
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => onDelete?.(instructor.id)} className="text-red-600">
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Eliminar
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         </div>
       ))}
@@ -81,42 +127,68 @@ export function InstructorCardsView({ instructors, onEdit, onDelete }: ViewProps
 }
 
 // Vista Compacta
-export function InstructorCompactView({ instructors, onEdit, onDelete }: ViewProps) {
+export function InstructorCompactView({ instructors, onView, onEdit, onDelete }: ViewProps) {
   return (
-    <div className="space-y-2 p-4">
+    <div className="divide-y divide-gray-200">
       {instructors.map((instructor) => (
         <div
           key={instructor.id}
-          className="flex items-center gap-3 p-3 bg-white border border-neutral-4 rounded-lg hover:border-accent-9 transition-colors cursor-pointer"
-          onClick={() => onEdit?.(instructor)}
+          className="group flex items-center gap-3 p-3 hover:bg-gray-50 transition-colors"
         >
-          <div className="p-2 bg-accent-3 rounded-full">
+          <div className="p-1.5 bg-accent-3 rounded-full shrink-0">
             <User className="h-4 w-4 text-accent-9" />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <h4 className="font-medium text-neutral-12 truncate">
+            <div className="flex items-center gap-2 mb-0.5">
+              <h4 className="font-medium text-gray-900 text-sm truncate">
                 {instructor.firstName} {instructor.paternalLastName}
               </h4>
-              <Badge variant={instructor.status === 'Activo' ? 'default' : 'secondary'} className="text-xs">
+              <Badge variant={instructor.status === 'Activo' ? 'default' : 'secondary'} className="text-[10px] shrink-0">
                 {instructor.status}
               </Badge>
             </div>
-            <div className="flex items-center gap-3 text-sm text-neutral-11">
+            <div className="flex items-center gap-3 text-xs text-gray-500">
               <span>{instructor.dni}</span>
               {instructor.email && (
                 <>
-                  <span className="text-neutral-9">•</span>
+                  <span className="text-gray-300">•</span>
                   <span className="truncate">{instructor.email}</span>
                 </>
               )}
             </div>
           </div>
           {instructor.specialties && instructor.specialties.length > 0 && (
-            <div className="text-xs text-neutral-10">
-              {instructor.specialties.length} especialidad{instructor.specialties.length !== 1 ? 'es' : ''}
+            <div className="text-xs text-gray-500 shrink-0">
+              {instructor.specialties.length} esp.
             </div>
           )}
+
+          {/* Actions - Ver + Más */}
+          <div className="flex gap-1 shrink-0">
+            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => onView?.(instructor)}>
+              <Eye className="h-3.5 w-3.5 mr-1" />
+              Ver
+            </Button>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-7 w-7">
+                  <MoreVertical className="h-3.5 w-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => onEdit?.(instructor)}>
+                  <Edit className="h-4 w-4 mr-2" />
+                  Editar
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => onDelete?.(instructor.id)} className="text-red-600">
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Eliminar
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       ))}
     </div>
@@ -124,54 +196,70 @@ export function InstructorCompactView({ instructors, onEdit, onDelete }: ViewPro
 }
 
 // Vista de Lista (Tabla)
-export function InstructorListView({ instructors, onEdit, onDelete }: ViewProps) {
+export function InstructorListView({ instructors, onView, onEdit, onDelete }: ViewProps) {
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full">
-        <thead className="bg-neutral-2 sticky top-0 z-10">
-          <tr>
-            <th className="px-4 py-3 text-left text-sm font-semibold text-neutral-12">DNI</th>
-            <th className="px-4 py-3 text-left text-sm font-semibold text-neutral-12">Nombre Completo</th>
-            <th className="px-4 py-3 text-left text-sm font-semibold text-neutral-12">Contacto</th>
-            <th className="px-4 py-3 text-left text-sm font-semibold text-neutral-12">Especialidades</th>
-            <th className="px-4 py-3 text-left text-sm font-semibold text-neutral-12">Estado</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-neutral-4">
-          {instructors.map((instructor) => (
-            <tr
-              key={instructor.id}
-              className="hover:bg-neutral-1 cursor-pointer"
-              onClick={() => onEdit?.(instructor)}
-            >
-              <td className="px-4 py-3">
-                <div className="text-sm text-neutral-12">{instructor.dni}</div>
-              </td>
-              <td className="px-4 py-3">
-                <div className="font-medium text-neutral-12">
-                  {instructor.firstName} {instructor.paternalLastName} {instructor.maternalLastName}
-                </div>
-              </td>
-              <td className="px-4 py-3">
-                <div className="text-sm text-neutral-11 space-y-1">
-                  {instructor.email && <div className="flex items-center gap-1"><Mail className="h-3 w-3" />{instructor.email}</div>}
-                  {instructor.phone && <div className="flex items-center gap-1"><Phone className="h-3 w-3" />{instructor.phone}</div>}
-                </div>
-              </td>
-              <td className="px-4 py-3">
-                <div className="text-sm text-neutral-11">
-                  {instructor.specialties?.length || 0} especialidad{(instructor.specialties?.length || 0) !== 1 ? 'es' : ''}
-                </div>
-              </td>
-              <td className="px-4 py-3">
-                <Badge variant={instructor.status === 'Activo' ? 'default' : 'secondary'}>
-                  {instructor.status}
-                </Badge>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>DNI</TableHead>
+          <TableHead>Nombre Completo</TableHead>
+          <TableHead>Contacto</TableHead>
+          <TableHead>Especialidades</TableHead>
+          <TableHead>Estado</TableHead>
+          <TableHead className="text-right">Acciones</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {instructors.map((instructor) => (
+          <TableRow key={instructor.id} className="group">
+            <TableCell className="font-medium">{instructor.dni}</TableCell>
+            <TableCell>
+              {instructor.firstName} {instructor.paternalLastName} {instructor.maternalLastName}
+            </TableCell>
+            <TableCell>
+              <div className="text-sm space-y-0.5">
+                {instructor.email && <div className="flex items-center gap-1"><Mail className="h-3 w-3" />{instructor.email}</div>}
+                {instructor.phone && <div className="flex items-center gap-1"><Phone className="h-3 w-3" />{instructor.phone}</div>}
+              </div>
+            </TableCell>
+            <TableCell>
+              {instructor.specialties?.length || 0} especialidad{(instructor.specialties?.length || 0) !== 1 ? 'es' : ''}
+            </TableCell>
+            <TableCell>
+              <Badge variant={instructor.status === 'Activo' ? 'default' : 'secondary'}>
+                {instructor.status}
+              </Badge>
+            </TableCell>
+            <TableCell className="text-right">
+              <div className="flex justify-end gap-1">
+                <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => onView?.(instructor)}>
+                  <Eye className="h-3.5 w-3.5 mr-1" />
+                  Ver
+                </Button>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-7 w-7">
+                      <MoreVertical className="h-3.5 w-3.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => onEdit?.(instructor)}>
+                      <Edit className="h-4 w-4 mr-2" />
+                      Editar
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => onDelete?.(instructor.id)} className="text-red-600">
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Eliminar
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
   );
 }

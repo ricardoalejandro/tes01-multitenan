@@ -45,7 +45,7 @@ class ApiClient {
           (silentError as any).config = error.config;
           return Promise.reject(silentError);
         }
-        
+
         if (error.response?.status === 401) {
           if (typeof window !== 'undefined') {
             localStorage.removeItem('auth_token');
@@ -65,6 +65,34 @@ class ApiClient {
 
   async me() {
     const response = await this.client.get('/auth/me');
+    return response.data;
+  }
+
+  async forgotPassword(email: string) {
+    const response = await this.client.post('/auth/forgot-password', { email });
+    return response.data;
+  }
+
+  async verifyResetToken(token: string) {
+    const response = await this.client.get(`/auth/verify-token/${token}`);
+    return response.data;
+  }
+
+  async resetPassword(token: string, newPassword: string) {
+    const response = await this.client.post(`/auth/reset-password/${token}`, { newPassword });
+    return response.data;
+  }
+
+  async requestPasswordChange() {
+    const response = await this.client.post('/auth/request-password-change');
+    return response.data;
+  }
+
+  async changePassword(currentPassword: string, newPassword: string) {
+    const response = await this.client.post('/auth/change-password', {
+      currentPassword,
+      newPassword,
+    });
     return response.data;
   }
 
@@ -115,22 +143,22 @@ class ApiClient {
     return response.data;
   }
 
-  async changeStudentStatus(studentId: string, data: { branchId: string; status: 'Alta' | 'Baja'; observation: string }) {
+  async changeStudentStatus(studentId: string, data: { branchId: string; status: 'Alta' | 'Baja'; observation: string; transactionSubtype?: string }) {
     const response = await this.client.put(`/students/${studentId}/status`, data);
     return response.data;
   }
 
   async getStudentTransactions(studentId: string, branchId?: string, page?: number, limit?: number) {
-    const response = await this.client.get(`/students/${studentId}/transactions`, { 
-      params: { branchId, page, limit } 
+    const response = await this.client.get(`/students/${studentId}/transactions`, {
+      params: { branchId, page, limit }
     });
     return response.data;
   }
 
   // Courses
   async getCourses(branchId: string, page?: number, limit?: number, search?: string) {
-    const response = await this.client.get('/courses', { 
-      params: { branchId, page, limit, search } 
+    const response = await this.client.get('/courses', {
+      params: { branchId, page, limit, search }
     });
     return response.data;
   }
@@ -152,8 +180,8 @@ class ApiClient {
 
   // Instructors
   async getInstructors(branchId: string, page?: number, limit?: number, search?: string) {
-    const response = await this.client.get('/instructors', { 
-      params: { branchId, page, limit, search } 
+    const response = await this.client.get('/instructors', {
+      params: { branchId, page, limit, search }
     });
     return response.data;
   }
@@ -175,8 +203,8 @@ class ApiClient {
 
   // Groups
   async getGroups(branchId: string, page?: number, limit?: number, search?: string) {
-    const response = await this.client.get('/groups', { 
-      params: { branchId, page, limit, search } 
+    const response = await this.client.get('/groups', {
+      params: { branchId, page, limit, search }
     });
     return response.data;
   }
@@ -281,6 +309,389 @@ class ApiClient {
 
   async getGroupTransactions(groupId: string) {
     const response = await this.client.get(`/groups/${groupId}/transactions`);
+    return response.data;
+  }
+
+  // Users Management
+  async getUsers(params?: { page?: number; limit?: number; search?: string }) {
+    const response = await this.client.get('/users', { params });
+    return response.data;
+  }
+
+  async createUser(data: any) {
+    const response = await this.client.post('/users', data);
+    return response.data;
+  }
+
+  async updateUser(id: string, data: any) {
+    const response = await this.client.put(`/users/${id}`, data);
+    return response.data;
+  }
+
+  async adminResetPassword(userId: string, newPassword: string) {
+    const response = await this.client.put(`/users/${userId}/reset-password`, { newPassword });
+    return response.data;
+  }
+
+  async deleteUser(id: string) {
+    const response = await this.client.delete(`/users/${id}`);
+    return response.data;
+  }
+
+  async getUserBranches(id: string) {
+    const response = await this.client.get(`/users/${id}/branches`);
+    return response.data;
+  }
+
+  // Roles Management
+  async getRoles() {
+    const response = await this.client.get('/roles');
+    return response.data;
+  }
+
+  async createRole(data: any) {
+    const response = await this.client.post('/roles', data);
+    return response.data;
+  }
+
+  async updateRole(id: string, data: any) {
+    const response = await this.client.put(`/roles/${id}`, data);
+    return response.data;
+  }
+
+  async deleteRole(id: string) {
+    const response = await this.client.delete(`/roles/${id}`);
+    return response.data;
+  }
+
+  async getRolePermissions(id: string) {
+    const response = await this.client.get(`/roles/${id}/permissions`);
+    return response.data;
+  }
+
+  // System Config
+  async getSMTPConfig() {
+    const response = await this.client.get('/system/config/smtp');
+    return response.data;
+  }
+
+  async saveSMTPConfig(data: any) {
+    const response = await this.client.post('/system/config/smtp', data);
+    return response.data;
+  }
+
+  async testSMTPConnection() {
+    const response = await this.client.post('/system/config/smtp/test');
+    return response.data;
+  }
+
+  // Philosophical Counseling
+  async getCounselings(studentId: string) {
+    const response = await this.client.get(`/counseling/${studentId}`);
+    return response.data;
+  }
+
+  async createCounseling(studentId: string, data: any) {
+    const response = await this.client.post(`/counseling/${studentId}`, data);
+    return response.data;
+  }
+
+  async updateCounseling(studentId: string, counselingId: string, data: any) {
+    const response = await this.client.put(`/counseling/${studentId}/${counselingId}`, data);
+    return response.data;
+  }
+
+  async deleteCounseling(studentId: string, counselingId: string) {
+    const response = await this.client.delete(`/counseling/${studentId}/${counselingId}`);
+    return response.data;
+  }
+
+  async getCounseling(studentId: string, counselingId: string) {
+    const response = await this.client.get(`/counseling/${studentId}/${counselingId}`);
+    return response.data;
+  }
+
+  // Profile
+  async getProfile() {
+    const response = await this.client.get('/profile/me');
+    return response.data;
+  }
+
+  async updateProfile(data: any) {
+    const response = await this.client.put('/profile/me', data);
+    return response.data;
+  }
+
+  // Course Templates
+  async getCourseTemplates() {
+    const response = await this.client.get('/course-templates');
+    return response.data;
+  }
+
+  async getCourseTemplate(id: string) {
+    const response = await this.client.get(`/course-templates/${id}`);
+    return response.data;
+  }
+
+  async createCourseTemplate(data: any) {
+    const response = await this.client.post('/course-templates', data);
+    return response.data;
+  }
+
+  async updateCourseTemplate(id: string, data: any) {
+    const response = await this.client.put(`/course-templates/${id}`, data);
+    return response.data;
+  }
+
+  async deleteCourseTemplate(id: string) {
+    const response = await this.client.delete(`/course-templates/${id}`);
+    return response.data;
+  }
+
+  // ============================================
+  // ATTENDANCE MODULE
+  // ============================================
+
+  // Get groups with attendance stats
+  async getAttendanceGroups(branchId: string) {
+    const response = await this.client.get('/attendance/groups', {
+      params: { branchId },
+    });
+    return response.data;
+  }
+
+  // Get sessions for a group
+  async getGroupSessions(groupId: string, status?: 'pendiente' | 'dictada' | 'all') {
+    const response = await this.client.get(`/attendance/groups/${groupId}/sessions`, {
+      params: { status },
+    });
+    return response.data;
+  }
+
+  // Get pending sessions (alerts)
+  async getPendingSessions(branchId: string) {
+    const response = await this.client.get('/attendance/pending', {
+      params: { branchId },
+    });
+    return response.data;
+  }
+
+  // Get session detail
+  async getSessionDetail(sessionId: string) {
+    const response = await this.client.get(`/attendance/sessions/${sessionId}`);
+    return response.data;
+  }
+
+  // Get students with attendance for a session (optionally by course)
+  async getSessionStudents(sessionId: string, courseId?: string) {
+    const params = courseId ? `?courseId=${courseId}` : '';
+    const response = await this.client.get(`/attendance/sessions/${sessionId}/students${params}`);
+    return response.data;
+  }
+
+  // Update attendance status
+  async updateAttendanceStatus(attendanceId: string, status: string) {
+    const response = await this.client.put(`/attendance/students/${attendanceId}`, { status });
+    return response.data;
+  }
+
+  // Update or create attendance by session, student, and optionally course(s)
+  async updateAttendanceBySessionStudent(
+    sessionId: string,
+    studentId: string,
+    status: string,
+    courseId?: string,
+    courseIds?: string[]
+  ) {
+    const body: { status: string; courseId?: string | null; courseIds?: string[] } = { status };
+
+    if (courseIds && courseIds.length > 0) {
+      // Se envían múltiples courseIds (modo "todos los cursos")
+      body.courseIds = courseIds;
+    } else if (courseId) {
+      // Se envía un courseId específico
+      body.courseId = courseId;
+    }
+
+    const response = await this.client.put(`/attendance/sessions/${sessionId}/students/${studentId}`, body);
+    return response.data;
+  }
+
+  // Update or create attendance by session and student (legacy - without courseId)
+  async upsertAttendance(sessionId: string, studentId: string, status: string) {
+    const response = await this.client.put(`/attendance/sessions/${sessionId}/students/${studentId}`, { status });
+    return response.data;
+  }
+
+  // Update or create attendance by session, student and course
+  async upsertAttendanceWithCourse(sessionId: string, studentId: string, status: string, courseId?: string) {
+    const response = await this.client.put(`/attendance/sessions/${sessionId}/students/${studentId}`, {
+      status,
+      courseId
+    });
+    return response.data;
+  }
+
+  // Update or create attendance for multiple courses (used when "all courses" is selected)
+  async upsertAttendanceWithCourses(sessionId: string, studentId: string, status: string, courseIds: string[]) {
+    const response = await this.client.put(`/attendance/sessions/${sessionId}/students/${studentId}`, {
+      status,
+      courseIds
+    });
+    return response.data;
+  }
+
+  // Add observation
+  async addAttendanceObservation(attendanceId: string, content: string, userId?: string) {
+    const response = await this.client.post(`/attendance/students/${attendanceId}/observations`, {
+      content,
+      userId,
+    });
+    return response.data;
+  }
+
+  // Get observations history
+  async getAttendanceObservations(attendanceId: string) {
+    const response = await this.client.get(`/attendance/students/${attendanceId}/observations`);
+    return response.data;
+  }
+
+  // Update session execution
+  async updateSessionExecution(sessionId: string, data: {
+    actualInstructorId?: string | null;
+    actualAssistantId?: string | null;
+    actualTopic?: string | null;
+    actualDate: string;
+    notes?: string | null;
+    executedBy?: string;
+  }) {
+    const response = await this.client.put(`/attendance/sessions/${sessionId}/execution`, data);
+    return response.data;
+  }
+
+  // Mark session as dictada
+  async completeSession(sessionId: string, executedBy?: string) {
+    const response = await this.client.put(`/attendance/sessions/${sessionId}/complete`, { executedBy });
+    return response.data;
+  }
+
+  // Reopen session (change from dictada to pendiente)
+  async reopenSession(sessionId: string) {
+    const response = await this.client.put(`/attendance/sessions/${sessionId}/reopen`);
+    return response.data;
+  }
+
+  // Postpone/suspend session (mark as no class happened)
+  async postponeSession(sessionId: string, reason: string) {
+    const response = await this.client.put(`/attendance/sessions/${sessionId}/postpone`, { reason });
+    return response.data;
+  }
+
+  // Reactivate suspended session (change to pending)
+  async reactivateSession(sessionId: string) {
+    const response = await this.client.put(`/attendance/sessions/${sessionId}/reactivate`);
+    return response.data;
+  }
+
+  // Get calendar view
+  async getAttendanceCalendar(groupId: string, month?: number, year?: number) {
+    const response = await this.client.get(`/attendance/calendar/${groupId}`, {
+      params: { month, year },
+    });
+    return response.data;
+  }
+
+  // Get instructors for attendance
+  async getAttendanceInstructors() {
+    const response = await this.client.get('/attendance/instructors');
+    return response.data;
+  }
+
+  async getAttendanceNotebook(groupId: string, params?: {
+    startDate?: string;
+    endDate?: string;
+    page?: number;
+    sessionsPerPage?: number;
+    studentFilter?: 'all' | 'critical' | 'search';
+    searchTerm?: string;
+    sortBy?: 'name' | 'attendance' | 'absences';
+    sortOrder?: 'asc' | 'desc';
+    courseId?: string;
+  }) {
+    const response = await this.client.get(`/attendance/notebook/${groupId}`, { params });
+    return response.data;
+  }
+
+  // ============================================
+  // TRANSFERS API
+  // ============================================
+
+  // Get transfers for a branch
+  async getTransfers(branchId: string, type: 'incoming' | 'outgoing' | 'all' = 'all', status: string = 'all') {
+    const response = await this.client.get('/transfers', { params: { branchId, type, status } });
+    return response.data;
+  }
+
+  // Create transfer
+  async createTransfer(data: {
+    studentId: string;
+    targetBranchId: string;
+    transferType: 'outgoing' | 'incoming';
+    reason?: string;
+    notes?: string;
+  }) {
+    const response = await this.client.post('/transfers', data);
+    return response.data;
+  }
+
+  // Accept transfer
+  async acceptTransfer(transferId: string) {
+    const response = await this.client.put(`/transfers/${transferId}/accept`);
+    return response.data;
+  }
+
+  // Reject transfer
+  async rejectTransfer(transferId: string, reason?: string) {
+    const response = await this.client.put(`/transfers/${transferId}/reject`, { reason });
+    return response.data;
+  }
+
+  // Cancel transfer
+  async cancelTransfer(transferId: string) {
+    const response = await this.client.put(`/transfers/${transferId}/cancel`);
+    return response.data;
+  }
+
+  // Search student globally by DNI
+  async searchStudentGlobal(dni: string, excludeBranchId?: string) {
+    const response = await this.client.get('/transfers/search-student', {
+      params: { dni, excludeBranchId }
+    });
+    return response.data;
+  }
+
+  // Reports
+  async getStudentReport(params: { page?: number; limit?: number; search?: string; branchId?: string; status?: string }) {
+    return this.client.get('/reports/students', { params });
+  }
+
+  async getPerformanceStats(branchId?: string) {
+    return this.client.get('/reports/stats', { params: { branchId } });
+  }
+
+  // Locations (Ubigeo)
+  async getDepartments() {
+    const response = await this.client.get('/departments');
+    return response.data;
+  }
+
+  async getProvinces(departmentId?: string) {
+    const response = await this.client.get('/provinces', { params: { departmentId } });
+    return response.data;
+  }
+
+  async getDistricts(provinceId?: string) {
+    const response = await this.client.get('/districts', { params: { provinceId } });
     return response.data;
   }
 }

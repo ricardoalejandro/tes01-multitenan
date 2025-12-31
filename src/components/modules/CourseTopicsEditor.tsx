@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, X, GripVertical, Upload, Download, FileSpreadsheet, FileText, AlertTriangle } from 'lucide-react';
+import { Plus, X, GripVertical, Upload, Download, FileSpreadsheet, FileText, AlertTriangle, ChevronDown, ChevronUp, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
@@ -14,7 +15,7 @@ interface CourseTopic {
   id?: string;
   orderIndex: number;
   title: string;
-  description: string;
+  description?: string;
   _status?: 'new' | 'modified' | 'deleted';
 }
 
@@ -22,10 +23,12 @@ interface CourseTopicsEditorProps {
   courseId?: string;
   initialTopics?: CourseTopic[];
   onChange: (topics: CourseTopic[]) => void;
+  isMobile?: boolean;
 }
 
-export default function CourseTopicsEditor({ courseId, initialTopics = [], onChange }: CourseTopicsEditorProps) {
+export default function CourseTopicsEditor({ courseId, initialTopics = [], onChange, isMobile = false }: CourseTopicsEditorProps) {
   const [topics, setTopics] = useState<CourseTopic[]>(initialTopics);
+  const [expandedTopics, setExpandedTopics] = useState<Set<number>>(new Set());
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [exportFormat, setExportFormat] = useState<'excel' | 'csv'>('excel');
@@ -33,6 +36,9 @@ export default function CourseTopicsEditor({ courseId, initialTopics = [], onCha
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importPreview, setImportPreview] = useState<CourseTopic[]>([]);
   const [isImporting, setIsImporting] = useState(false);
+  
+  // Drag state
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   useEffect(() => {
     setTopics(initialTopics);
@@ -48,6 +54,8 @@ export default function CourseTopicsEditor({ courseId, initialTopics = [], onCha
     const updated = [...topics, newTopic];
     setTopics(updated);
     onChange(updated);
+    // Auto-expand new topic
+    setExpandedTopics(new Set([...expandedTopics, topics.length]));
   };
 
   const updateTopic = (index: number, field: keyof CourseTopic, value: string) => {
@@ -72,28 +80,55 @@ export default function CourseTopicsEditor({ courseId, initialTopics = [], onCha
     }));
     setTopics(updated);
     onChange(updated);
+    expandedTopics.delete(index);
+    setExpandedTopics(new Set(expandedTopics));
   };
 
-  const moveUp = (index: number) => {
-    if (index === 0) return;
-    const updated = [...topics];
-    [updated[index - 1], updated[index]] = [updated[index], updated[index - 1]];
-    updated.forEach((topic, idx) => {
-      topic.orderIndex = idx + 1;
-    });
-    setTopics(updated);
-    onChange(updated);
+  const toggleTopicExpand = (index: number) => {
+    const newExpanded = new Set(expandedTopics);
+    if (newExpanded.has(index)) {
+      newExpanded.delete(index);
+    } else {
+      newExpanded.add(index);
+    }
+    setExpandedTopics(newExpanded);
   };
 
-  const moveDown = (index: number) => {
-    if (index === topics.length - 1) return;
-    const updated = [...topics];
-    [updated[index], updated[index + 1]] = [updated[index + 1], updated[index]];
-    updated.forEach((topic, idx) => {
-      topic.orderIndex = idx + 1;
+  const expandAll = () => {
+    setExpandedTopics(new Set(topics.map((_, i) => i)));
+  };
+
+  const collapseAll = () => {
+    setExpandedTopics(new Set());
+  };
+
+  // Drag and drop handlers
+  const handleDragStart = (index: number) => {
+    setDraggedIndex(index);
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === index) return;
+    
+    const newTopics = [...topics];
+    const draggedItem = newTopics[draggedIndex];
+    newTopics.splice(draggedIndex, 1);
+    newTopics.splice(index, 0, draggedItem);
+    
+    // Update order indices
+    newTopics.forEach((t, i) => {
+      t.orderIndex = i + 1;
+      if (t.id) t._status = 'modified';
     });
-    setTopics(updated);
-    onChange(updated);
+    
+    setTopics(newTopics);
+    onChange(newTopics);
+    setDraggedIndex(index);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
   };
 
   const handleExport = async () => {
@@ -105,7 +140,7 @@ export default function CourseTopicsEditor({ courseId, initialTopics = [], onCha
     try {
       const url = `/courses/${courseId}/export?format=${exportFormat}&includeData=${exportIncludeData}`;
       const response = await api.axiosInstance.get(url, { responseType: 'blob' });
-      
+
       const blob = new Blob([response.data]);
       const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -115,7 +150,7 @@ export default function CourseTopicsEditor({ courseId, initialTopics = [], onCha
       link.click();
       link.remove();
       window.URL.revokeObjectURL(downloadUrl);
-      
+
       toast.success('Archivo exportado exitosamente', { duration: 1500 });
       setShowExportDialog(false);
     } catch (error) {
@@ -153,12 +188,13 @@ export default function CourseTopicsEditor({ courseId, initialTopics = [], onCha
   };
 
   const applyImport = () => {
-    setTopics(importPreview.map((t, idx) => ({
+    const imported = importPreview.map((t, idx) => ({
       ...t,
       orderIndex: idx + 1,
-      _status: 'new',
-    })));
-    onChange(importPreview);
+      _status: 'new' as const,
+    }));
+    setTopics(imported);
+    onChange(imported);
     setShowImportDialog(false);
     setImportFile(null);
     setImportPreview([]);
@@ -166,109 +202,158 @@ export default function CourseTopicsEditor({ courseId, initialTopics = [], onCha
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <Label className="text-base font-semibold">Temas del Curso</Label>
+    <div className="space-y-3">
+      {/* Header - Responsive */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <Label className="text-sm font-semibold flex items-center gap-2">
+          <BookOpen className="h-4 w-4" />
+          Temas ({topics.length})
+        </Label>
         <div className="flex gap-2">
+          {/* Import/Export - Hidden text on mobile */}
           <Button
             type="button"
             size="sm"
-            variant="outline"
+            variant="secondary"
             onClick={() => setShowImportDialog(true)}
+            className="h-9 px-2 sm:px-3"
           >
-            <Upload className="h-4 w-4 mr-1" />
-            Importar
+            <Upload className="h-4 w-4" />
+            <span className="hidden sm:inline ml-1">Importar</span>
           </Button>
           <Button
             type="button"
             size="sm"
-            variant="outline"
+            variant="secondary"
             onClick={() => setShowExportDialog(true)}
             disabled={!courseId}
+            className="h-9 px-2 sm:px-3"
           >
-            <Download className="h-4 w-4 mr-1" />
-            Exportar
+            <Download className="h-4 w-4" />
+            <span className="hidden sm:inline ml-1">Exportar</span>
           </Button>
-          <Button type="button" size="sm" onClick={addTopic}>
-            <Plus className="h-4 w-4 mr-1" />
-            Añadir Tema
+          <Button type="button" size="sm" onClick={addTopic} className="h-9 bg-accent-9 hover:bg-accent-10 text-white">
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline ml-1">Añadir</span>
           </Button>
         </div>
       </div>
 
-      <div className="space-y-3">
+      {topics.length > 0 && (
+        <div className="flex gap-2 text-xs">
+          <button type="button" onClick={expandAll} className="text-accent-9 hover:underline">
+            Expandir
+          </button>
+          <span className="text-neutral-6">|</span>
+          <button type="button" onClick={collapseAll} className="text-accent-9 hover:underline">
+            Colapsar
+          </button>
+        </div>
+      )}
+
+      <div className="space-y-2">
         {topics.length === 0 ? (
-          <div className="text-center py-8 text-neutral-9">
-            No hay temas añadidos. Haz clic en &quot;Añadir Tema&quot; o importa una plantilla.
+          <div className="text-center py-6 border-2 border-dashed border-neutral-4 rounded-lg bg-neutral-1">
+            <BookOpen className="mx-auto h-8 w-8 text-neutral-5" />
+            <p className="mt-2 text-sm text-neutral-9">No hay temas</p>
+            <p className="text-xs text-neutral-7">Añade temas o importa</p>
           </div>
         ) : (
-          topics.map((topic, index) => (
-            <div key={index} className="border border-neutral-4 rounded-lg p-4 space-y-3">
-              <div className="flex items-start gap-2">
-                <div className="flex flex-col gap-1 mt-2">
+          <div className="space-y-2 max-h-[300px] sm:max-h-[400px] overflow-y-auto">
+            {topics.map((topic, index) => (
+              <div
+                key={index}
+                draggable={!isMobile}
+                onDragStart={() => !isMobile && handleDragStart(index)}
+                onDragOver={(e) => !isMobile && handleDragOver(e, index)}
+                onDragEnd={() => !isMobile && handleDragEnd()}
+                className={`border rounded-lg bg-white transition-all ${
+                  draggedIndex === index 
+                    ? 'opacity-50 border-accent-9 shadow-lg' 
+                    : 'border-neutral-4 hover:border-neutral-5'
+                }`}
+              >
+                {/* Header row - always visible */}
+                <div className="flex items-center gap-1.5 sm:gap-2 p-2 sm:p-3">
+                  {/* Drag handle - hidden on mobile */}
+                  <div className="hidden sm:block cursor-grab active:cursor-grabbing hover:bg-neutral-2 rounded p-1 transition-colors">
+                    <GripVertical className="h-4 w-4 text-neutral-5" />
+                  </div>
+                  
+                  <Badge variant="secondary" className="shrink-0 font-mono text-xs w-6 h-6 flex items-center justify-center p-0">
+                    {index + 1}
+                  </Badge>
+                  
+                  <div className="flex-1 min-w-0">
+                    {expandedTopics.has(index) ? (
+                      <Input
+                        value={topic.title}
+                        onChange={(e) => updateTopic(index, 'title', e.target.value)}
+                        placeholder="Título del tema"
+                        className="font-medium h-9 text-sm"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    ) : (
+                      <span 
+                        className={`font-medium text-sm truncate block cursor-pointer hover:text-accent-9 ${
+                          !topic.title ? 'text-neutral-6 italic' : ''
+                        }`}
+                        onClick={() => toggleTopicExpand(index)}
+                      >
+                        {topic.title || 'Sin título'}
+                      </span>
+                    )}
+                  </div>
+
                   <Button
                     type="button"
-                    size="sm"
+                    size="icon"
                     variant="ghost"
-                    onClick={() => moveUp(index)}
-                    disabled={index === 0}
-                    className="h-6 w-6 p-0"
+                    onClick={() => toggleTopicExpand(index)}
+                    className="shrink-0 h-8 w-8"
                   >
-                    ↑
+                    {expandedTopics.has(index) ? (
+                      <ChevronUp className="h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" />
+                    )}
                   </Button>
+
                   <Button
                     type="button"
-                    size="sm"
+                    size="icon"
                     variant="ghost"
-                    onClick={() => moveDown(index)}
-                    disabled={index === topics.length - 1}
-                    className="h-6 w-6 p-0"
+                    onClick={() => removeTopic(index)}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50 shrink-0 h-8 w-8"
                   >
-                    ↓
+                    <X className="h-4 w-4" />
                   </Button>
-                </div>
-                
-                <div className="flex-1 space-y-3">
-                  <div>
-                    <Label className="text-sm text-neutral-10">
-                      Tema #{index + 1} - Título
-                    </Label>
-                    <Input
-                      value={topic.title}
-                      onChange={(e) => updateTopic(index, 'title', e.target.value)}
-                      placeholder="Título del tema"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-sm text-neutral-10">Descripción</Label>
-                    <Textarea
-                      value={topic.description}
-                      onChange={(e) => updateTopic(index, 'description', e.target.value)}
-                      placeholder="Descripción detallada del tema"
-                      rows={2}
-                    />
-                  </div>
                 </div>
 
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => removeTopic(index)}
-                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+                {/* Expanded content */}
+                {expandedTopics.has(index) && (
+                  <div className="px-2 sm:px-3 pb-2 sm:pb-3 pt-0 border-t border-neutral-3">
+                    <div className="sm:pl-8 mt-2 sm:mt-3">
+                      <Label className="text-xs text-neutral-9">Descripción</Label>
+                      <Textarea
+                        value={topic.description}
+                        onChange={(e) => updateTopic(index, 'description', e.target.value)}
+                        placeholder="Descripción del tema..."
+                        rows={2}
+                        className="mt-1 text-sm resize-none"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-          ))
+            ))}
+          </div>
         )}
       </div>
 
       {/* Export Dialog */}
       <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-sm sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Exportar Temas</DialogTitle>
           </DialogHeader>
@@ -276,12 +361,12 @@ export default function CourseTopicsEditor({ courseId, initialTopics = [], onCha
             <div className="space-y-4">
               <div>
                 <Label>Formato</Label>
-                <div className="flex gap-2 mt-2">
+                <div className="flex flex-col sm:flex-row gap-2 mt-2">
                   <Button
                     type="button"
                     variant={exportFormat === 'excel' ? 'default' : 'outline'}
                     onClick={() => setExportFormat('excel')}
-                    className="flex-1"
+                    className="flex-1 h-11"
                   >
                     <FileSpreadsheet className="h-4 w-4 mr-2" />
                     Excel (.xlsx)
@@ -290,7 +375,7 @@ export default function CourseTopicsEditor({ courseId, initialTopics = [], onCha
                     type="button"
                     variant={exportFormat === 'csv' ? 'default' : 'outline'}
                     onClick={() => setExportFormat('csv')}
-                    className="flex-1"
+                    className="flex-1 h-11"
                   >
                     <FileText className="h-4 w-4 mr-2" />
                     CSV (.csv)
@@ -299,12 +384,12 @@ export default function CourseTopicsEditor({ courseId, initialTopics = [], onCha
               </div>
               <div>
                 <Label>Contenido</Label>
-                <div className="flex gap-2 mt-2">
+                <div className="flex flex-col sm:flex-row gap-2 mt-2">
                   <Button
                     type="button"
                     variant={exportIncludeData ? 'default' : 'outline'}
                     onClick={() => setExportIncludeData(true)}
-                    className="flex-1"
+                    className="flex-1 h-11"
                   >
                     Con datos actuales
                   </Button>
@@ -312,7 +397,7 @@ export default function CourseTopicsEditor({ courseId, initialTopics = [], onCha
                     type="button"
                     variant={!exportIncludeData ? 'default' : 'outline'}
                     onClick={() => setExportIncludeData(false)}
-                    className="flex-1"
+                    className="flex-1 h-11"
                   >
                     Plantilla vacía
                   </Button>
@@ -320,11 +405,12 @@ export default function CourseTopicsEditor({ courseId, initialTopics = [], onCha
               </div>
             </div>
           </DialogBody>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowExportDialog(false)}>
+          <DialogFooter className="flex-col-reverse sm:flex-row gap-2">
+            <Button variant="secondary" onClick={() => setShowExportDialog(false)} className="w-full sm:w-auto h-11">
               Cancelar
             </Button>
-            <Button onClick={handleExport} className="bg-accent-9 hover:bg-accent-10">
+            <Button onClick={handleExport} className="w-full sm:w-auto h-11 bg-accent-9 hover:bg-accent-10">
+              <Download className="h-4 w-4 mr-2" />
               Descargar
             </Button>
           </DialogFooter>
@@ -339,7 +425,7 @@ export default function CourseTopicsEditor({ courseId, initialTopics = [], onCha
           </DialogHeader>
           <DialogBody>
             <div className="space-y-4">
-              <div className="border-2 border-dashed border-neutral-4 rounded-lg p-6 text-center">
+              <div className="border-2 border-dashed border-neutral-4 rounded-lg p-4 md:p-6 text-center hover:border-accent-9 transition-colors">
                 <Input
                   type="file"
                   accept=".xlsx,.xls,.csv"
@@ -349,41 +435,56 @@ export default function CourseTopicsEditor({ courseId, initialTopics = [], onCha
                   disabled={isImporting}
                 />
                 <label htmlFor="import-file" className="cursor-pointer">
-                  <Upload className="h-12 w-12 mx-auto text-neutral-9 mb-2" />
+                  <Upload className="h-10 w-10 md:h-12 md:w-12 mx-auto text-neutral-9 mb-2" />
                   <p className="text-sm font-medium text-neutral-11">
                     Haz clic para seleccionar archivo
                   </p>
                   <p className="text-xs text-neutral-9 mt-1">
-                    Formatos soportados: Excel (.xlsx) o CSV (.csv)
+                    Formatos: Excel (.xlsx) o CSV (.csv)
                   </p>
                 </label>
               </div>
 
               {importFile && (
-                <div className="text-sm text-neutral-10">
-                  Archivo seleccionado: <span className="font-medium">{importFile.name}</span>
+                <div className="text-sm text-neutral-10 bg-neutral-2 rounded-lg p-3">
+                  <span className="text-neutral-9">Archivo:</span>{' '}
+                  <span className="font-medium break-all">{importFile.name}</span>
                 </div>
               )}
 
               {importPreview.length > 0 && (
                 <>
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-start gap-3">
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 md:p-4 flex items-start gap-2 md:gap-3">
                     <AlertTriangle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-                    <div className="text-sm text-yellow-800">
+                    <div className="text-xs md:text-sm text-yellow-800">
                       <p className="font-medium">⚠️ Advertencia</p>
                       <p className="mt-1">
-                        Esto reemplazará TODOS los temas actuales del curso ({topics.length} temas) 
-                        con los {importPreview.length} temas del archivo. Los cambios se aplicarán 
-                        en memoria y deberás guardar el curso para confirmar.
+                        Esto reemplazará TODOS los temas actuales ({topics.length}) con los {importPreview.length} temas del archivo.
                       </p>
                     </div>
                   </div>
 
-                  <div className="max-h-64 overflow-y-auto border border-neutral-4 rounded-lg">
+                  {/* Mobile: Card view */}
+                  <div className="md:hidden max-h-48 overflow-y-auto space-y-2">
+                    {importPreview.map((topic, idx) => (
+                      <div key={idx} className="bg-neutral-2 rounded-lg p-3 border border-neutral-4">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className="text-xs">{idx + 1}</Badge>
+                          <span className="font-medium text-sm truncate">{topic.title}</span>
+                        </div>
+                        {topic.description && (
+                          <p className="text-xs text-neutral-9 mt-1 line-clamp-2">{topic.description}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Desktop: Table view */}
+                  <div className="hidden md:block max-h-64 overflow-y-auto border border-neutral-4 rounded-lg">
                     <table className="w-full text-sm">
                       <thead className="bg-neutral-2 sticky top-0">
                         <tr>
-                          <th className="p-2 text-left font-medium">#</th>
+                          <th className="p-2 text-left font-medium w-12">#</th>
                           <th className="p-2 text-left font-medium">Título</th>
                           <th className="p-2 text-left font-medium">Descripción</th>
                         </tr>
@@ -391,7 +492,9 @@ export default function CourseTopicsEditor({ courseId, initialTopics = [], onCha
                       <tbody>
                         {importPreview.map((topic, idx) => (
                           <tr key={idx} className="border-t border-neutral-4">
-                            <td className="p-2">{idx + 1}</td>
+                            <td className="p-2">
+                              <Badge variant="secondary">{idx + 1}</Badge>
+                            </td>
                             <td className="p-2 font-medium">{topic.title}</td>
                             <td className="p-2 text-neutral-9 truncate max-w-xs">
                               {topic.description || '-'}
@@ -405,22 +508,24 @@ export default function CourseTopicsEditor({ courseId, initialTopics = [], onCha
               )}
             </div>
           </DialogBody>
-          <DialogFooter>
+          <DialogFooter className="flex-col-reverse sm:flex-row gap-2">
             <Button
-              variant="outline"
+              variant="secondary"
               onClick={() => {
                 setShowImportDialog(false);
                 setImportFile(null);
                 setImportPreview([]);
               }}
+              className="w-full sm:w-auto h-11"
             >
               Cancelar
             </Button>
             <Button
               onClick={applyImport}
               disabled={importPreview.length === 0}
-              className="bg-accent-9 hover:bg-accent-10"
+              className="w-full sm:w-auto h-11 bg-accent-9 hover:bg-accent-10"
             >
+              <Upload className="h-4 w-4 mr-2" />
               Aplicar Cambios
             </Button>
           </DialogFooter>

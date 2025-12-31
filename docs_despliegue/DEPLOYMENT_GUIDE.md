@@ -1,282 +1,393 @@
 # 🚀 Guía de Deployment - Probacionismo
 
-## 📋 Flujo de Trabajo (Workflow)
+## 📋 Flujo de Trabajo Automatizado
 
-Tu flujo de trabajo típico será:
+### Despliegue Rápido (Recomendado)
 
-1. **Desarrollas localmente** en tu máquina
-2. **Haces commit y push** a la rama `develop`
-3. **Te conectas al VPS** y actualizas el código
-4. **Ejecutas el script de despliegue**
-5. **¡Listo!** - Cambios en producción
-
----
-
-## 🔄 Actualizar la Aplicación (Paso a Paso)
-
-### 1. Conectarse al VPS
 ```bash
+# Desde tu máquina local:
+ssh root@72.61.37.46 'cd /root/proyectos/probacionismo && ./deploy.sh'
+
+# O conectándote al VPS:
 ssh root@72.61.37.46
-```
-
-### 2. Ir al directorio del proyecto
-```bash
 cd /root/proyectos/probacionismo
+./deploy.sh
 ```
 
-### 3. Bajar los últimos cambios de la rama develop
-```bash
-git pull origin develop
-```
-
-### 4. Ejecutar el script de despliegue
-```bash
-./update.sh
-```
-
-¡Eso es todo! El script automáticamente:
-- Detiene los contenedores actuales
-- Reconstruye las imágenes con el código nuevo
-- Levanta los contenedores actualizados
-- Muestra el estado final
+El script `deploy.sh` hace TODO automáticamente:
+1. ✅ Actualiza código desde git (`develop`)
+2. ✅ Aplica configuración de producción (`.env.production`)
+3. ✅ Detiene contenedores (preservando datos)
+4. ✅ Reconstruye imágenes con código nuevo
+5. ✅ Levanta servicios
+6. ✅ Verifica que todo funcione
 
 ---
 
-## ⚡ Comando Rápido (Todo en Uno)
+## 📁 Estructura de Archivos de Configuración
 
-Si prefieres un solo comando:
-```bash
-cd /root/proyectos/probacionismo && git pull origin develop && ./update.sh
 ```
+/root/proyectos/probacionismo/
+├── .env                    ← Archivo activo (copia de .env.production)
+├── .env.example            ← Plantilla (para git)
+├── .env.development        ← Valores de desarrollo (NO usar en VPS)
+├── .env.production         ← Valores de producción (USAR EN VPS)
+├── deploy.sh               ← Script de despliegue automático
+├── backup.sh               ← Script de backup
+└── update.sh               ← Script legacy (deprecado, usar deploy.sh)
+```
+
+### ⚠️ IMPORTANTE:
+
+- **`.env.production`** contiene los valores REALES de producción (passwords, secrets, dominio)
+- **`.env`** es una copia temporal que usa Docker Compose
+- **NUNCA commitear** `.env` ni `.env.production` a git
+- **SÍ commitear** `.env.example` como plantilla
 
 ---
 
-## 🎯 URL de Producción
+## 🎯 URLs de Producción
 
-Tu aplicación está disponible públicamente en:
+Tu aplicación está disponible en:
 
-**URL:** `http://72.61.37.46/`
+- **URL Principal:** https://naperu.cloud/
+- **Login:** https://naperu.cloud/login  
+- **Dashboard:** https://naperu.cloud/dashboard
+- **API:** https://naperu.cloud/api/
 
-- Login: `http://72.61.37.46/login`
-- Dashboard: `http://72.61.37.46/dashboard`
-- API: `http://72.61.37.46/api/*`
-
----
-
-## 📋 Arquitectura Actual
-
-```
-GitHub (rama develop)
-        ↓ git pull
-    VPS: /root/proyectos/probacionismo
-        ↓ ./update.sh
-    Docker Compose (rebuild + restart)
-        ↓
-    Nginx (72.61.37.46)
-        ↓
-    ┌───────────────────┬───────────────────┐
-    ↓                   ↓                    ↓
-Frontend:5000    Backend:3000         Servicios
-(Next.js)        (Fastify)         (PostgreSQL:5432
-                                    Redis:6379)
-```
+### 🔒 Seguridad Implementada:
+- ✅ HTTPS con certificado SSL (Let's Encrypt)
+- ✅ Renovación automática de certificado
+- ✅ Redirección HTTP → HTTPS
+- ✅ Security headers configurados
+- ✅ Nginx como reverse proxy
 
 ---
 
-## 🔧 Configuración Actual
+## 📦 Backups Automáticos
 
-### Nginx Reverse Proxy
-- **Ubicación:** `/etc/nginx/sites-available/probacionismo`
-- **Frontend:** `http://72.61.37.46/` → `http://localhost:5000`
-- **Backend API:** `http://72.61.37.46/api/*` → `http://localhost:3000/api/*`
+### Configuración Actual:
+- **Frecuencia:** Diario a las 3:00 AM
+- **Ubicación:** `/root/backupsBD/probacionismo/`
+- **Formato:** `backup_YYYY-MM-DD_HH-MM-SS.sql.gz`
+- **Retención:** 30 días (automático)
 
-### Variables de Entorno (`.env`)
-```bash
-# Frontend accede al backend a través de la IP pública
-NEXT_PUBLIC_API_URL=http://72.61.37.46/api
-
-# CORS configurado para aceptar peticiones desde la IP pública
-CORS_ORIGIN=http://72.61.37.46
-```
-
-### Contenedores Docker
-- `multitenant_frontend` - Puerto 5000 (Next.js)
-- `multitenant_backend` - Puerto 3000 (Fastify)
-- `multitenant_postgres` - Puerto 5432 (PostgreSQL)
-- `multitenant_redis` - Puerto 6379 (Redis)
-
----
-
-## 🔍 Verificar que Todo Funciona
+### Comandos de Backup:
 
 ```bash
-# Ver estado de contenedores
-docker compose ps
+# Crear backup manual
+./backup.sh
 
-# Ver logs en tiempo real
-docker compose logs -f
+# Ver backups disponibles
+ls -lh /root/backupsBD/probacionismo/
 
-# Verificar frontend
-curl -I http://72.61.37.46/
-
-# Verificar API
-curl http://72.61.37.46/api/
+# Restaurar backup específico
+gunzip < /root/backupsBD/probacionismo/backup_2025-11-11_03-00-00.sql.gz | \
+  docker exec -i multitenant_postgres psql -U postgres -d multitenant_db
 ```
 
 ---
 
-## 📝 Logs
+## 🔧 Variables de Entorno de Producción
+
+### Archivo: `.env.production`
 
 ```bash
-# Ver logs de frontend
-docker compose logs -f frontend
+# SEGURIDAD
+JWT_SECRET=<secret-aleatorio-64-caracteres>
+POSTGRES_PASSWORD=<password-seguro>
 
-# Ver logs de backend
-docker compose logs -f backend
+# URLS Y DOMINIO
+NODE_ENV=production
+CORS_ORIGIN=https://naperu.cloud
+NEXT_PUBLIC_API_URL=https://naperu.cloud/api
 
-# Ver logs de nginx
-sudo tail -f /var/log/nginx/probacionismo_access.log
-sudo tail -f /var/log/nginx/probacionismo_error.log
+# PUERTOS (NO CAMBIAR)
+BACKEND_PORT=3000
+FRONTEND_PORT=5000
+```
 
-# Ver últimas 50 líneas
-docker compose logs --tail=50 frontend
-docker compose logs --tail=50 backend
+### ⚠️ Cambiar Secrets:
+
+Si necesitas cambiar secrets en producción:
+
+```bash
+# 1. Editar archivo
+nano .env.production
+
+# 2. Redesplegar
+./deploy.sh
 ```
 
 ---
 
 ## 🛠️ Comandos Útiles
 
+### Ver estado de servicios
+```bash
+docker compose ps
+```
+
+### Ver logs en tiempo real
+```bash
+docker compose logs -f
+
+# Logs específicos
+docker compose logs -f backend
+docker compose logs -f frontend
+```
+
 ### Reiniciar servicios (sin rebuild)
 ```bash
-cd /root/proyectos/probacionismo
 docker compose restart
 ```
 
-### Rebuild completo (si hay problemas)
+### Rebuild completo (si hay problemas graves)
 ```bash
-cd /root/proyectos/probacionismo
 docker compose down
 docker compose build --no-cache
 docker compose up -d
 ```
 
-### Ver qué cambió en el último pull
+### Verificar Nginx
 ```bash
-cd /root/proyectos/probacionismo
-git log -1 --stat
+sudo systemctl status nginx
+sudo nginx -t
+sudo tail -f /var/log/nginx/probacionismo_error.log
 ```
 
-### Cambiar de rama
+### Verificar espacio en disco
 ```bash
-cd /root/proyectos/probacionismo
-git checkout nombre-de-rama
-git pull origin nombre-de-rama
-./update.sh
+df -h /
+docker system df
 ```
 
----
-
-## 🔒 Seguridad y Firewall
-
-### Puertos Abiertos
+### Limpiar espacio de Docker
 ```bash
-# Ver puertos abiertos
-sudo ufw status
-
-# Abrir puerto HTTP (ya está abierto)
-sudo ufw allow 80/tcp
-
-# Abrir puerto HTTPS (para futuro)
-sudo ufw allow 443/tcp
+docker system prune -a --volumes -f
 ```
 
 ---
 
-## 🌐 Próximos Pasos (Opcional)
+## 🔍 Verificar que Todo Funciona
 
-### 1. Configurar Dominio
-Si compras un dominio (ej: `probacionismo.com`):
+### Desde el VPS:
+```bash
+# Backend health check
+curl http://localhost:3000/health
 
-1. Configura DNS - Registro A apuntando a `72.61.37.46`
-2. Actualiza nginx:
-```bash
-sudo nano /etc/nginx/sites-available/probacionismo
-# Cambiar: server_name 72.61.37.46;
-# Por: server_name probacionismo.com www.probacionismo.com;
-sudo systemctl reload nginx
-```
-3. Actualiza `.env`:
-```bash
-NEXT_PUBLIC_API_URL=http://probacionismo.com/api
-CORS_ORIGIN=http://probacionismo.com
-```
-4. Redeploy:
-```bash
-./update.sh
+# Frontend
+curl -I http://localhost:5000
+
+# HTTPS público
+curl -I https://naperu.cloud
 ```
 
-### 2. Agregar HTTPS con Let's Encrypt
-```bash
-# Instalar certbot
-sudo apt install certbot python3-certbot-nginx -y
-
-# Obtener certificado SSL
-sudo certbot --nginx -d probacionismo.com -d www.probacionismo.com
-
-# El certificado se renovará automáticamente
-```
-
----
-
-## 📦 Backup
-
-### Base de Datos
-```bash
-# Crear backup
-docker exec multitenant_postgres pg_dump -U postgres multitenant_db > backup_$(date +%Y%m%d_%H%M%S).sql
-
-# Restaurar backup
-cat backup_20241110_120000.sql | docker exec -i multitenant_postgres psql -U postgres -d multitenant_db
-```
-
-### Código y Configuración
-```bash
-cd /root/proyectos/
-tar -czf probacionismo_backup_$(date +%Y%m%d_%H%M%S).tar.gz probacionismo/
-```
+### Desde el navegador:
+1. Abre https://naperu.cloud
+2. Debería aparecer el login
+3. Loguéate con: `admin` / `escolastica123`
+4. Verifica que el dashboard cargue correctamente
 
 ---
 
 ## ⚠️ Troubleshooting
 
-Si algo no funciona, consulta: `TROUBLESHOOTING.md`
-
-O ejecuta:
+### Error: "Cannot connect to database"
 ```bash
-# Verificar todo está corriendo
-docker compose ps
-sudo systemctl status nginx
+# Verificar que PostgreSQL esté corriendo
+docker compose ps postgres
 
-# Ver logs de errores
-docker compose logs --tail=50
-sudo tail -50 /var/log/nginx/probacionismo_error.log
+# Ver logs
+docker compose logs postgres
+```
+
+### Error: "CORS policy blocked"
+```bash
+# Verificar CORS_ORIGIN en .env.production
+grep CORS_ORIGIN .env.production
+
+# Debe ser: CORS_ORIGIN=https://naperu.cloud
+```
+
+### Error: "504 Gateway Timeout"
+```bash
+# Verificar que backend esté respondiendo
+docker compose logs backend --tail 50
+
+# Reiniciar si es necesario
+docker compose restart backend
+```
+
+### Frontend no carga
+```bash
+# Limpiar caché del navegador
+# Ctrl+Shift+R (Windows/Linux)
+# Cmd+Shift+R (Mac)
+
+# Verificar logs
+docker compose logs frontend --tail 50
+```
+
+**Para más problemas:** Consulta `TROUBLESHOOTING.md`
+
+---
+
+## 📊 Arquitectura Actual
+
+```
+Internet
+   ↓
+https://naperu.cloud (72.61.37.46)
+   ↓
+Nginx (:80/:443)
+   ↓
+┌─────────────────────────────┐
+│ Docker Compose              │
+│                             │
+│ Frontend (:5000)            │
+│ Backend (:3000)             │
+│ PostgreSQL (:5432) PRIVADO  │
+│ Redis (:6379) PRIVADO       │
+└─────────────────────────────┘
 ```
 
 ---
 
-## 📞 Resumen Rápido
+## 💡 Tips y Mejores Prácticas
 
-**Para actualizar después de hacer cambios:**
+1. **Siempre hacer backup antes de cambios importantes**
+   ```bash
+   ./backup.sh
+   ```
+
+2. **Monitorear logs después del despliegue**
+   ```bash
+   docker compose logs -f --tail 50
+   ```
+
+3. **Verificar estado de servicios regularmente**
+   ```bash
+   docker compose ps
+   ```
+
+4. **Renovación SSL automática** (configurada con certbot)
+   - El certificado se renueva solo cada 60 días
+   - Verificar: `sudo certbot renew --dry-run`
+
+5. **Mantener limpio el sistema**
+   ```bash
+   # Cada mes
+   docker system prune -a --volumes -f
+   ```
+
+6. **Documentar cambios importantes**
+   - Actualiza estos archivos si cambias algo crítico
+   - Guarda logs de errores importantes
+
+---
+
+## 🔐 Seguridad
+
+### Checklist de Seguridad (Actualizado 2025-11-28):
+- ✅ JWT_SECRET único y fuerte (64 caracteres)
+- ✅ Passwords seguros en PostgreSQL (43 caracteres)
+- ✅ HTTPS con certificado válido (Let's Encrypt, expira Feb 2026)
+- ✅ CORS configurado correctamente
+- ✅ PostgreSQL en red privada (puerto 5432 NO expuesto)
+- ✅ Redis en red privada con contraseña (puerto 6379 NO expuesto)
+- ✅ **Puertos 3000/5000 solo en localhost** (127.0.0.1, no accesibles desde internet)
+- ✅ Nginx como único punto de entrada público
+- ✅ Backups automáticos configurados (3:00 AM diario)
+- ✅ **Firewall UFW activo** (solo puertos 22, 80, 443)
+- ✅ **Fail2ban activo** (bloquea IPs con 3 intentos fallidos SSH por 24h)
+- ✅ **SSH solo con claves** (password authentication deshabilitado)
+
+### ⚠️ IMPORTANTE - Lecciones del Incidente de Seguridad (Nov 2025):
+
+El 10 de noviembre de 2025 se detectó un ataque de ransomware que entró por Redis expuesto. 
+**Acciones tomadas:**
+
+1. **Redis ahora tiene contraseña obligatoria** (configurada en `.env`)
+2. **Puertos de BD/Redis NO se exponen a internet**
+3. **Archivo malicioso `dump.rdb` eliminado** 
+4. **Fail2ban instalado** para bloquear fuerza bruta
+5. **Puertos 3000/5000 cambiados de 0.0.0.0 a 127.0.0.1**
+
+### Verificar Seguridad:
 ```bash
-ssh root@72.61.37.46
-cd /root/proyectos/probacionismo
-git pull origin develop
-./update.sh
+# Ver puertos expuestos
+netstat -tlnp | grep LISTEN
+
+# Verificar fail2ban
+fail2ban-client status sshd
+
+# Verificar firewall
+ufw status
+
+# Ver intentos de ataque bloqueados
+grep "Ban" /var/log/fail2ban.log | tail -20
 ```
 
-**URL de producción:** http://72.61.37.46/
+### Actualizar Secrets:
+```bash
+# 1. Generar nuevo secret
+openssl rand -base64 48
 
-**Verificar estado:** `docker compose ps`
+# 2. Editar .env.production
+nano .env.production
 
-¡Eso es todo! 🚀
+# 3. Redesplegar
+./deploy.sh
+```
+
+---
+
+## 📝 Notas para el Próximo Despliegue
+
+### Pendientes de Migración de BD:
+Las siguientes columnas/tablas fueron agregadas manualmente y deben incluirse en futuras migraciones:
+
+```sql
+-- Agregado 2025-11-28: Campos de horario en grupos
+ALTER TABLE class_groups ADD COLUMN start_time text;
+ALTER TABLE class_groups ADD COLUMN end_time text;
+
+-- Agregado 2025-11-28: Tabla de asistentes de grupo
+CREATE TABLE group_assistants (...);
+```
+
+### Cambios en docker-compose.yml (2025-11-28):
+Los puertos del backend y frontend fueron cambiados para mayor seguridad:
+```yaml
+# ANTES (inseguro):
+ports:
+  - "3000:3000"  # Expuesto a internet
+  
+# AHORA (seguro):
+ports:
+  - "127.0.0.1:3000:3000"  # Solo localhost
+```
+
+### Frontend en Modo Producción:
+**IMPORTANTE**: El frontend debe desplegarse en modo producción para mejor rendimiento.
+Cambiar en `docker-compose.yml`:
+```yaml
+# De:
+target: development
+NODE_ENV: development
+
+# A:
+target: runner
+NODE_ENV: production
+```
+
+Esto reduce el bundle de ~6MB a ~400KB y mejora el tiempo de carga de ~60s a ~5s.
+
+---
+
+## 🎉 ¡Listo para Producción!
+
+Tu aplicación está completamente configurada y lista para recibir usuarios en:
+
+**https://naperu.cloud** 🚀

@@ -12,10 +12,20 @@ import { authRoutes } from './routes/auth';
 import { branchRoutes } from './routes/branches';
 import { studentRoutes } from './routes/students';
 import { courseRoutes } from './routes/courses';
+import { courseTemplateRoutes } from './routes/courseTemplates';
 import { instructorRoutes } from './routes/instructors';
 import { groupRoutes } from './routes/groups';
 import { enrollmentRoutes } from './routes/enrollments';
 import { attendanceRoutes } from './routes/attendance';
+import { userRoutes } from './routes/users';
+import { roleRoutes } from './routes/roles';
+import { systemRoutes } from './routes/system';
+import counselingRoutes from './routes/counseling.js';
+import googleAuthRoutes from './routes/googleAuth';
+import { locationRoutes } from './routes/locations';
+import { levelRoutes } from './routes/levels';
+import { holidayRoutes } from './routes/holidays';
+import { transferRoutes } from './routes/transfers';
 
 // Extend Fastify types
 declare module 'fastify' {
@@ -139,10 +149,20 @@ async function start() {
   await fastify.register(branchRoutes, { prefix: '/api/branches' });
   await fastify.register(studentRoutes, { prefix: '/api/students' });
   await fastify.register(courseRoutes, { prefix: '/api/courses' });
+  await fastify.register(courseTemplateRoutes, { prefix: '/api/course-templates' });
   await fastify.register(instructorRoutes, { prefix: '/api/instructors' });
   await fastify.register(groupRoutes, { prefix: '/api/groups' });
   await fastify.register(enrollmentRoutes, { prefix: '/api/enrollments' });
   await fastify.register(attendanceRoutes, { prefix: '/api/attendance' });
+  await fastify.register(userRoutes, { prefix: '/api/users' });
+  await fastify.register(roleRoutes, { prefix: '/api/roles' });
+  await fastify.register(systemRoutes, { prefix: '/api/system' });
+  await fastify.register(counselingRoutes, { prefix: '/api/counseling' });
+  await fastify.register(googleAuthRoutes, { prefix: '/api' });
+  await fastify.register(locationRoutes, { prefix: '/api' });
+  await fastify.register(levelRoutes, { prefix: '/api/levels' });
+  await fastify.register(holidayRoutes, { prefix: '/api/holidays' });
+  await fastify.register(transferRoutes, { prefix: '/api/transfers' });
 
   // Start server
   try {

@@ -114,7 +114,7 @@ export function GroupStudentsDialog({ open, onClose, groupId, groupName, onStude
             placeholder="Buscar por nombre o DNI..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
+            className="pl-9 h-11"
           />
           {isSearching && (
             <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -124,7 +124,7 @@ export function GroupStudentsDialog({ open, onClose, groupId, groupName, onStude
         </div>
 
         {/* Lista de estudiantes */}
-        <div className="flex-1 overflow-y-auto max-h-[500px]">
+        <div className="flex-1 overflow-y-auto max-h-[400px] md:max-h-[500px]">
           {loading ? (
             <div className="text-center py-8 text-neutral-10">Cargando estudiantes...</div>
           ) : filteredStudents.length === 0 ? (
@@ -136,56 +136,56 @@ export function GroupStudentsDialog({ open, onClose, groupId, groupName, onStude
               {filteredStudents.map((student) => (
                 <div
                   key={student.id}
-                  className="p-4 bg-white border border-neutral-4 rounded-lg hover:border-accent-9 transition-colors"
+                  className="p-3 md:p-4 bg-white border border-neutral-4 rounded-lg hover:border-accent-9 transition-colors"
                 >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h4 className="font-semibold text-neutral-12">
+                  <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <h4 className="font-semibold text-neutral-12 text-sm md:text-base">
                           {student.firstName} {student.paternalLastName} {student.maternalLastName}
                         </h4>
-                        <Badge variant={student.status === 'active' ? 'default' : 'secondary'}>
+                        <Badge variant={student.status === 'active' ? 'default' : 'secondary'} className="text-xs">
                           {student.status === 'active' ? 'Activo' : student.status}
                         </Badge>
                       </div>
                       
-                      <div className="space-y-1 text-sm text-neutral-11">
-                        <div className="flex items-center gap-2">
+                      <div className="space-y-1 text-xs md:text-sm text-neutral-11">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                           <span className="font-medium">DNI:</span>
                           <span>{student.dni}</span>
-                          <span className="text-neutral-9">•</span>
+                          <span className="text-neutral-9 hidden sm:inline">•</span>
                           <span className="font-medium">Género:</span>
                           <span>{student.gender}</span>
                         </div>
                         
                         {student.email && (
-                          <div className="flex items-center gap-2">
-                            <Mail className="h-3 w-3" />
-                            <span>{student.email}</span>
+                          <div className="flex items-center gap-2 truncate">
+                            <Mail className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{student.email}</span>
                           </div>
                         )}
                         
                         {student.phone && (
                           <div className="flex items-center gap-2">
-                            <Phone className="h-3 w-3" />
+                            <Phone className="h-3 w-3 shrink-0" />
                             <span>{student.phone}</span>
                           </div>
                         )}
                         
-                        <div className="flex items-center gap-2 text-xs text-neutral-10 mt-2">
+                        <div className="flex items-center gap-2 text-xs text-neutral-10 mt-1">
                           <span>Inscrito el {new Date(student.enrollmentDate).toLocaleDateString('es-PE')}</span>
                         </div>
                       </div>
                     </div>
 
                     <Button
-                      variant="outline"
+                      variant="secondary"
                       size="sm"
                       onClick={() => handleRemoveStudent(
                         student.studentId,
                         `${student.firstName} ${student.paternalLastName}`
                       )}
-                      className="text-red-9 hover:text-red-10 hover:border-red-9"
+                      className="text-red-9 hover:text-red-10 hover:border-red-9 h-10 w-full md:w-auto shrink-0"
                     >
                       <UserMinus className="h-4 w-4 mr-1" />
                       Desinscribir

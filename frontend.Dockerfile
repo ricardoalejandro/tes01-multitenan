@@ -18,6 +18,10 @@ RUN npm ci
 FROM node:20-alpine AS builder
 WORKDIR /app
 
+# Build-time argument for API URL (MUST be declared before RUN npm run build)
+ARG NEXT_PUBLIC_API_URL=http://localhost:3000/api
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+
 # Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -25,7 +29,7 @@ COPY . .
 # Set build-time environment variable
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Build the application
+# Build the application (NEXT_PUBLIC_* variables are embedded during this step)
 RUN npm run build
 
 # Stage 3: Runner - Production

@@ -1,21 +1,47 @@
-# 📚 Documentación de Despliegue
+# 📚 Documentación de Despliegue - Probacionismo
 
-## 📖 Guías Disponibles
+Documentación operativa para el despliegue y mantenimiento de la aplicación en producción.
 
-1. **[QUICKSTART.md](./QUICKSTART.md)** - Guía rápida diaria
-2. **[DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md)** - Guía completa
-3. **[TROUBLESHOOTING.md](./TROUBLESHOOTING.md)** - Solución de problemas
-4. **[DATA_PROTECTION.md](./DATA_PROTECTION.md)** - Protección de datos
+## 🚀 Quick Start
 
-## ⚡ Flujo Rápido
-
+**Desplegar cambios en producción:**
 ```bash
-ssh root@72.61.37.46
-cd /root/proyectos/probacionismo
-git pull origin develop
-./update.sh
+ssh root@72.61.37.46 'cd /root/proyectos/probacionismo && ./deploy.sh'
 ```
 
-## 🎯 URL Producción
+## 📋 Documentos Disponibles
 
-http://72.61.37.46/
+1. **[QUICKSTART.md](QUICKSTART.md)** ⭐ EMPIEZA AQUÍ
+   - Comando de despliegue automático
+   - URLs de producción
+   - Comandos esenciales
+   - Solución rápida de problemas
+
+2. **[DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)** 📖 Guía Completa
+   - Proceso de despliegue detallado
+   - Configuración de variables de entorno
+   - Arquitectura de la aplicación
+   - Backups automáticos
+   - Protección de datos
+   - Solución de problemas
+   - Comandos útiles
+
+## 🌐 Información de Producción
+
+- **URL:** https://naperu.cloud
+- **VPS:** 72.61.37.46
+- **Ubicación:** `/root/proyectos/probacionismo`
+- **Rama:** `develop`
+
+## 🎯 Flujo de Trabajo
+
+1. Desarrollas y haces commit/push a `develop`
+2. Ejecutas `./deploy.sh` en el VPS
+3. ¡Listo! Cambios en producción
+
+## 📞 Soporte
+
+Para problemas específicos, consulta la sección de troubleshooting en `DEPLOYMENT_GUIDE.md` o revisa los logs:
+```bash
+docker compose logs -f
+```

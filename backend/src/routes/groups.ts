@@ -1,13 +1,15 @@
 import { FastifyPluginAsync } from 'fastify';
 import { db } from '../db';
-import { 
-  classGroups, groupCourses, groupSessions, groupSessionTopics, 
-  groupEnrollments, groupTransactions, courses, courseThemes, 
-  instructors, students, studentBranches 
+import {
+  classGroups, groupCourses, groupSessions, groupSessionTopics,
+  groupEnrollments, groupTransactions, courses, courseThemes,
+  instructors, students, studentBranches, holidays, branches,
+  groupAssistants
 } from '../db/schema';
-import { eq, sql, desc, and, inArray } from 'drizzle-orm';
+import { eq, sql, desc, and, inArray, asc } from 'drizzle-orm';
 import { z } from 'zod';
 import { generateRecurrenceDates, RecurrenceConfig } from '../utils/recurrence';
+import { checkPermission } from '../middleware/checkPermission';
 
 // Validation schemas
 const recurrenceSchema = z.object({
@@ -25,15 +27,26 @@ const courseWithInstructorSchema = z.object({
   orderIndex: z.number(),
 });
 
+const assistantSchema = z.object({
+  fullName: z.string().min(1),
+  phone: z.string().optional(),
+  gender: z.enum(['Masculino', 'Femenino', 'Otro']).optional(),
+  age: z.number().min(1).max(120).optional(),
+});
+
 const generateCalendarSchema = z.object({
   recurrence: recurrenceSchema,
   courses: z.array(courseWithInstructorSchema),
+  branchId: z.string().uuid().optional(), // Para filtrar feriados provinciales
 });
 
 const groupCreateSchema = z.object({
   branchId: z.string().uuid(),
   name: z.string().min(1),
   description: z.string().optional(),
+  startTime: z.string().optional(), // HH:MM format
+  endTime: z.string().optional(), // HH:MM format
+  assistants: z.array(assistantSchema).optional(),
   recurrence: recurrenceSchema,
   courses: z.array(courseWithInstructorSchema),
   sessions: z.array(z.object({
@@ -63,13 +76,13 @@ const statusChangeSchema = z.object({
 });
 
 export const groupRoutes: FastifyPluginAsync = async (fastify) => {
-  
+
   // GET /api/groups - Listar grupos
   fastify.get('/', async (request, reply) => {
     const { branchId, page = 1, limit = 10, search = '' } = request.query as any;
-    
+
     const offset = (Number(page) - 1) * Number(limit);
-    
+
     let whereCondition = sql`${classGroups.branchId} = ${branchId} AND ${classGroups.status} != 'eliminado'`;
     if (search) {
       whereCondition = sql`${classGroups.branchId} = ${branchId} AND ${classGroups.status} != 'eliminado' AND (
@@ -77,7 +90,7 @@ export const groupRoutes: FastifyPluginAsync = async (fastify) => {
         ${classGroups.description} ILIKE ${`%${search}%`}
       )`;
     }
-    
+
     const [groups, [{ count }]] = await Promise.all([
       db.select().from(classGroups)
         .where(whereCondition)
@@ -86,9 +99,37 @@ export const groupRoutes: FastifyPluginAsync = async (fastify) => {
         .offset(offset),
       db.select({ count: sql<number>`count(*)::int` }).from(classGroups).where(whereCondition),
     ]);
-    
+
+    // Obtener datos adicionales para cada grupo: inscritos y progreso de sesiones
+    const groupsWithStats = await Promise.all(groups.map(async (group) => {
+      // Contar estudiantes inscritos activos
+      const [enrolledResult] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(groupEnrollments)
+        .where(and(
+          eq(groupEnrollments.groupId, group.id),
+          eq(groupEnrollments.status, 'active')
+        ));
+
+      // Contar sesiones totales y dictadas
+      const sessionsStats = await db
+        .select({
+          total: sql<number>`count(*)::int`,
+          dictated: sql<number>`count(*) filter (where status = 'dictada')::int`
+        })
+        .from(groupSessions)
+        .where(eq(groupSessions.groupId, group.id));
+
+      return {
+        ...group,
+        enrolledCount: enrolledResult?.count || 0,
+        totalSessions: sessionsStats[0]?.total || 0,
+        completedSessions: sessionsStats[0]?.dictated || 0,
+      };
+    }));
+
     return {
-      data: groups,
+      data: groupsWithStats,
       pagination: {
         page: Number(page),
         limit: Number(limit),
@@ -101,7 +142,7 @@ export const groupRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /api/groups/:id - Obtener grupo completo
   fastify.get('/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
-    
+
     const [group] = await db.select().from(classGroups).where(eq(classGroups.id, id)).limit(1);
     if (!group) {
       return reply.code(404).send({ error: 'Group not found' });
@@ -154,7 +195,7 @@ export const groupRoutes: FastifyPluginAsync = async (fastify) => {
       })
     );
 
-    // Obtener inscripciones
+    // Obtener inscripciones (excluyendo eliminados)
     const enrollmentsData = await db
       .select({
         id: groupEnrollments.id,
@@ -166,13 +207,39 @@ export const groupRoutes: FastifyPluginAsync = async (fastify) => {
       })
       .from(groupEnrollments)
       .innerJoin(students, eq(groupEnrollments.studentId, students.id))
-      .where(eq(groupEnrollments.groupId, id));
+      .where(and(
+        eq(groupEnrollments.groupId, id),
+        sql`${groupEnrollments.status} != 'eliminado'`
+      ));
+
+    // Obtener asistentes de clase (excluyendo eliminados)
+    const assistantsData = await db
+      .select()
+      .from(groupAssistants)
+      .where(and(
+        eq(groupAssistants.groupId, id),
+        sql`${groupAssistants.status} != 'eliminado'`
+      ))
+      .orderBy(groupAssistants.createdAt);
+
+    // Contar sesiones dictadas
+    const [sessionStats] = await db
+      .select({
+        totalSessions: sql<number>`count(*)::int`,
+        dictatedSessions: sql<number>`count(*) filter (where ${groupSessions.status} = 'dictada')::int`,
+      })
+      .from(groupSessions)
+      .where(eq(groupSessions.groupId, id));
 
     return {
       ...group,
       courses: groupCoursesData,
       sessions: sessionsWithTopics,
       enrollments: enrollmentsData,
+      assistants: assistantsData,
+      hasDictatedSessions: (sessionStats?.dictatedSessions || 0) > 0,
+      dictatedSessionsCount: sessionStats?.dictatedSessions || 0,
+      totalSessionsCount: sessionStats?.totalSessions || 0,
     };
   });
 
@@ -181,9 +248,58 @@ export const groupRoutes: FastifyPluginAsync = async (fastify) => {
     try {
       console.log('📅 Generate calendar request body:', JSON.stringify(request.body, null, 2));
       const validatedData = generateCalendarSchema.parse(request.body);
-      const { recurrence, courses: groupCoursesInput } = validatedData;
+      const { recurrence, courses: groupCoursesInput, branchId } = validatedData;
 
-      const dates = generateRecurrenceDates(recurrence as RecurrenceConfig);
+      // Generar todas las fechas posibles según recurrencia
+      const allDates = generateRecurrenceDates(recurrence as RecurrenceConfig);
+
+      // Obtener departamento de la filial (si se proporciona branchId)
+      let departmentId: string | null = null;
+      if (branchId) {
+        const [branch] = await db
+          .select({ departmentId: branches.departmentId })
+          .from(branches)
+          .where(eq(branches.id, branchId))
+          .limit(1);
+        departmentId = branch?.departmentId || null;
+      }
+
+      // Obtener feriados en el rango de fechas
+      const startDate = allDates[0];
+      const endDate = allDates[allDates.length - 1];
+
+      const holidayList = await db
+        .select({
+          date: holidays.date,
+          name: holidays.name,
+          type: holidays.type,
+        })
+        .from(holidays)
+        .where(and(
+          eq(holidays.isActive, true),
+          sql`${holidays.date} >= ${startDate}::date`,
+          sql`${holidays.date} <= ${endDate}::date`,
+          departmentId
+            ? sql`(${holidays.type} = 'national' OR ${holidays.departmentId} = ${departmentId}::uuid)`
+            : eq(holidays.type, 'national')
+        ))
+        .orderBy(asc(holidays.date));
+
+      // Crear set de fechas de feriados para búsqueda rápida
+      const holidayDates = new Set(holidayList.map(h => h.date));
+      const skippedHolidays: Array<{ date: string; name: string }> = [];
+
+      // Filtrar fechas que no sean feriados
+      const validDates = allDates.filter(date => {
+        if (holidayDates.has(date)) {
+          const holiday = holidayList.find(h => h.date === date);
+          if (holiday) {
+            skippedHolidays.push({ date, name: holiday.name });
+          }
+          return false;
+        }
+        return true;
+      });
 
       const coursesWithThemes = await Promise.all(
         groupCoursesInput.map(async (gc) => {
@@ -194,7 +310,7 @@ export const groupRoutes: FastifyPluginAsync = async (fastify) => {
             .orderBy(courseThemes.orderIndex);
 
           const [course] = await db.select().from(courses).where(eq(courses.id, gc.courseId)).limit(1);
-          
+
           return {
             ...gc,
             courseName: course?.name || '',
@@ -203,18 +319,21 @@ export const groupRoutes: FastifyPluginAsync = async (fastify) => {
         })
       );
 
-      const sessions = dates.map((date, index) => {
+      const sessions = validDates.map((date, index) => {
         const topics = coursesWithThemes.map((course) => {
-          const theme = course.themes[index] || course.themes[course.themes.length - 1] || { title: 'Tema pendiente', description: '' };
-          
+          // Si hay tema disponible para este índice, usarlo; si no, dejar vacío
+          const theme = course.themes[index];
+          const hasTheme = !!theme;
+
           return {
             courseId: course.courseId,
             courseName: course.courseName,
-            topicMode: 'auto' as const,
-            topicTitle: theme.title,
-            topicDescription: theme.description || '',
+            topicMode: hasTheme ? 'auto' as const : 'manual' as const,
+            topicTitle: hasTheme ? theme.title : '',
+            topicDescription: hasTheme ? (theme.description || '') : '',
             instructorId: course.instructorId,
             orderIndex: course.orderIndex,
+            isEmpty: !hasTheme, // Indicador para el frontend
           };
         });
 
@@ -225,7 +344,13 @@ export const groupRoutes: FastifyPluginAsync = async (fastify) => {
         };
       });
 
-      return { sessions };
+      return {
+        sessions,
+        skippedHolidays,
+        message: skippedHolidays.length > 0
+          ? `Se omitieron ${skippedHolidays.length} fecha(s) por ser feriado`
+          : null,
+      };
     } catch (error: any) {
       console.error('❌ Generate calendar error:', error);
       console.error('Error details:', error.issues || error.message);
@@ -234,10 +359,19 @@ export const groupRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // POST /api/groups - Crear grupo completo
-  fastify.post('/', async (request, reply) => {
+  fastify.post('/', {
+    preHandler: [fastify.authenticate, checkPermission('groups', 'create')]
+  }, async (request, reply) => {
     try {
       const validatedData = groupCreateSchema.parse(request.body);
-      const { branchId, name, description, recurrence, courses: coursesInput, sessions: sessionsInput } = validatedData;
+      const { branchId, name, description, startTime, endTime, assistants, recurrence, courses: coursesInput, sessions: sessionsInput } = validatedData;
+
+      // Calcular fecha de fin a partir de las sesiones
+      let calculatedEndDate = recurrence.endDate || null;
+      if (!calculatedEndDate && sessionsInput && sessionsInput.length > 0) {
+        const lastSession = sessionsInput[sessionsInput.length - 1];
+        calculatedEndDate = lastSession.sessionDate;
+      }
 
       const [newGroup] = await db
         .insert(classGroups)
@@ -246,16 +380,31 @@ export const groupRoutes: FastifyPluginAsync = async (fastify) => {
           name,
           description,
           startDate: recurrence.startDate,
+          startTime: startTime || null,
+          endTime: endTime || null,
           frequency: 'Semanal',
           recurrenceFrequency: recurrence.frequency,
           recurrenceInterval: recurrence.interval,
           recurrenceDays: recurrence.days ? JSON.stringify(recurrence.days) : null,
-          endDate: recurrence.endDate || null,
+          endDate: calculatedEndDate,
           maxOccurrences: recurrence.maxOccurrences || null,
           status: 'active',
           isScheduleGenerated: true,
         })
         .returning();
+
+      // Guardar asistentes si existen
+      if (assistants && assistants.length > 0) {
+        await db.insert(groupAssistants).values(
+          assistants.map((a) => ({
+            groupId: newGroup.id,
+            fullName: a.fullName,
+            phone: a.phone || null,
+            gender: a.gender || null,
+            age: a.age || null,
+          }))
+        );
+      }
 
       await db.insert(groupCourses).values(
         coursesInput.map((c) => ({
@@ -303,9 +452,27 @@ export const groupRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // PUT /api/groups/:id - Actualizar grupo
-  fastify.put('/:id', async (request, reply) => {
+  fastify.put('/:id', {
+    preHandler: [fastify.authenticate]
+  }, async (request, reply) => {
     try {
       const { id } = request.params as { id: string };
+
+      // Obtener branchId del grupo para verificar permisos
+      const [group] = await db.select({ branchId: classGroups.branchId }).from(classGroups).where(eq(classGroups.id, id)).limit(1);
+      if (!group) {
+        return reply.code(404).send({ error: 'Grupo no encontrado' });
+      }
+
+      // Verificar permisos manualmente
+      const user = (request.user as any);
+      if (user.userType !== 'admin') {
+        (request.query as any).branchId = group.branchId;
+        const permissionCheck = checkPermission('groups', 'edit');
+        const result = await permissionCheck(request, reply);
+        if (result) return result;
+      }
+
       const validatedData = groupCreateSchema.partial().parse(request.body);
       const { name, description, recurrence, courses: coursesInput, sessions: sessionsInput } = validatedData;
 
@@ -374,21 +541,41 @@ export const groupRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // DELETE /api/groups/:id
-  fastify.delete('/:id', async (request, reply) => {
+  fastify.delete('/:id', {
+    preHandler: [fastify.authenticate]
+  }, async (request, reply) => {
     const { id } = request.params as { id: string };
+
+    // Primero obtener el grupo para conseguir el branchId
+    const [group] = await db.select().from(classGroups).where(eq(classGroups.id, id)).limit(1);
+
+    if (!group) {
+      return reply.code(404).send({ error: 'Grupo no encontrado' });
+    }
+
+    // Verificar permisos manualmente con el branchId del grupo
+    const user = (request.user as any);
+    if (user.userType !== 'admin') {
+      // Inyectar branchId para la verificación de permisos
+      (request.query as any).branchId = group.branchId;
+      const permissionCheck = checkPermission('groups', 'delete');
+      const result = await permissionCheck(request, reply);
+      if (result) return result; // Si hay error, retornarlo
+    }
+
     await db.update(classGroups).set({ status: 'eliminado', updatedAt: sql`NOW()` }).where(eq(classGroups.id, id));
-    return { success: true };
+    return { success: true, message: 'Grupo marcado como eliminado' };
   });
 
   // POST /api/groups/:id/enroll - Inscribir probacionistas
-  fastify.post('/:id/enroll', async (request, reply) => {
+  fastify.post('/:id/enroll', {
+    preHandler: [fastify.authenticate]
+  }, async (request, reply) => {
     try {
       const { id } = request.params as { id: string };
-      const validatedData = enrollSchema.parse(request.body);
-      const { studentIds, enrollmentDate } = validatedData;
 
-      // Validar que el grupo esté activo
-      const [group] = await db.select({ status: classGroups.status })
+      // Obtener branchId del grupo para verificar permisos
+      const [group] = await db.select({ branchId: classGroups.branchId, status: classGroups.status })
         .from(classGroups)
         .where(eq(classGroups.id, id))
         .limit(1);
@@ -397,10 +584,22 @@ export const groupRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.code(404).send({ error: 'Grupo no encontrado' });
       }
 
+      // Verificar permisos manualmente
+      const user = (request.user as any);
+      if (user.userType !== 'admin') {
+        (request.query as any).branchId = group.branchId;
+        const permissionCheck = checkPermission('groups', 'edit');
+        const result = await permissionCheck(request, reply);
+        if (result) return result;
+      }
+
+      const validatedData = enrollSchema.parse(request.body);
+      const { studentIds, enrollmentDate } = validatedData;
+
       if (group.status !== 'active') {
-        return reply.code(400).send({ 
+        return reply.code(400).send({
           error: 'Solo se pueden inscribir estudiantes a grupos activos',
-          currentStatus: group.status 
+          currentStatus: group.status
         });
       }
 
@@ -502,15 +701,39 @@ export const groupRoutes: FastifyPluginAsync = async (fastify) => {
     return { data: availableStudents };
   });
 
-  // DELETE /api/groups/:id/enroll/:studentId
-  fastify.delete('/:id/enroll/:studentId', async (request, reply) => {
+  // DELETE /api/groups/:id/enroll/:studentId - Soft delete
+  fastify.delete('/:id/enroll/:studentId', {
+    preHandler: [fastify.authenticate]
+  }, async (request, reply) => {
     const { id, studentId } = request.params as { id: string; studentId: string };
-    await db.delete(groupEnrollments).where(and(eq(groupEnrollments.groupId, id), eq(groupEnrollments.studentId, studentId)));
-    return { success: true };
+
+    // Obtener el grupo para conseguir el branchId
+    const [group] = await db.select().from(classGroups).where(eq(classGroups.id, id)).limit(1);
+
+    if (!group) {
+      return reply.code(404).send({ error: 'Grupo no encontrado' });
+    }
+
+    // Verificar permisos manualmente con el branchId del grupo
+    const user = (request.user as any);
+    if (user.userType !== 'admin') {
+      (request.query as any).branchId = group.branchId;
+      const permissionCheck = checkPermission('groups', 'edit');
+      const result = await permissionCheck(request, reply);
+      if (result) return result;
+    }
+
+    // Soft delete: cambiar status a 'eliminado'
+    await db.update(groupEnrollments)
+      .set({ status: 'eliminado', updatedAt: sql`NOW()` })
+      .where(and(eq(groupEnrollments.groupId, id), eq(groupEnrollments.studentId, studentId)));
+    return { success: true, message: 'Inscripción marcada como eliminada' };
   });
 
   // PUT /api/groups/:id/status - Cambiar estado
-  fastify.put('/:id/status', async (request, reply) => {
+  fastify.put('/:id/status', {
+    preHandler: [fastify.authenticate, checkPermission('groups', 'edit')]
+  }, async (request, reply) => {
     try {
       const { id } = request.params as { id: string };
       const validatedData = statusChangeSchema.parse(request.body);
@@ -566,5 +789,82 @@ export const groupRoutes: FastifyPluginAsync = async (fastify) => {
     const { id } = request.params as { id: string };
     const transactions = await db.select().from(groupTransactions).where(eq(groupTransactions.groupId, id)).orderBy(desc(groupTransactions.transactionDate));
     return { data: transactions };
+  });
+
+  // ============================================
+  // ENDPOINTS DE ASISTENTES DE CLASE
+  // ============================================
+
+  // GET /api/groups/:id/assistants - Listar asistentes (excluyendo eliminados)
+  fastify.get('/:id/assistants', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const assistants = await db
+      .select()
+      .from(groupAssistants)
+      .where(and(
+        eq(groupAssistants.groupId, id),
+        sql`${groupAssistants.status} != 'eliminado'`
+      ))
+      .orderBy(groupAssistants.createdAt);
+    return { data: assistants };
+  });
+
+  // POST /api/groups/:id/assistants - Agregar asistente
+  fastify.post('/:id/assistants', async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string };
+      const validatedData = assistantSchema.parse(request.body);
+
+      const [newAssistant] = await db
+        .insert(groupAssistants)
+        .values({
+          groupId: id,
+          fullName: validatedData.fullName,
+          phone: validatedData.phone || null,
+          gender: validatedData.gender || null,
+          age: validatedData.age || null,
+        })
+        .returning();
+
+      return { success: true, assistant: newAssistant };
+    } catch (error: any) {
+      return reply.code(400).send({ error: error.message });
+    }
+  });
+
+  // PUT /api/groups/:id/assistants/:assistantId - Editar asistente
+  fastify.put('/:id/assistants/:assistantId', async (request, reply) => {
+    try {
+      const { id, assistantId } = request.params as { id: string; assistantId: string };
+      const validatedData = assistantSchema.partial().parse(request.body);
+
+      const [updated] = await db
+        .update(groupAssistants)
+        .set({
+          ...validatedData,
+          updatedAt: sql`NOW()`,
+        })
+        .where(and(eq(groupAssistants.id, assistantId), eq(groupAssistants.groupId, id)))
+        .returning();
+
+      if (!updated) {
+        return reply.code(404).send({ error: 'Assistant not found' });
+      }
+
+      return { success: true, assistant: updated };
+    } catch (error: any) {
+      return reply.code(400).send({ error: error.message });
+    }
+  });
+
+  // DELETE /api/groups/:id/assistants/:assistantId - Soft delete
+  fastify.delete('/:id/assistants/:assistantId', async (request, reply) => {
+    const { id, assistantId } = request.params as { id: string; assistantId: string };
+
+    // Soft delete: cambiar status a 'eliminado'
+    await db.update(groupAssistants)
+      .set({ status: 'eliminado', updatedAt: sql`NOW()` })
+      .where(and(eq(groupAssistants.id, assistantId), eq(groupAssistants.groupId, id)));
+    return { success: true, message: 'Asistente marcado como eliminado' };
   });
 };

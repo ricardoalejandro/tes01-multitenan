@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { History, Calendar, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -46,13 +46,7 @@ export function StudentTransactionsDialog({
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (open && student) {
-      loadTransactions();
-    }
-  }, [open, student, branchId]);
-
-  const loadTransactions = async () => {
+  const loadTransactions = useCallback(async () => {
     if (!student) return;
 
     try {
@@ -65,7 +59,13 @@ export function StudentTransactionsDialog({
     } finally {
       setLoading(false);
     }
-  };
+  }, [student, branchId]);
+
+  useEffect(() => {
+    if (open && student) {
+      loadTransactions();
+    }
+  }, [open, student, loadTransactions]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -174,7 +174,7 @@ export function StudentTransactionsDialog({
 
         {/* Close Button */}
         <div className="flex justify-end pt-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="secondary" onClick={() => onOpenChange(false)}>
             Cerrar
           </Button>
         </div>

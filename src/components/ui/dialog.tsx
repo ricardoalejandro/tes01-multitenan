@@ -56,23 +56,41 @@ export function DialogContent({
   onClose?: () => void;
   onInteractOutside?: (e: any) => void;
 }) {
+  const [isMaximized, setIsMaximized] = React.useState(false);
+
   return (
     <div
       className={cn(
-        'relative bg-white rounded-xl shadow-2xl max-h-[90vh] overflow-hidden',
-        'animate-in fade-in-0 zoom-in-95 duration-200',
+        'relative bg-white rounded-xl shadow-2xl overflow-hidden',
+        isMaximized ? 'w-[95vw] h-[95vh]' : 'max-h-[90vh]',
+        'animate-in fade-in-0 slide-in-from-bottom-4 duration-300',
         className
       )}
       {...props}
     >
-      {onClose && (
+      <div className="absolute right-4 top-4 flex gap-2 z-10">
         <button
-          onClick={onClose}
-          className="absolute right-4 top-4 rounded-full p-2 hover:bg-neutral-3 transition-colors"
+          onClick={() => setIsMaximized(!isMaximized)}
+          className="rounded-full p-2 hover:bg-neutral-3 transition-colors"
+          title={isMaximized ? 'Restaurar' : 'Maximizar'}
         >
-          <X className="h-4 w-4" />
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            {isMaximized ? (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25" />
+            ) : (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+            )}
+          </svg>
         </button>
-      )}
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="rounded-full p-2 hover:bg-neutral-3 transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
       {children}
     </div>
   );
@@ -120,7 +138,7 @@ export function DialogBody({
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn('p-6 overflow-y-auto max-h-[60vh]', className)}
+      className={cn('p-8 overflow-y-auto max-h-[60vh]', className)}
       {...props}
     />
   );

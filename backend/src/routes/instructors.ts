@@ -3,6 +3,7 @@ import { db } from '../db';
 import { instructors, instructorSpecialties } from '../db/schema';
 import { eq, sql, desc, and } from 'drizzle-orm';
 import { z } from 'zod';
+import { checkPermission } from '../middleware/checkPermission';
 
 // Base validation schema (reusable)
 const instructorBaseSchema = z.object({
@@ -30,9 +31,9 @@ const instructorUpdateSchema = instructorBaseSchema.partial();
 export const instructorRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get('/', async (request, reply) => {
     const { branchId, page = 1, limit = 10, search = '' } = request.query as any;
-    
+
     const offset = (Number(page) - 1) * Number(limit);
-    
+
     // Build where conditions (exclude deleted)
     let whereCondition = sql`${instructors.branchId} = ${branchId} AND ${instructors.status} != 'Eliminado'`;
     if (search) {
@@ -45,7 +46,7 @@ export const instructorRoutes: FastifyPluginAsync = async (fastify) => {
         CONCAT(${instructors.firstName}, ' ', ${instructors.paternalLastName}, ' ', COALESCE(${instructors.maternalLastName}, '')) ILIKE ${`%${search}%`}
       )`;
     }
-    
+
     const [instructorList, [{ count }]] = await Promise.all([
       db.select().from(instructors)
         .where(whereCondition)
@@ -54,7 +55,7 @@ export const instructorRoutes: FastifyPluginAsync = async (fastify) => {
         .offset(offset),
       db.select({ count: sql<number>`count(*)::int` }).from(instructors).where(sql`${instructors.branchId} = ${branchId} AND ${instructors.status} != 'Eliminado'`),
     ]);
-    
+
     // Fetch specialties for all instructors
     const instructorsWithSpecialties = await Promise.all(
       instructorList.map(async (instructor) => {
@@ -65,7 +66,7 @@ export const instructorRoutes: FastifyPluginAsync = async (fastify) => {
         return { ...instructor, specialties };
       })
     );
-    
+
     return {
       data: instructorsWithSpecialties,
       pagination: {
@@ -80,20 +81,22 @@ export const instructorRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get('/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
     const [instructor] = await db.select().from(instructors).where(eq(instructors.id, id)).limit(1);
-    
+
     if (!instructor) {
       return reply.code(404).send({ error: 'Instructor not found' });
     }
-    
+
     const specialties = await db.select().from(instructorSpecialties).where(eq(instructorSpecialties.instructorId, id));
     return { ...instructor, specialties: specialties.map(s => s.specialty) };
   });
 
-  fastify.post('/', async (request, reply) => {
+  fastify.post('/', {
+    preHandler: [fastify.authenticate, checkPermission('instructors', 'create')]
+  }, async (request, reply) => {
     try {
       const validatedData = instructorCreateSchema.parse(request.body);
       const { specialties, ...instructorData } = validatedData;
-      
+
       // Check for duplicate (documentType, dni)
       const [existing] = await db
         .select()
@@ -106,17 +109,17 @@ export const instructorRoutes: FastifyPluginAsync = async (fastify) => {
           )
         )
         .limit(1);
-      
+
       if (existing) {
-        return reply.code(409).send({ 
+        return reply.code(409).send({
           error: 'Ya existe un instructor con este tipo y número de documento',
           field: 'dni',
           type: 'validation'
         });
       }
-      
+
       const [instructor] = await db.insert(instructors).values(instructorData as any).returning();
-      
+
       if (specialties && specialties.length > 0) {
         await db.insert(instructorSpecialties).values(
           specialties.map((specialty: string) => ({
@@ -125,35 +128,37 @@ export const instructorRoutes: FastifyPluginAsync = async (fastify) => {
           }))
         );
       }
-      
+
       return instructor;
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return reply.code(400).send({ 
-          error: 'Validation error', 
-          details: error.errors 
+        return reply.code(400).send({
+          error: 'Validation error',
+          details: error.errors
         });
       }
       throw error;
     }
   });
 
-  fastify.put('/:id', async (request, reply) => {
+  fastify.put('/:id', {
+    preHandler: [fastify.authenticate, checkPermission('instructors', 'edit')]
+  }, async (request, reply) => {
     try {
       const { id } = request.params as { id: string };
       const validatedData = instructorUpdateSchema.parse(request.body);
       const { specialties, ...instructorData } = validatedData;
-    
+
       // Check for duplicate (documentType, dni) if these fields are being updated
       if (instructorData.documentType || instructorData.dni) {
         const currentInstructor = await db.select().from(instructors).where(eq(instructors.id, id)).limit(1);
         if (currentInstructor.length === 0) {
           return reply.code(404).send({ error: 'Instructor not found' });
         }
-        
+
         const docType = instructorData.documentType || currentInstructor[0].documentType;
         const dniValue = instructorData.dni || currentInstructor[0].dni;
-        
+
         const [existing] = await db
           .select()
           .from(instructors)
@@ -166,26 +171,26 @@ export const instructorRoutes: FastifyPluginAsync = async (fastify) => {
             )
           )
           .limit(1);
-        
+
         if (existing) {
-          return reply.code(409).send({ 
+          return reply.code(409).send({
             error: 'Ya existe otro instructor con este tipo y número de documento',
             field: 'dni',
             type: 'validation'
           });
         }
       }
-      
+
       const [instructor] = await db
         .update(instructors)
         .set({ ...instructorData, updatedAt: new Date() })
         .where(eq(instructors.id, id))
         .returning();
-      
+
       if (!instructor) {
         return reply.code(404).send({ error: 'Instructor not found' });
       }
-      
+
       if (specialties) {
         await db.delete(instructorSpecialties).where(eq(instructorSpecialties.instructorId, id));
         if (specialties.length > 0) {
@@ -197,21 +202,41 @@ export const instructorRoutes: FastifyPluginAsync = async (fastify) => {
           );
         }
       }
-      
+
       return instructor;
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return reply.code(400).send({ 
-          error: 'Validation error', 
-          details: error.errors 
+        return reply.code(400).send({
+          error: 'Validation error',
+          details: error.errors
         });
       }
       throw error;
     }
   });
 
-  fastify.delete('/:id', async (request, reply) => {
+  fastify.delete('/:id', {
+    preHandler: [fastify.authenticate]
+  }, async (request, reply) => {
     const { id } = request.params as { id: string };
+
+    // Primero obtener el instructor para conseguir el branchId
+    const [instructor] = await db.select().from(instructors).where(eq(instructors.id, id)).limit(1);
+
+    if (!instructor) {
+      return reply.code(404).send({ error: 'Instructor no encontrado' });
+    }
+
+    // Verificar permisos manualmente con el branchId del instructor
+    const user = (request.user as any);
+    if (user.userType !== 'admin') {
+      // Inyectar branchId para la verificación de permisos
+      (request.query as any).branchId = instructor.branchId;
+      const permissionCheck = checkPermission('instructors', 'delete');
+      const result = await permissionCheck(request, reply);
+      if (result) return result; // Si hay error, retornarlo
+    }
+
     await db.update(instructors)
       .set({ status: 'Eliminado', updatedAt: new Date() })
       .where(eq(instructors.id, id));

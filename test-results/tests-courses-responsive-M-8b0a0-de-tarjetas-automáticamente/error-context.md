@@ -1,0 +1,161 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - alert [ref=e2]
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e5]:
+        - button [ref=e6] [cursor=pointer]:
+          - img [ref=e7]
+        - generic [ref=e10]: SA
+        - generic [ref=e11]:
+          - img [ref=e12]
+          - generic [ref=e16]: Iquitos
+      - button "U Usuario" [ref=e18] [cursor=pointer]:
+        - generic [ref=e20]: U
+        - paragraph [ref=e22]: Usuario
+        - img [ref=e23]
+    - generic [ref=e25]:
+      - generic [ref=e26]:
+        - generic [ref=e27]:
+          - generic [ref=e28]: Menú
+          - button [ref=e29] [cursor=pointer]:
+            - img [ref=e30]
+        - navigation [ref=e33]:
+          - button "Inicio" [ref=e37] [cursor=pointer]:
+            - img [ref=e38]
+            - generic [ref=e41]: Inicio
+          - generic [ref=e42]:
+            - button "Gestión Académica" [ref=e43] [cursor=pointer]:
+              - img [ref=e44]
+              - generic [ref=e47]: Gestión Académica
+              - img [ref=e48]
+            - generic [ref=e50]:
+              - button "Probacionistas" [ref=e51] [cursor=pointer]:
+                - img [ref=e52]
+                - generic [ref=e57]: Probacionistas
+              - button "Cursos" [ref=e58] [cursor=pointer]:
+                - img [ref=e59]
+                - generic [ref=e62]: Cursos
+              - button "Instructores" [ref=e63] [cursor=pointer]:
+                - img [ref=e64]
+                - generic [ref=e68]: Instructores
+              - button "Grupos" [ref=e69] [cursor=pointer]:
+                - img [ref=e70]
+                - generic [ref=e72]: Grupos
+          - generic [ref=e73]:
+            - button "Asistencia" [ref=e74] [cursor=pointer]:
+              - img [ref=e75]
+              - generic [ref=e78]: Asistencia
+              - img [ref=e79]
+            - button "Registro diario" [ref=e82] [cursor=pointer]:
+              - img [ref=e83]
+              - generic [ref=e87]: Registro diario
+          - button "Operaciones" [ref=e89] [cursor=pointer]:
+            - img [ref=e90]
+            - generic [ref=e93]: Operaciones
+            - img [ref=e94]
+        - button "Cerrar Sesión" [ref=e97] [cursor=pointer]:
+          - img [ref=e98]
+          - generic [ref=e101]: Cerrar Sesión
+      - generic [ref=e104]:
+        - button "Nuevo Curso" [ref=e105] [cursor=pointer]:
+          - img [ref=e106]
+        - generic [ref=e107]:
+          - heading "Gestión de Cursos" [level=1] [ref=e110]
+          - generic [ref=e112]:
+            - img [ref=e113]
+            - textbox "Buscar curso..." [ref=e116]
+        - generic [ref=e118]:
+          - table [ref=e120]:
+            - rowgroup [ref=e121]:
+              - 'row "Nombre Descripción # Temas Acciones" [ref=e122]':
+                - columnheader "Nombre" [ref=e123]
+                - columnheader "Descripción" [ref=e124]
+                - columnheader "# Temas" [ref=e125]
+                - columnheader "Acciones" [ref=e126]
+            - rowgroup [ref=e127]:
+              - row "Existencialismo Corriente filosófica centrada en la existencia humana, la libertad y la responsabilidad. 18 Ver" [ref=e128]:
+                - cell "Existencialismo" [ref=e129]
+                - cell "Corriente filosófica centrada en la existencia humana, la libertad y la responsabilidad." [ref=e130]
+                - cell "18" [ref=e131]:
+                  - generic [ref=e132]: "18"
+                - cell "Ver" [ref=e133]:
+                  - generic [ref=e134]:
+                    - button "Ver" [ref=e135] [cursor=pointer]:
+                      - img [ref=e136]
+                      - text: Ver
+                    - button [ref=e139] [cursor=pointer]:
+                      - img [ref=e140]
+              - row "Lógica y Argumentación Desarrollo de habilidades para el razonamiento válido y la construcción de argumentos sólidos. 18 Ver" [ref=e144]:
+                - cell "Lógica y Argumentación" [ref=e145]
+                - cell "Desarrollo de habilidades para el razonamiento válido y la construcción de argumentos sólidos." [ref=e146]
+                - cell "18" [ref=e147]:
+                  - generic [ref=e148]: "18"
+                - cell "Ver" [ref=e149]:
+                  - generic [ref=e150]:
+                    - button "Ver" [ref=e151] [cursor=pointer]:
+                      - img [ref=e152]
+                      - text: Ver
+                    - button [ref=e155] [cursor=pointer]:
+                      - img [ref=e156]
+              - row "Estética y Arte Análisis filosófico de la belleza, el arte y la experiencia estética. 19 Ver" [ref=e160]:
+                - cell "Estética y Arte" [ref=e161]
+                - cell "Análisis filosófico de la belleza, el arte y la experiencia estética." [ref=e162]
+                - cell "19" [ref=e163]:
+                  - generic [ref=e164]: "19"
+                - cell "Ver" [ref=e165]:
+                  - generic [ref=e166]:
+                    - button "Ver" [ref=e167] [cursor=pointer]:
+                      - img [ref=e168]
+                      - text: Ver
+                    - button [ref=e171] [cursor=pointer]:
+                      - img [ref=e172]
+              - row "Epistemología Estudio de la naturaleza, origen y límites del conocimiento humano. 17 Ver" [ref=e176]:
+                - cell "Epistemología" [ref=e177]
+                - cell "Estudio de la naturaleza, origen y límites del conocimiento humano." [ref=e178]
+                - cell "17" [ref=e179]:
+                  - generic [ref=e180]: "17"
+                - cell "Ver" [ref=e181]:
+                  - generic [ref=e182]:
+                    - button "Ver" [ref=e183] [cursor=pointer]:
+                      - img [ref=e184]
+                      - text: Ver
+                    - button [ref=e187] [cursor=pointer]:
+                      - img [ref=e188]
+              - row "Introducción a la Filosofía Curso básico que introduce los conceptos fundamentales del pensamiento filosófico occidental. 17 Ver" [ref=e192]:
+                - cell "Introducción a la Filosofía" [ref=e193]
+                - cell "Curso básico que introduce los conceptos fundamentales del pensamiento filosófico occidental." [ref=e194]
+                - cell "17" [ref=e195]:
+                  - generic [ref=e196]: "17"
+                - cell "Ver" [ref=e197]:
+                  - generic [ref=e198]:
+                    - button "Ver" [ref=e199] [cursor=pointer]:
+                      - img [ref=e200]
+                      - text: Ver
+                    - button [ref=e203] [cursor=pointer]:
+                      - img [ref=e204]
+          - generic [ref=e208]:
+            - generic [ref=e209]:
+              - generic [ref=e210]:
+                - paragraph [ref=e211]: Filas por página
+                - combobox [ref=e212] [cursor=pointer]:
+                  - generic: "5"
+                  - img [ref=e213]
+              - generic [ref=e215]: Mostrando 1 - 5 de 5 resultados
+            - generic [ref=e216]:
+              - button "Primera página" [disabled]:
+                - img
+                - generic: Primera página
+              - button "Página anterior" [disabled]:
+                - img
+                - generic: Página anterior
+              - paragraph [ref=e218]: Página 1 de 1
+              - button "Página siguiente" [disabled]:
+                - img
+                - generic: Página siguiente
+              - button "Última página" [disabled]:
+                - img
+                - generic: Última página
+```
